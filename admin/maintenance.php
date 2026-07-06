@@ -144,8 +144,8 @@ if ($action === 'archiveobjective') {
 	} else {
 		$retroactiveService = new LmdbSalesCommissionRetroactiveService($db);
 		$stats = $retroactiveService->backfillSignedProposals($date_start, $date_end, $user, $fk_user_backfill);
-		$message = $langs->trans(
-			'LmdbSalesCommissionsRetroactiveBackfillDone',
+		$message = sprintf(
+			(string) $langs->transnoentitiesnoconv('LmdbSalesCommissionsRetroactiveBackfillDone'),
 			$stats['analysed'],
 			$stats['processed'],
 			$stats['created'],
