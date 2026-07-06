@@ -121,12 +121,19 @@ llxHeader('', $langs->trans('LmdbSalesCommissions'), '', '', 0, 0, array(), lmdb
 
 $head = user_prepare_head($object);
 print dol_get_fiche_head($head, 'lmdbsalescommissions', $langs->trans('User'), -1, 'user');
-print load_fiche_titre($object->getFullName($langs), '', 'user');
 
-print '<table class="border centpercent tableforfield">';
-print '<tr><td class="titlefield">'.$langs->trans('Login').'</td><td>'.dol_escape_htmltag($object->login).'</td></tr>';
-print '<tr><td>'.$langs->trans('Status').'</td><td>'.$object->getLibStatut(5).'</td></tr>';
-print '</table>';
+$linkback = '';
+if ($user->hasRight('user', 'user', 'read') || $user->admin) {
+	$linkback = '<a href="'.DOL_URL_ROOT.'/user/list.php?restore_lastsearch_values=1">'.$langs->trans('BackToList').'</a>';
+}
+
+$morehtmlref = '<a href="'.DOL_URL_ROOT.'/user/vcard.php?id='.((int) $object->id).'&output=file&file='.urlencode(dol_sanitizeFileName($object->getFullName($langs).'.vcf')).'" class="refid valignmiddle" rel="noopener">';
+$morehtmlref .= img_picto($langs->trans('Download').' '.$langs->trans('VCard'), 'vcard', 'class="valignmiddle marginleftonly paddingrightonly"');
+$morehtmlref .= '</a>';
+
+dol_banner_tab($object, 'id', $linkback, $user->hasRight('user', 'user', 'read') || $user->admin, 'rowid', 'ref', $morehtmlref);
+
+print '<div class="underbanner clearboth"></div>';
 
 print '<br>';
 print load_fiche_titre($langs->trans('LmdbSalesCommissionsUserTabSummary'), '', 'fa-percent');
