@@ -12,15 +12,6 @@ body.mod-lmdbsalescommissions div.fiche table.tagtable {
 	border-collapse: collapse;
 }
 
-body.mod-lmdbsalescommissions div.fiche table.noborder td,
-body.mod-lmdbsalescommissions div.fiche table.noborder th,
-body.mod-lmdbsalescommissions div.fiche table.border td,
-body.mod-lmdbsalescommissions div.fiche table.border th,
-body.mod-lmdbsalescommissions div.fiche table.tagtable td,
-body.mod-lmdbsalescommissions div.fiche table.tagtable th {
-	border: 1px solid #e5e5e5;
-}
-
 body.mod-lmdbsalescommissions div.fiche table.noborder tr:not(.liste_titre):not(.liste_titre_filter):not(.liste_total):nth-of-type(odd),
 body.mod-lmdbsalescommissions div.fiche table.border tr:not(.liste_titre):not(.liste_titre_filter):not(.liste_total):nth-of-type(odd),
 body.mod-lmdbsalescommissions div.fiche table.tagtable tr:not(.liste_titre):not(.liste_titre_filter):not(.liste_total):nth-of-type(odd) {
