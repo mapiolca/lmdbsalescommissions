@@ -236,7 +236,7 @@ if (!$resql) {
 
 llxHeader('', $langs->trans('LmdbSalesCommissionsTracking'));
 
-print_barre_liste($langs->trans('LmdbSalesCommissionsTracking'), $page, $_SERVER['PHP_SELF'], $param, $sortfield, $sortorder, '', $num, $num, 'fa-percent', 0, '', '', $limit);
+print_barre_liste($langs->trans('LmdbSalesCommissionsTracking'), $page, $_SERVER['PHP_SELF'], $param, $sortfield, $sortorder, '', $num, $num, 'fa-percent', 0, '', '', $limit, 0, 0, 1);
 
 print '<form method="GET" action="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'">';
 print '<input type="hidden" name="sortfield" value="'.dol_escape_htmltag($sortfield).'">';
@@ -270,7 +270,7 @@ if (!empty($conf->main_checkbox_left_column)) {
 	print $form->showFilterButtons('left');
 	print '</td>';
 }
-print '<td class="liste_titre center nowraponall">'.lmdbsalescommissionsRenderDateRangeFilter($form, $search_date_start, $search_date_end, 'search_date_start', 'search_date_end').'</td>';
+print '<td class="liste_titre center">'.lmdbsalescommissionsRenderDateRangeFilter($form, $search_date_start, $search_date_end, 'search_date_start', 'search_date_end').'</td>';
 print '<td>';
 print $form->selectarray('fk_user', lmdbsalescommissionsGetUserOptions($db), $fk_user, 1, 0, 0, '', 0, 0, 0, '', 'minwidth150 maxwidth200', 1);
 print '<br>';
