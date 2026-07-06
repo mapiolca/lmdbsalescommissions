@@ -30,9 +30,9 @@ class modLmdbSalesCommissions extends DolibarrModules
 
 		$this->db = $db;
 
-		$this->numero = 500700;
+		$this->numero = 450024;
 		$this->rights_class = 'lmdbsalescommissions';
-		$this->family = 'financial';
+		$this->family = 'Les Métiers du Bâtiment';
 		$this->module_position = '90';
 		$this->name = preg_replace('/^mod/i', '', get_class($this));
 		$this->description = 'LmdbSalesCommissionsDesc';
