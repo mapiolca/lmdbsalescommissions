@@ -192,18 +192,17 @@ if (!$resql) {
 
 llxHeader('', $langs->trans('LmdbSalesCommissionsPaid'), '', '', 0, 0, array(), lmdbsalescommissionsGetCssFiles(), '', lmdbsalescommissionsGetBodyClass());
 
-print_barre_liste($langs->trans('LmdbSalesCommissionsPaid'), $page, $_SERVER['PHP_SELF'], $param, $sortfield, $sortorder, '', $num, $num, 'fa-percent', 0, '', '', $limit, 0, 0, 1);
-
+$filterFormId = 'lmdbsalescommissionsPaidFilter';
 $selectedfields = $form->multiSelectArrayWithCheckbox('selectedfields', $arrayfields, $contextpage, 1);
 $visibleColumnCount = lmdbsalescommissionsCountVisibleColumns($arrayfields, 1);
 
-print '<form method="POST" action="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'">';
+print '<form method="POST" id="'.$filterFormId.'" action="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'">';
 print '<input type="hidden" name="token" value="'.newToken().'">';
 print '<input type="hidden" name="formfilteraction" value="list">';
 print '<input type="hidden" name="contextpage" value="'.dol_escape_htmltag($contextpage).'">';
 print '<input type="hidden" name="sortfield" value="'.dol_escape_htmltag($sortfield).'">';
 print '<input type="hidden" name="sortorder" value="'.dol_escape_htmltag($sortorder).'">';
-print '<input type="hidden" name="limit" value="'.((int) $limit).'">';
+print_barre_liste($langs->trans('LmdbSalesCommissionsPaid'), $page, $_SERVER['PHP_SELF'], $param, $sortfield, $sortorder, '', $num, $num, 'fa-percent', 0, '', '', $limit, 0, 0, 1);
 print '<table class="tagtable liste centpercent" id="lmdbsalescommissions-paid-list">';
 print '<tr class="liste_titre">';
 print_liste_field_titre($selectedfields, $_SERVER['PHP_SELF'], '', '', '', '', $sortfield, $sortorder, 'center maxwidthsearch ');
