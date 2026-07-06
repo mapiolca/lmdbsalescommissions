@@ -3,6 +3,7 @@ LmdbSalesCommissionsDesc=Management of commissions, tier bonuses and sales objec
 LmdbSalesCommissionsDescLong=Module for managing sales commissions, revenue tier bonuses and sales objectives for sales agents.
 LmdbSalesCommissionsMenu=Commissions
 LmdbSalesCommissionsDashboard=Dashboard
+LmdbSalesCommissionsIndicator=Metric
 LmdbSalesCommissionsDue=Commissions payable
 LmdbSalesCommissionsTracking=Commission tracking
 LmdbSalesCommissionsPaid=Paid commissions

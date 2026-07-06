@@ -3,6 +3,7 @@ LmdbSalesCommissionsDesc=Gestion des commissions, primes par paliers et objectif
 LmdbSalesCommissionsDescLong=Module de gestion des commissions commerciales, des primes par paliers de chiffre d’affaires et des objectifs commerciaux des agents.
 LmdbSalesCommissionsMenu=Commissions
 LmdbSalesCommissionsDashboard=Tableau de bord
+LmdbSalesCommissionsIndicator=Indicateur
 LmdbSalesCommissionsDue=Commissions à verser
 LmdbSalesCommissionsTracking=Suivi des commissions
 LmdbSalesCommissionsPaid=Commissions versées
