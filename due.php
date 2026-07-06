@@ -199,9 +199,6 @@ print '</form>';
 
 print '<table class="tagtable liste centpercent" id="lmdbsalescommissions-due-list">';
 print '<tr class="liste_titre">';
-if (!empty($conf->main_checkbox_left_column)) {
-	print '<th class="liste_titre center maxwidthsearch"></th>';
-}
 print_liste_field_titre('DateDue', $_SERVER['PHP_SELF'], 'd.date_due', $param, '', '', $sortfield, $sortorder);
 print_liste_field_titre('SalesRepresentative', $_SERVER['PHP_SELF'], 'u.lastname', $param, '', '', $sortfield, $sortorder);
 print_liste_field_titre('ThirdParty', $_SERVER['PHP_SELF'], 's.nom', $param, '', '', $sortfield, $sortorder);
@@ -210,17 +207,20 @@ print_liste_field_titre('Event', $_SERVER['PHP_SELF'], 'd.event_type', $param, '
 print_liste_field_titre('LmdbSalesCommissionsCommissionTotal', $_SERVER['PHP_SELF'], 'l.commission_total', $param, '', 'class="right"', $sortfield, $sortorder);
 print_liste_field_titre('Percentage', $_SERVER['PHP_SELF'], 'd.percentage', $param, '', 'class="right"', $sortfield, $sortorder);
 print_liste_field_titre('Amount', $_SERVER['PHP_SELF'], 'd.amount', $param, '', 'class="right"', $sortfield, $sortorder);
-print_liste_field_titre('Status', $_SERVER['PHP_SELF'], 'd.status', $param, '', 'class="center"', $sortfield, $sortorder);
+print_liste_field_titre('Status', $_SERVER['PHP_SELF'], 'd.status', $param, '', '', $sortfield, $sortorder, 'center ');
 print '<th class="center">'.$langs->trans('Action').'</th>';
 print '</tr>';
 
 print '<tr class="liste_titre_filter">';
+$dateFilter = '';
 if (!empty($conf->main_checkbox_left_column)) {
-	print '<td class="liste_titre center maxwidthsearch">';
-	print lmdbsalescommissionsAttachFormToControls($form->showFilterButtons('left'), $filterFormId);
-	print '</td>';
+	$dateFilter .= lmdbsalescommissionsAttachFormToControls($form->showFilterButtons('left'), $filterFormId);
 }
-print '<td class="liste_titre center">'.lmdbsalescommissionsRenderDateRangeFilter($form, $search_date_start, $search_date_end, 'search_date_start', 'search_date_end', $filterFormId).'</td>';
+$dateFilter .= lmdbsalescommissionsRenderDateRangeFilter($form, $search_date_start, $search_date_end, 'search_date_start', 'search_date_end', $filterFormId);
+if (empty($conf->main_checkbox_left_column)) {
+	$dateFilter .= lmdbsalescommissionsAttachFormToControls($form->showFilterButtons(), $filterFormId);
+}
+print '<td class="liste_titre center">'.$dateFilter.'</td>';
 print '<td>'.lmdbsalescommissionsAttachFormToControls($form->selectarray('fk_user', lmdbsalescommissionsGetUserOptions($db), $fk_user, 1, 0, 0, '', 0, 0, 0, '', 'minwidth150 maxwidth200', 1), $filterFormId).'</td>';
 print '<td></td>';
 print '<td><input form="'.$filterFormId.'" type="text" class="flat maxwidth100" name="search_source_ref" value="'.dol_escape_htmltag($search_source_ref).'"></td>';
@@ -229,11 +229,7 @@ print '<td></td>';
 print '<td></td>';
 print '<td></td>';
 print '<td class="center">'.lmdbsalescommissionsAttachFormToControls($form->selectarray('search_status', array('0' => $langs->trans('LmdbSalesCommissionsDueStatusWaiting'), '1' => $langs->trans('LmdbSalesCommissionsDueStatusDue')), $search_status, 1, 0, 0, '', 0, 0, 0, '', 'minwidth100', 1), $filterFormId).'</td>';
-print '<td class="liste_titre center maxwidthsearch">';
-if (empty($conf->main_checkbox_left_column)) {
-	print lmdbsalescommissionsAttachFormToControls($form->showFilterButtons(), $filterFormId);
-}
-print '</td>';
+print '<td></td>';
 print '</tr>';
 
 $total_due = 0.0;
@@ -249,9 +245,6 @@ if ($resql) {
 		$total_due += (float) $obj->amount;
 
 		print '<tr class="oddeven">';
-		if (!empty($conf->main_checkbox_left_column)) {
-			print '<td class="center"></td>';
-		}
 		print '<td>'.(!empty($obj->date_due) ? dol_print_date($db->jdate($obj->date_due), 'day') : '').'</td>';
 		print '<td>'.lmdbsalescommissionsBuildUserNomUrl($db, (int) $obj->fk_user, (string) $obj->lastname, (string) $obj->firstname, (string) $obj->login, (int) $obj->user_status).'</td>';
 		print '<td>'.lmdbsalescommissionsBuildThirdpartyNomUrl($db, (int) $obj->fk_soc, (string) $obj->thirdparty_name).'</td>';
@@ -278,16 +271,13 @@ if ($resql) {
 	$db->free($resql);
 
 	if ($nb === 0) {
-		lmdbsalescommissionsPrintNoRecordRow($langs, !empty($conf->main_checkbox_left_column) ? 11 : 10);
+		lmdbsalescommissionsPrintNoRecordRow($langs, 10);
 	} else {
 		print '<tr class="liste_total">';
-		if (!empty($conf->main_checkbox_left_column)) {
-			print '<td></td>';
-		}
 		print '<td colspan="7">'.$langs->trans('Total').'</td><td class="right">'.price($total_due).'</td><td colspan="2"></td></tr>';
 	}
 } else {
-	lmdbsalescommissionsPrintNoRecordRow($langs, !empty($conf->main_checkbox_left_column) ? 11 : 10);
+	lmdbsalescommissionsPrintNoRecordRow($langs, 10);
 }
 print '</table>';
 

@@ -684,6 +684,7 @@ function lmdbsalescommissionsRenderDateRangeFilter($form, $dateStart, $dateEnd, 
 	$html = '<div class="nowrapfordate">';
 	$html .= $form->selectDate($dateStart ? $dateStart : -1, $startPrefix, 0, 0, 1, '', 1, 0, 0, '', '', '', '', 1, '', $langs->trans('From'));
 	$html .= '</div>';
+	$html .= '<br>';
 	$html .= '<div class="nowrapfordate">';
 	$html .= $form->selectDate($dateEnd ? $dateEnd : -1, $endPrefix, 0, 0, 1, '', 1, 0, 0, '', '', '', '', 1, '', $langs->trans('to'));
 	$html .= '</div>';
