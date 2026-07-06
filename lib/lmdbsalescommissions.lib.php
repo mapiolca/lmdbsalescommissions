@@ -552,7 +552,7 @@ function lmdbsalescommissionsBuildUserNomUrl($db, $userId, $lastname, $firstname
 	$userstatic->status = (int) $status;
 	$userstatic->statut = (int) $status;
 
-	return $userstatic->getNomUrl(1, '', 0, 1, 0);
+	return $userstatic->getNomUrl(-1, '', 0, 0, 0);
 }
 
 /**
@@ -577,7 +577,7 @@ function lmdbsalescommissionsBuildThirdpartyNomUrl($db, $thirdpartyId, $name)
 	$thirdpartystatic->name = (string) $name;
 	$thirdpartystatic->nom = (string) $name;
 
-	return $thirdpartystatic->getNomUrl(1, '', 0, 1);
+	return $thirdpartystatic->getNomUrl(1, '', 0, 0);
 }
 
 /**
@@ -602,7 +602,7 @@ function lmdbsalescommissionsBuildSourceNomUrl($db, $sourceType, $sourceId, $sou
 		$proposalstatic->id = (int) $sourceId;
 		$proposalstatic->ref = (string) $sourceRef;
 
-		return $proposalstatic->getNomUrl(1, '', '', 1);
+		return $proposalstatic->getNomUrl(1, '', '', 0);
 	}
 
 	$sourceUrl = lmdbsalescommissionsBuildSourceUrl($sourceType, $sourceId);
@@ -611,6 +611,88 @@ function lmdbsalescommissionsBuildSourceNomUrl($db, $sourceType, $sourceId, $sou
 	}
 
 	return dol_escape_htmltag((string) $sourceRef);
+}
+
+/**
+ * Attach an external form id to generated filter controls.
+ *
+ * @param string $html   HTML controls
+ * @param string $formId Form id
+ * @return string
+ */
+function lmdbsalescommissionsAttachFormToControls($html, $formId)
+{
+	$result = preg_replace('/<(input|select|button)\b(?![^>]*\bform=)/i', '<$1 form="'.dol_escape_htmltag($formId).'"', $html);
+
+	return is_string($result) ? $result : $html;
+}
+
+/**
+ * Return timestamp from native Dolibarr date filter fields.
+ *
+ * @param string $prefix   Date field prefix
+ * @param bool   $endOfDay Use 23:59:59 instead of 00:00:00
+ * @return int|string
+ */
+function lmdbsalescommissionsGetDateFilterValue($prefix, $endOfDay = false)
+{
+	$day = GETPOSTINT($prefix.'day');
+	$month = GETPOSTINT($prefix.'month');
+	$year = GETPOSTINT($prefix.'year');
+
+	if ($day <= 0 || $month <= 0 || $year <= 0) {
+		return '';
+	}
+
+	return dol_mktime($endOfDay ? 23 : 0, $endOfDay ? 59 : 0, $endOfDay ? 59 : 0, $month, $day, $year);
+}
+
+/**
+ * Return GET parameters for a native Dolibarr date filter.
+ *
+ * @param string $prefix Date field prefix
+ * @return string
+ */
+function lmdbsalescommissionsBuildDateFilterParams($prefix)
+{
+	$param = '';
+	foreach (array('day', 'month', 'year') as $suffix) {
+		$value = GETPOSTINT($prefix.$suffix);
+		if ($value > 0) {
+			$param .= '&'.$prefix.$suffix.'='.((int) $value);
+		}
+	}
+
+	return $param;
+}
+
+/**
+ * Return native Dolibarr date range filter controls.
+ *
+ * @param Form       $form        Form helper
+ * @param int|string $dateStart   Start date timestamp or empty value
+ * @param int|string $dateEnd     End date timestamp or empty value
+ * @param string     $startPrefix Start date field prefix
+ * @param string     $endPrefix   End date field prefix
+ * @param string     $formId      Optional external form id
+ * @return string
+ */
+function lmdbsalescommissionsRenderDateRangeFilter($form, $dateStart, $dateEnd, $startPrefix, $endPrefix, $formId = '')
+{
+	global $langs;
+
+	$html = '<div class="nowrapfordate">';
+	$html .= $form->selectDate($dateStart ? $dateStart : -1, $startPrefix, 0, 0, 1, '', 1, 0, 0, '', '', '', '', 1, '', $langs->trans('From'));
+	$html .= '</div>';
+	$html .= '<div class="nowrapfordate">';
+	$html .= $form->selectDate($dateEnd ? $dateEnd : -1, $endPrefix, 0, 0, 1, '', 1, 0, 0, '', '', '', '', 1, '', $langs->trans('to'));
+	$html .= '</div>';
+
+	if ($formId !== '') {
+		$html = lmdbsalescommissionsAttachFormToControls($html, $formId);
+	}
+
+	return $html;
 }
 
 /**

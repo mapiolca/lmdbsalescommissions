@@ -32,10 +32,12 @@ $search_source_ref = GETPOST('search_source_ref', 'alpha');
 $search_status = GETPOST('search_status', 'array:intcomma');
 $search_mode = GETPOST('search_mode', 'aZ09');
 $search_rule_source = GETPOST('search_rule_source', 'aZ09');
+$search_date_start = lmdbsalescommissionsGetDateFilterValue('search_date_start');
+$search_date_end = lmdbsalescommissionsGetDateFilterValue('search_date_end', true);
 $sortfield = GETPOST('sortfield', 'aZ09comma');
 $sortorder = GETPOST('sortorder', 'aZ09comma');
-$button_search = GETPOST('button_search_x', 'alpha') || GETPOST('button_search', 'alpha');
-$button_removefilter = GETPOST('button_removefilter_x', 'alpha') || GETPOST('button_removefilter', 'alpha');
+$button_search = GETPOST('button_search_x', 'alpha') || GETPOST('button_search.x', 'alpha') || GETPOST('button_search', 'alpha');
+$button_removefilter = GETPOST('button_removefilter_x', 'alpha') || GETPOST('button_removefilter.x', 'alpha') || GETPOST('button_removefilter', 'alpha');
 $page = GETPOSTINT('page');
 if ($page < 0 || $button_search || $button_removefilter) {
 	$page = 0;
@@ -50,6 +52,38 @@ if (empty($sortfield)) {
 }
 if (empty($sortorder)) {
 	$sortorder = 'DESC';
+}
+
+if ($fk_user < 0) {
+	$fk_user = 0;
+}
+if ($fk_usergroup < 0) {
+	$fk_usergroup = 0;
+}
+if ($fk_soc < 0) {
+	$fk_soc = 0;
+}
+if ($search_source_type === '-1') {
+	$search_source_type = '';
+}
+if ($search_mode === '-1') {
+	$search_mode = '';
+}
+if ($search_rule_source === '-1') {
+	$search_rule_source = '';
+}
+
+if ($button_removefilter) {
+	$fk_user = 0;
+	$fk_usergroup = 0;
+	$fk_soc = 0;
+	$search_source_type = '';
+	$search_source_ref = '';
+	$search_status = array();
+	$search_mode = '';
+	$search_rule_source = '';
+	$search_date_start = '';
+	$search_date_end = '';
 }
 
 if (!isModEnabled('lmdbsalescommissions')) {
@@ -76,17 +110,6 @@ $allowed_status = array(0, 1, 6, 7);
 $search_status = array_values(array_filter($search_status, static function ($status) use ($allowed_status) {
 	return in_array((int) $status, $allowed_status, true);
 }));
-
-if ($button_removefilter) {
-	$fk_user = 0;
-	$fk_usergroup = 0;
-	$fk_soc = 0;
-	$search_source_type = '';
-	$search_source_ref = '';
-	$search_status = array();
-	$search_mode = '';
-	$search_rule_source = '';
-}
 
 $form = new Form($db);
 
@@ -123,6 +146,12 @@ if ($fk_usergroup > 0) {
 if ($fk_soc > 0) {
 	$param .= '&fk_soc='.((int) $fk_soc);
 }
+if (!empty($search_date_start)) {
+	$param .= lmdbsalescommissionsBuildDateFilterParams('search_date_start');
+}
+if (!empty($search_date_end)) {
+	$param .= lmdbsalescommissionsBuildDateFilterParams('search_date_end');
+}
 if ($search_source_type !== '') {
 	$param .= '&search_source_type='.urlencode($search_source_type);
 }
@@ -154,6 +183,12 @@ if ($fk_usergroup > 0) {
 }
 if ($fk_soc > 0) {
 	$sqlwhere .= ' AND l.fk_soc = '.((int) $fk_soc);
+}
+if (!empty($search_date_start)) {
+	$sqlwhere .= " AND l.date_acquired >= '".$db->idate($search_date_start)."'";
+}
+if (!empty($search_date_end)) {
+	$sqlwhere .= " AND l.date_acquired <= '".$db->idate($search_date_end)."'";
 }
 if ($search_source_type !== '') {
 	$sqlwhere .= " AND l.source_type = '".$db->escape($search_source_type)."'";
@@ -207,8 +242,11 @@ print '<form method="GET" action="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'">
 print '<input type="hidden" name="sortfield" value="'.dol_escape_htmltag($sortfield).'">';
 print '<input type="hidden" name="sortorder" value="'.dol_escape_htmltag($sortorder).'">';
 print '<input type="hidden" name="limit" value="'.((int) $limit).'">';
-print '<table class="noborder centpercent">';
+print '<table class="tagtable liste centpercent" id="lmdbsalescommissions-tracking-list">';
 print '<tr class="liste_titre">';
+if (!empty($conf->main_checkbox_left_column)) {
+	print '<th class="liste_titre center maxwidthsearch"></th>';
+}
 print_liste_field_titre('Date', $_SERVER['PHP_SELF'], 'l.date_acquired', $param, '', '', $sortfield, $sortorder);
 print_liste_field_titre('SalesRepresentative', $_SERVER['PHP_SELF'], 'u.lastname', $param, '', '', $sortfield, $sortorder);
 print_liste_field_titre('ThirdParty', $_SERVER['PHP_SELF'], 's.nom', $param, '', '', $sortfield, $sortorder);
@@ -221,10 +259,18 @@ print_liste_field_titre('LmdbSalesCommissionsCommissionTotal', $_SERVER['PHP_SEL
 print_liste_field_titre('LmdbSalesCommissionsPayableTotal', $_SERVER['PHP_SELF'], 'l.payable_total', $param, '', 'class="right"', $sortfield, $sortorder);
 print_liste_field_titre('LmdbSalesCommissionsPaidTotal', $_SERVER['PHP_SELF'], 'l.paid_total', $param, '', 'class="right"', $sortfield, $sortorder);
 print_liste_field_titre('Status', $_SERVER['PHP_SELF'], 'l.status', $param, '', 'class="center"', $sortfield, $sortorder);
+if (empty($conf->main_checkbox_left_column)) {
+	print '<th class="liste_titre center maxwidthsearch"></th>';
+}
 print '</tr>';
 
 print '<tr class="liste_titre_filter">';
-print '<td></td>';
+if (!empty($conf->main_checkbox_left_column)) {
+	print '<td class="liste_titre center maxwidthsearch">';
+	print $form->showFilterButtons('left');
+	print '</td>';
+}
+print '<td class="liste_titre center nowraponall">'.lmdbsalescommissionsRenderDateRangeFilter($form, $search_date_start, $search_date_end, 'search_date_start', 'search_date_end').'</td>';
 print '<td>';
 print $form->selectarray('fk_user', lmdbsalescommissionsGetUserOptions($db), $fk_user, 1, 0, 0, '', 0, 0, 0, '', 'minwidth150 maxwidth200', 1);
 print '<br>';
@@ -249,8 +295,12 @@ print '<td></td>';
 print '<td></td>';
 print '<td class="center">';
 print $form->multiselectarray('search_status', $status_options, $search_status, 0, 0, 'search_status width100 onrightofpage', 0, 0, '', '', '', 1);
-print $form->showFilterButtons();
 print '</td>';
+if (empty($conf->main_checkbox_left_column)) {
+	print '<td class="liste_titre center maxwidthsearch">';
+	print $form->showFilterButtons();
+	print '</td>';
+}
 print '</tr>';
 
 if ($resql) {
@@ -263,6 +313,9 @@ if ($resql) {
 		$status = (int) $obj->status;
 
 		print '<tr class="oddeven">';
+		if (!empty($conf->main_checkbox_left_column)) {
+			print '<td class="center"></td>';
+		}
 		print '<td>'.dol_print_date($db->jdate($obj->date_acquired), 'day').'</td>';
 		print '<td>'.lmdbsalescommissionsBuildUserNomUrl($db, (int) $obj->fk_user, (string) $obj->lastname, (string) $obj->firstname, (string) $obj->login, (int) $obj->user_status).'</td>';
 		print '<td>'.lmdbsalescommissionsBuildThirdpartyNomUrl($db, (int) $obj->fk_soc, (string) $obj->thirdparty_name).'</td>';
@@ -275,16 +328,27 @@ if ($resql) {
 		print '<td class="right">'.price((float) $obj->payable_total).'</td>';
 		print '<td class="right">'.price((float) $obj->paid_total).'</td>';
 		print '<td class="center">'.lmdbsalescommissionsStatusBadge(lmdbsalescommissionsGetLineStatusLabel($langs, $status), $status).'</td>';
+		if (empty($conf->main_checkbox_left_column)) {
+			print '<td class="center"></td>';
+		}
 		print '</tr>';
 	}
 	$db->free($resql);
 	if ($nb === 0) {
-		lmdbsalescommissionsPrintNoRecordRow($langs, 12);
+		lmdbsalescommissionsPrintNoRecordRow($langs, 13);
 	} else {
-		print '<tr class="liste_total"><td colspan="8">'.$langs->trans('Total').'</td><td class="right">'.price($sum_commission).'</td><td class="right">'.price($sum_payable).'</td><td class="right">'.price($sum_paid).'</td><td></td></tr>';
+		print '<tr class="liste_total">';
+		if (!empty($conf->main_checkbox_left_column)) {
+			print '<td></td>';
+		}
+		print '<td colspan="8">'.$langs->trans('Total').'</td><td class="right">'.price($sum_commission).'</td><td class="right">'.price($sum_payable).'</td><td class="right">'.price($sum_paid).'</td><td></td>';
+		if (empty($conf->main_checkbox_left_column)) {
+			print '<td></td>';
+		}
+		print '</tr>';
 	}
 } else {
-	lmdbsalescommissionsPrintNoRecordRow($langs, 12);
+	lmdbsalescommissionsPrintNoRecordRow($langs, 13);
 }
 print '</table>';
 print '</form>';
