@@ -37,7 +37,7 @@ class modLmdbSalesCommissions extends DolibarrModules
 		$this->name = preg_replace('/^mod/i', '', get_class($this));
 		$this->description = 'LmdbSalesCommissionsDesc';
 		$this->descriptionlong = 'LmdbSalesCommissionsDescLong';
-		$this->version = '0.1.0';
+		$this->version = '1.0';
 		$this->const_name = 'MAIN_MODULE_'.strtoupper($this->name);
 		$this->picto = 'fa-percent_fas_#f0b400';
 		$this->editor_name = 'Pierre Ardoin';
