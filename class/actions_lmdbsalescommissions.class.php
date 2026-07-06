@@ -59,8 +59,8 @@ class ActionsLmdbSalesCommissions
 		}
 
 		$marginInfo = isset($parameters['marginInfo']) && is_array($parameters['marginInfo']) ? $parameters['marginInfo'] : array();
-		$content = $this->buildProposalEstimatedCommissionContent($object, $marginInfo);
-		if ($content === '') {
+		$commissionData = $this->buildProposalEstimatedCommissionData($object, $marginInfo);
+		if (empty($commissionData)) {
 			return 0;
 		}
 
@@ -75,21 +75,55 @@ class ActionsLmdbSalesCommissions
 		global $langs;
 
 		$this->resprints = '<tr class="oddeven lmdbsalescommissions-estimated-commission">';
-		$this->resprints .= '<td>'.$langs->trans('LmdbSalesCommissionsEstimatedCommission').'</td>';
-		$this->resprints .= '<td colspan="'.max(1, $columnCount - 1).'">'.$content.'</td>';
+		$this->resprints .= '<td colspan="'.$columnCount.'">';
+		$this->resprints .= '<table class="noborder centpercent lmdbsalescommissions-estimated-commission-table">';
+		if (isset($commissionData['message'])) {
+			$this->resprints .= '<tr class="liste_titre"><td>'.$langs->trans('LmdbSalesCommissionsEstimatedCommission').'</td></tr>';
+			$this->resprints .= '<tr class="oddeven"><td>'.$commissionData['message'].'</td></tr>';
+		} else {
+			$headers = array(
+				(string) $commissionData['title'],
+				$langs->trans('LmdbSalesCommissionsMarginBase'),
+				$langs->trans('Rate'),
+				$langs->trans('LmdbSalesCommissionsRule'),
+				$langs->trans('LmdbSalesCommissionsRuleSource'),
+				$langs->trans('Status'),
+			);
+			$values = array(
+				(string) $commissionData['amount'],
+				(string) $commissionData['margin'],
+				(string) $commissionData['rate'],
+				(string) $commissionData['rule'],
+				(string) $commissionData['source'],
+				(string) $commissionData['status'],
+			);
+
+			$this->resprints .= '<tr class="liste_titre">';
+			foreach ($headers as $headerIndex => $header) {
+				$this->resprints .= '<td class="liste_titre'.($headerIndex < 3 ? ' right' : '').'">'.dol_escape_htmltag($header).'</td>';
+			}
+			$this->resprints .= '</tr>';
+			$this->resprints .= '<tr class="oddeven">';
+			foreach ($values as $valueIndex => $value) {
+				$this->resprints .= '<td'.($valueIndex < 3 ? ' class="right"' : '').'>'.$value.'</td>';
+			}
+			$this->resprints .= '</tr>';
+		}
+		$this->resprints .= '</table>';
+		$this->resprints .= '</td>';
 		$this->resprints .= '</tr>';
 
 		return 0;
 	}
 
 	/**
-	 * Build estimated commission content for a proposal.
+	 * Build estimated commission data for a proposal.
 	 *
 	 * @param object               $object     Current proposal
 	 * @param array<string, mixed> $marginInfo Native margin information
-	 * @return string
+	 * @return array<string, string>
 	 */
-	private function buildProposalEstimatedCommissionContent($object, array $marginInfo)
+	private function buildProposalEstimatedCommissionData($object, array $marginInfo)
 	{
 		global $langs, $user;
 
@@ -102,10 +136,10 @@ class ActionsLmdbSalesCommissions
 
 		$salesUserId = LmdbSalesCommissionProposalService::getSalesUserId($object);
 		if ($salesUserId <= 0) {
-			return '';
+			return array();
 		}
 		if (!lmdbsalescommissionsCanReadUserScope($user, $salesUserId)) {
-			return '';
+			return array();
 		}
 
 		$margin = isset($marginInfo['total_margin']) && is_numeric($marginInfo['total_margin'])
@@ -116,11 +150,11 @@ class ActionsLmdbSalesCommissions
 		$marginRule = $profile['selected']['margin'] ?? null;
 
 		if (!empty($profile['errors'])) {
-			return '<span class="warning">'.$langs->trans('LmdbSalesCommissionsEstimateBlockedByRuleConflict').'</span>';
+			return array('message' => '<span class="warning">'.$langs->trans('LmdbSalesCommissionsEstimateBlockedByRuleConflict').'</span>');
 		} elseif (!is_array($marginRule)) {
-			return '<span class="opacitymedium">'.$langs->trans('LmdbSalesCommissionsNoMarginRuleAvailable').'</span>';
+			return array('message' => '<span class="opacitymedium">'.$langs->trans('LmdbSalesCommissionsNoMarginRuleAvailable').'</span>');
 		} elseif ($margin === null) {
-			return '<span class="opacitymedium">'.$langs->trans('LmdbSalesCommissionsMarginNotComputable').'</span>';
+			return array('message' => '<span class="opacitymedium">'.$langs->trans('LmdbSalesCommissionsMarginNotComputable').'</span>');
 		}
 
 		$base = max(0, $margin);
@@ -137,14 +171,15 @@ class ActionsLmdbSalesCommissions
 			? $langs->trans('LmdbSalesCommissionsYourEstimatedCommission')
 			: $langs->trans('LmdbSalesCommissionsUserEstimatedCommission', $salesUserLabel);
 
-		$html = '<strong>'.dol_escape_htmltag($title).' : '.price($amount).'</strong><br>';
-		$html .= $langs->trans('LmdbSalesCommissionsMarginBase').' : '.price($margin).'<br>';
-		$html .= $langs->trans('Rate').' : '.price($rate).' %<br>';
-		$html .= $langs->trans('LmdbSalesCommissionsRule').' : '.dol_escape_htmltag((string) $marginRule['rule_label']).'<br>';
-		$html .= $langs->trans('LmdbSalesCommissionsRuleSource').' : '.dol_escape_htmltag((string) $marginRule['source']).'<br>';
-		$html .= $langs->trans('Status').' : '.$langs->trans('LmdbSalesCommissionsEstimateNotAcquired');
-
-		return $html;
+		return array(
+			'title' => $title,
+			'amount' => price($amount),
+			'margin' => price($margin),
+			'rate' => price($rate).' %',
+			'rule' => dol_escape_htmltag((string) $marginRule['rule_label']),
+			'source' => dol_escape_htmltag(lmdbsalescommissionsGetRuleSourceLabel($langs, (string) $marginRule['source'])),
+			'status' => $langs->trans('LmdbSalesCommissionsEstimateNotAcquired'),
+		);
 	}
 
 	/**
