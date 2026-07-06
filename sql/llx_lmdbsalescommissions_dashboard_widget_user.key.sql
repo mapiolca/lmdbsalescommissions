@@ -1,0 +1,4 @@
+ALTER TABLE llx_lmdbsalescommissions_dashboard_widget_user ADD UNIQUE INDEX uk_lmdbsalescommissions_dash_widget_user (entity, fk_user, widget_code);
+ALTER TABLE llx_lmdbsalescommissions_dashboard_widget_user ADD INDEX idx_lmdbsalescommissions_dash_widget_user_entity (entity);
+ALTER TABLE llx_lmdbsalescommissions_dashboard_widget_user ADD INDEX idx_lmdbsalescommissions_dash_widget_user_user (fk_user);
+ALTER TABLE llx_lmdbsalescommissions_dashboard_widget_user ADD INDEX idx_lmdbsalescommissions_dash_widget_user_order (entity, fk_user, visible, column_index, position);

@@ -890,6 +890,57 @@ function lmdbsalescommissionsGetUserOptions($db, $showEmpty = true)
 }
 
 /**
+ * Return user options visible from the commission scope of current user.
+ *
+ * @param DoliDB $db        Database handler
+ * @param User   $user      Current user
+ * @param bool   $showEmpty Add empty option
+ * @return array<int, string>
+ */
+function lmdbsalescommissionsGetAccessibleUserOptions($db, $user, $showEmpty = true)
+{
+	$options = array();
+	if ($showEmpty) {
+		$options[0] = '';
+	}
+	if (!is_object($user)) {
+		return $options;
+	}
+
+	$sql = 'SELECT DISTINCT u.rowid, u.login, u.lastname, u.firstname';
+	$sql .= ' FROM '.MAIN_DB_PREFIX.'user AS u';
+	if (empty($user->admin) && !$user->hasRight('lmdbsalescommissions', 'commission', 'readall') && $user->hasRight('lmdbsalescommissions', 'commission', 'readgroup')) {
+		$sql .= ' INNER JOIN '.MAIN_DB_PREFIX.'usergroup_user AS targetgroup ON targetgroup.fk_user = u.rowid';
+		$sql .= ' INNER JOIN '.MAIN_DB_PREFIX.'usergroup_user AS currentgroup ON currentgroup.fk_usergroup = targetgroup.fk_usergroup AND currentgroup.entity = targetgroup.entity';
+	}
+	$sql .= ' WHERE u.entity IN ('.$db->sanitize(getEntity('user')).')';
+	$sql .= ' AND u.statut = 1';
+	if (empty($user->admin) && !$user->hasRight('lmdbsalescommissions', 'commission', 'readall')) {
+		if ($user->hasRight('lmdbsalescommissions', 'commission', 'readgroup')) {
+			$sql .= ' AND currentgroup.fk_user = '.((int) $user->id);
+			$sql .= ' AND currentgroup.entity IN ('.$db->sanitize(getEntity('usergroup')).')';
+		} else {
+			$sql .= ' AND u.rowid = '.((int) $user->id);
+		}
+	}
+	$sql .= ' ORDER BY u.lastname ASC, u.firstname ASC, u.login ASC';
+
+	$resql = $db->query($sql);
+	if (!$resql) {
+		dol_syslog(__METHOD__.': '.$db->lasterror(), LOG_ERR);
+		return $options;
+	}
+
+	while (is_object($obj = $db->fetch_object($resql))) {
+		$name = trim((string) $obj->firstname.' '.(string) $obj->lastname);
+		$options[(int) $obj->rowid] = ($name !== '' ? $name : (string) $obj->login);
+	}
+	$db->free($resql);
+
+	return $options;
+}
+
+/**
  * Return user group options.
  *
  * @param DoliDB $db        Database handler
@@ -907,6 +958,53 @@ function lmdbsalescommissionsGetUserGroupOptions($db, $showEmpty = true)
 	$sql .= ' FROM '.MAIN_DB_PREFIX.'usergroup';
 	$sql .= ' WHERE entity IN ('.$db->sanitize(getEntity('usergroup')).')';
 	$sql .= ' ORDER BY nom ASC';
+
+	$resql = $db->query($sql);
+	if (!$resql) {
+		dol_syslog(__METHOD__.': '.$db->lasterror(), LOG_ERR);
+		return $options;
+	}
+
+	while (is_object($obj = $db->fetch_object($resql))) {
+		$options[(int) $obj->rowid] = (string) $obj->nom;
+	}
+	$db->free($resql);
+
+	return $options;
+}
+
+/**
+ * Return user group options visible from the commission scope of current user.
+ *
+ * @param DoliDB $db        Database handler
+ * @param User   $user      Current user
+ * @param bool   $showEmpty Add empty option
+ * @return array<int, string>
+ */
+function lmdbsalescommissionsGetAccessibleUserGroupOptions($db, $user, $showEmpty = true)
+{
+	$options = array();
+	if ($showEmpty) {
+		$options[0] = '';
+	}
+	if (!is_object($user)) {
+		return $options;
+	}
+
+	$sql = 'SELECT DISTINCT g.rowid, g.nom';
+	$sql .= ' FROM '.MAIN_DB_PREFIX.'usergroup AS g';
+	if (empty($user->admin) && !$user->hasRight('lmdbsalescommissions', 'commission', 'readall') && $user->hasRight('lmdbsalescommissions', 'commission', 'readgroup')) {
+		$sql .= ' INNER JOIN '.MAIN_DB_PREFIX.'usergroup_user AS ugu ON ugu.fk_usergroup = g.rowid AND ugu.entity = g.entity';
+	}
+	$sql .= ' WHERE g.entity IN ('.$db->sanitize(getEntity('usergroup')).')';
+	if (empty($user->admin) && !$user->hasRight('lmdbsalescommissions', 'commission', 'readall')) {
+		if ($user->hasRight('lmdbsalescommissions', 'commission', 'readgroup')) {
+			$sql .= ' AND ugu.fk_user = '.((int) $user->id);
+		} else {
+			$sql .= ' AND 1 = 0';
+		}
+	}
+	$sql .= ' ORDER BY g.nom ASC';
 
 	$resql = $db->query($sql);
 	if (!$resql) {

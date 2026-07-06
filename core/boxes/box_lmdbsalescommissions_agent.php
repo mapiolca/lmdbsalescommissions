@@ -58,49 +58,19 @@ class box_lmdbsalescommissions_agent extends ModeleBoxes
 			return;
 		}
 
-		require_once dol_buildpath('/lmdbsalescommissions/lib/lmdbsalescommissions.lib.php', 0);
-		require_once dol_buildpath('/lmdbsalescommissions/class/lmdbsalescommissiondueservice.class.php', 0);
+		require_once dol_buildpath('/lmdbsalescommissions/class/LmdbSalesCommissionDashboardService.class.php', 0);
 
-		$sql = 'SELECT';
-		$sql .= " SUM(CASE WHEN l.mode = 'margin' THEN l.commission_total ELSE 0 END) AS margin_total,";
-		$sql .= " SUM(CASE WHEN l.mode = 'tier' THEN l.commission_total ELSE 0 END) AS tier_total,";
-		$sql .= ' SUM(l.payable_total) AS payable_total,';
-		$sql .= ' SUM(l.paid_total) AS paid_total';
-		$sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_line AS l';
-		$sql .= ' WHERE l.entity IN ('.$this->db->sanitize(getEntity('lmdbsalescommissions_line')).')';
-		$sql .= ' AND l.fk_user = '.((int) $user->id);
-
+		$service = new LmdbSalesCommissionDashboardService($this->db);
+		$filters = $service->getDefaultFilters($user);
+		$filters['fk_user'] = (int) $user->id;
+		$summary = $service->getKpiSummary($filters, $user);
 		$values = array(
-			'LmdbSalesCommissionsRuleTypeMargin' => 0.0,
-			'LmdbSalesCommissionsRuleTypeTier' => 0.0,
-			'LmdbSalesCommissionsPayableTotal' => 0.0,
-			'LmdbSalesCommissionsPaidTotal' => 0.0,
-			'AmountHT' => 0.0,
+			'LmdbSalesCommissionsRuleTypeMargin' => max(0, (float) $summary['commission_acquired'] - (float) $summary['tier_bonus']),
+			'LmdbSalesCommissionsRuleTypeTier' => (float) $summary['tier_bonus'],
+			'LmdbSalesCommissionsPayableTotal' => (float) $summary['commission_due'],
+			'LmdbSalesCommissionsPaidTotal' => (float) $summary['commission_paid'],
+			'AmountHT' => (float) $summary['turnover_signed'],
 		);
-		$resql = $this->db->query($sql);
-		if ($resql && is_object($obj = $this->db->fetch_object($resql))) {
-			$values['LmdbSalesCommissionsRuleTypeMargin'] = (float) $obj->margin_total;
-			$values['LmdbSalesCommissionsRuleTypeTier'] = (float) $obj->tier_total;
-			$values['LmdbSalesCommissionsPayableTotal'] = (float) $obj->payable_total;
-			$values['LmdbSalesCommissionsPaidTotal'] = (float) $obj->paid_total;
-			$this->db->free($resql);
-		}
-
-		$sql = 'SELECT SUM(src.amount_base) AS amount_base_total';
-		$sql .= ' FROM (';
-		$sql .= ' SELECT l.entity, l.fk_user, l.source_type, l.fk_source, MAX(l.amount_base) AS amount_base';
-		$sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_line AS l';
-		$sql .= ' WHERE l.entity IN ('.$this->db->sanitize(getEntity('lmdbsalescommissions_line')).')';
-		$sql .= ' AND l.fk_user = '.((int) $user->id);
-		$sql .= " AND l.source_type = 'proposal'";
-		$sql .= ' AND l.status = 1';
-		$sql .= ' GROUP BY l.entity, l.fk_user, l.source_type, l.fk_source';
-		$sql .= ') AS src';
-		$resbase = $this->db->query($sql);
-		if ($resbase && is_object($objbase = $this->db->fetch_object($resbase))) {
-			$values['AmountHT'] = (float) $objbase->amount_base_total;
-			$this->db->free($resbase);
-		}
 
 		$i = 0;
 		foreach ($values as $label => $value) {

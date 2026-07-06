@@ -11,7 +11,8 @@ Module Dolibarr externe `lmdbsalescommissions` pour gérer les commissions, prim
 - Objectifs mensuels et annuels facultatifs.
 - Archivage de l’atteinte des objectifs par utilisateur et par période.
 - Suivi des commissions à verser et des commissions versées.
-- Exports CSV.
+- Tableau de bord par widgets déplaçables/masquables avec disposition par utilisateur.
+- Exports CSV centralisés dans le menu **Exports**.
 - Compatibilité Multicompany.
 
 ## Structure du module
@@ -34,11 +35,23 @@ Il ne contient pas le préfixe `htdocs/custom/`, car ce chemin est géré par Do
 - Estimation de commission sur la fiche devis.
 - Figeage des commissions lors de la signature d’un devis.
 - Génération d’échéances de versement et passage en versé.
-- Pages métier : tableau de bord, à verser, suivi, versées, exports.
+- Pages métier : tableau de bord par widgets, à verser, suivi, versées, exports.
 - Onglet **Commissions** sur la fiche utilisateur.
-- Widgets Dolibarr agent et manager.
+- Widgets Dolibarr agent et manager, ainsi que widgets d’accueil ciblés pour commissions à verser, objectif, palier, anomalies et synthèses manager.
 - Crons natifs pour archivage et échéances.
 - Intégration Notifications native via `c_action_trigger`, hook `notifsupported` et substitutions.
+
+## Tableau de bord
+
+Le tableau de bord **Facturation | Paiement > Commissions > Tableau de bord** est composé de widgets indépendants.
+
+- La disposition est enregistrée par utilisateur et par entité.
+- Les widgets peuvent être déplacés, masqués puis réaffichés depuis le tableau de bord.
+- Les widgets masqués ne chargent pas leurs données.
+- Les filtres globaux s’appliquent uniquement aux widgets visibles.
+- Aucun widget ne propose d’export direct.
+
+Tous les exports restent centralisés dans **Facturation | Paiement > Commissions > Exports**.
 
 ## Configuration rapide
 
@@ -64,6 +77,8 @@ Il ne contient pas le préfixe `htdocs/custom/`, car ce chemin est géré par Do
 - Conflit de règles détecté.
 - Commission figée à la signature du devis.
 - Échéance marquée comme versée par un utilisateur autorisé.
+- Widget masqué puis réaffiché sans chargement de données lorsqu’il est masqué.
+- Exports accessibles uniquement depuis la page **Exports**.
 
 ## Compatibilité
 

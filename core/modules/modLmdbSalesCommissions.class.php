@@ -76,6 +76,38 @@ class modLmdbSalesCommissions extends DolibarrModules
 				'file' => 'box_lmdbsalescommissions_manager.php@lmdbsalescommissions',
 				'enabledbydefaulton' => 'Home',
 			),
+			array(
+				'file' => 'box_lmdbsalescommissions_my_due.php@lmdbsalescommissions',
+				'enabledbydefaulton' => 'Home',
+			),
+			array(
+				'file' => 'box_lmdbsalescommissions_my_acquired_month.php@lmdbsalescommissions',
+				'enabledbydefaulton' => 'Home',
+			),
+			array(
+				'file' => 'box_lmdbsalescommissions_my_tier_progress.php@lmdbsalescommissions',
+				'enabledbydefaulton' => 'Home',
+			),
+			array(
+				'file' => 'box_lmdbsalescommissions_my_monthly_objective.php@lmdbsalescommissions',
+				'enabledbydefaulton' => 'Home',
+			),
+			array(
+				'file' => 'box_lmdbsalescommissions_due_global.php@lmdbsalescommissions',
+				'enabledbydefaulton' => 'Home',
+			),
+			array(
+				'file' => 'box_lmdbsalescommissions_agents_near_tier.php@lmdbsalescommissions',
+				'enabledbydefaulton' => 'Home',
+			),
+			array(
+				'file' => 'box_lmdbsalescommissions_late_objectives.php@lmdbsalescommissions',
+				'enabledbydefaulton' => 'Home',
+			),
+			array(
+				'file' => 'box_lmdbsalescommissions_anomalies.php@lmdbsalescommissions',
+				'enabledbydefaulton' => 'Home',
+			),
 		);
 		$this->cronjobs = array(
 			0 => array(

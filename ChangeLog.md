@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Transformation du tableau de bord Commissions en dashboard de widgets avec disposition utilisateur par entité.
+- Ajout du service centralisé `LmdbSalesCommissionDashboardService` pour les KPI, graphiques, tableaux et anomalies du dashboard.
+- Ajout des filtres globaux du dashboard : commercial, groupe, année, mois, période, source, type de commission, statut et objectifs.
+- Ajout des widgets KPI, graphiques synthétiques, tableaux opérationnels et anomalies, sans bouton d’export.
+- Ajout de widgets d’accueil Dolibarr supplémentaires réutilisant le service dashboard.
+- Centralisation des exports dashboard supplémentaires dans la page **Exports** : agents proches d’un palier, objectifs en retard, top affaires, vieillissement et anomalies.
+- Suppression du style de bordures personnalisées sur les tableaux du module pour conserver le rendu natif Dolibarr.
 - Ajout d'un rattrapage rétroactif manuel des devis signés depuis la maintenance, basé sur la date de signature.
 - Ajout des lignes de suivi `tracking` à commission nulle pour remonter le chiffre signé lorsqu'aucune règle de commissionnement ne s'applique.
 - Correction des agrégations de chiffre d'affaires/objectifs pour compter chaque devis une seule fois même s'il possède plusieurs lignes de commission.
