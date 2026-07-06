@@ -33,7 +33,7 @@ $head = lmdbsalescommissionsAdminPrepareHead();
 print dol_get_fiche_head($head, 'about', $langs->trans('LmdbSalesCommissionsSetup'), -1, 'fa-percent');
 print load_fiche_titre($langs->trans('About'), lmdbsalescommissionsBuildModuleListLink(), 'title_setup');
 
-print '<table class="noborder centpercent">';
+print '<table class="noborder liste centpercent">';
 print '<tr class="liste_titre"><td>'.$langs->trans('Parameter').'</td><td>'.$langs->trans('Value').'</td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('Module').'</td><td>'.$langs->trans('LmdbSalesCommissions').'</td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('Version').'</td><td>0.1.0</td></tr>';

@@ -76,7 +76,7 @@ class ActionsLmdbSalesCommissions
 
 		$this->resprints = '<tr class="oddeven lmdbsalescommissions-estimated-commission">';
 		$this->resprints .= '<td colspan="'.$columnCount.'">';
-		$this->resprints .= '<table class="noborder centpercent lmdbsalescommissions-estimated-commission-table">';
+		$this->resprints .= '<table class="noborder liste centpercent lmdbsalescommissions-estimated-commission-table">';
 		if (isset($commissionData['message'])) {
 			$this->resprints .= '<tr class="liste_titre"><td>'.$langs->trans('LmdbSalesCommissionsEstimatedCommission').'</td></tr>';
 			$this->resprints .= '<tr class="oddeven"><td>'.$commissionData['message'].'</td></tr>';

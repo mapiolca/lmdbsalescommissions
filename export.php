@@ -202,7 +202,7 @@ llxHeader('', $langs->trans('LmdbSalesCommissionsExports'), '', '', 0, 0, array(
 print load_fiche_titre($langs->trans('LmdbSalesCommissionsExports'), '', 'fa-percent');
 
 print '<form method="GET" action="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'">';
-print '<table class="noborder centpercent">';
+print '<table class="noborder liste centpercent">';
 print '<tr class="liste_titre"><td colspan="2">'.$langs->trans('Filters').'</td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('SalesRepresentative').'</td><td>'.$form->selectarray('fk_user', lmdbsalescommissionsGetUserOptions($db), $fk_user, 1, 0, 0, '', 0, 0, 0, '', 'minwidth200', 1).'</td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('Group').'</td><td>'.$form->selectarray('fk_usergroup', lmdbsalescommissionsGetUserGroupOptions($db), $fk_usergroup, 1, 0, 0, '', 0, 0, 0, '', 'minwidth200', 1).'</td></tr>';
@@ -227,7 +227,7 @@ if ($month > 0) {
 }
 
 print '<br>';
-print '<table class="noborder centpercent">';
+print '<table class="noborder liste centpercent">';
 print '<tr class="liste_titre"><td>'.$langs->trans('Export').'</td><td>'.$langs->trans('Description').'</td><td class="center">'.$langs->trans('Action').'</td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('LmdbSalesCommissionsExportLines').'</td><td>'.$langs->trans('LmdbSalesCommissionsExportLinesDesc').'</td><td class="center"><a class="button small" href="'.dol_escape_htmltag($baseExportUrl.'&dataset=lines').'">'.$langs->trans('Download').'</a></td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('LmdbSalesCommissionsExportDue').'</td><td>'.$langs->trans('LmdbSalesCommissionsExportDueDesc').'</td><td class="center"><a class="button small" href="'.dol_escape_htmltag($baseExportUrl.'&dataset=due').'">'.$langs->trans('Download').'</a></td></tr>';

@@ -103,7 +103,7 @@ $head = lmdbsalescommissionsAdminPrepareHead();
 print dol_get_fiche_head($head, 'checks', $langs->trans('LmdbSalesCommissionsSetup'), -1, 'fa-percent');
 print load_fiche_titre($langs->trans('LmdbSalesCommissionsChecks'), lmdbsalescommissionsBuildModuleListLink(), 'title_setup');
 
-print '<table class="noborder centpercent">';
+print '<table class="noborder liste centpercent">';
 print '<tr class="liste_titre"><td>'.$langs->trans('Control').'</td><td class="center">'.$langs->trans('Severity').'</td><td class="right">'.$langs->trans('Number').'</td><td>'.$langs->trans('Comment').'</td></tr>';
 foreach ($checks as $check) {
 	$count = (int) $check['count'];

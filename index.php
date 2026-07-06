@@ -125,7 +125,7 @@ print load_fiche_titre($langs->trans('LmdbSalesCommissionsDashboard'), '', 'fa-p
 
 print '<form method="GET" action="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'">';
 print '<div class="div-table-responsive-no-min">';
-print '<table class="noborder centpercent">';
+print '<table class="noborder liste centpercent">';
 print '<tr class="liste_titre"><td colspan="4">'.$langs->trans('Filters').'</td></tr>';
 print '<tr class="oddeven">';
 print '<td>'.$langs->trans('SalesRepresentative').'</td><td>'.$form->selectarray('fk_user', lmdbsalescommissionsGetUserOptions($db), $fk_user, 1, 0, 0, '', 0, 0, 0, '', 'minwidth200', 1).'</td>';
@@ -137,7 +137,7 @@ print '</form>';
 
 print '<div class="fichecenter">';
 print '<div class="fichehalfleft">';
-print '<table class="noborder centpercent">';
+print '<table class="noborder liste centpercent">';
 print '<tr class="liste_titre"><td>'.$langs->trans('LmdbSalesCommissionsIndicator').'</td><td class="right">'.$langs->trans('Amount').'</td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('LmdbSalesCommissionsRuleTypeMargin').'</td><td class="right">'.price($summary['margin_total']).'</td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('LmdbSalesCommissionsRuleTypeTier').'</td><td class="right">'.price($summary['tier_total']).'</td></tr>';
@@ -147,7 +147,7 @@ print '<tr class="oddeven"><td>'.$langs->trans('LmdbSalesCommissionsPaidTotal').
 print '</table>';
 print '</div>';
 print '<div class="fichehalfright">';
-print '<table class="noborder centpercent">';
+print '<table class="noborder liste centpercent">';
 print '<tr class="liste_titre"><td>'.$langs->trans('LmdbSalesCommissionsIndicator').'</td><td class="right">'.$langs->trans('Amount').'</td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('AmountHT').'</td><td class="right">'.price($summary['amount_base_total']).'</td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('Margin').'</td><td class="right">'.price($summary['margin_base_total']).'</td></tr>';

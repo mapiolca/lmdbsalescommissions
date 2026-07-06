@@ -288,7 +288,7 @@ if ($mode === 'create' || $mode === 'edit') {
 	print '</table>';
 
 	print '<br>';
-	print '<table class="noborder centpercent">';
+	print '<table class="noborder liste centpercent">';
 	print '<tr class="liste_titre"><td>'.$langs->trans('LmdbSalesCommissionsThresholdAmount').'</td><td>'.$langs->trans('LmdbSalesCommissionsBonusAmount').'</td><td class="center">'.$langs->trans('Active').'</td></tr>';
 	foreach ($tierValues as $i => $tierData) {
 		print '<tr class="oddeven">';
@@ -323,7 +323,7 @@ if (!$resql) {
 	setEventMessages($db->lasterror(), null, 'errors');
 } else {
 	print '<br>';
-	print '<table class="noborder centpercent">';
+	print '<table class="noborder liste centpercent">';
 	print '<tr class="liste_titre">';
 	print '<td>'.$langs->trans('Ref').'</td>';
 	print '<td>'.$langs->trans('Label').'</td>';

@@ -34,7 +34,7 @@ $head = lmdbsalescommissionsAdminPrepareHead();
 print dol_get_fiche_head($head, 'compatibility', $langs->trans('LmdbSalesCommissionsSetup'), -1, 'fa-percent');
 print load_fiche_titre($langs->trans('LmdbSalesCommissionsCompatibility'), lmdbsalescommissionsBuildModuleListLink(), 'title_setup');
 
-print '<table class="noborder centpercent">';
+print '<table class="noborder liste centpercent">';
 print '<tr class="liste_titre"><td>'.$langs->trans('Parameter').'</td><td>'.$langs->trans('Value').'</td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('LmdbSalesCommissionsDetectedDolibarrVersion').'</td><td>'.dol_escape_htmltag(defined('DOL_VERSION') ? (string) DOL_VERSION : $langs->trans('Unknown')).'</td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('LmdbSalesCommissionsDetectedPhpVersion').'</td><td>'.dol_escape_htmltag(PHP_VERSION).'</td></tr>';
@@ -43,7 +43,7 @@ print '<tr class="oddeven"><td>'.$langs->trans('LmdbSalesCommissionsMinimumPhpVe
 print '</table>';
 
 print '<br>';
-print '<table class="noborder centpercent">';
+print '<table class="noborder liste centpercent">';
 print '<tr class="liste_titre">';
 print '<td>'.$langs->trans('Code').'</td>';
 print '<td>'.$langs->trans('Feature').'</td>';

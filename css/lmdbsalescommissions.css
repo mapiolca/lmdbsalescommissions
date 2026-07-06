@@ -12,20 +12,8 @@ body.mod-lmdbsalescommissions div.fiche table.tagtable {
 	border-collapse: collapse;
 }
 
-body.mod-lmdbsalescommissions div.fiche table.noborder tr:not(.liste_titre):not(.liste_titre_filter):not(.liste_total):nth-of-type(odd),
-body.mod-lmdbsalescommissions div.fiche table.border tr:not(.liste_titre):not(.liste_titre_filter):not(.liste_total):nth-of-type(odd),
-body.mod-lmdbsalescommissions div.fiche table.tagtable tr:not(.liste_titre):not(.liste_titre_filter):not(.liste_total):nth-of-type(odd) {
-	background-color: #ffffff;
-}
-
-body.mod-lmdbsalescommissions div.fiche table.noborder tr:not(.liste_titre):not(.liste_titre_filter):not(.liste_total):nth-of-type(even),
-body.mod-lmdbsalescommissions div.fiche table.border tr:not(.liste_titre):not(.liste_titre_filter):not(.liste_total):nth-of-type(even),
-body.mod-lmdbsalescommissions div.fiche table.tagtable tr:not(.liste_titre):not(.liste_titre_filter):not(.liste_total):nth-of-type(even) {
-	background-color: #f8f8f8;
-}
-
-body.mod-lmdbsalescommissions div.fiche table.noborder tr:not(.liste_titre):not(.liste_titre_filter):not(.liste_total):hover,
-body.mod-lmdbsalescommissions div.fiche table.border tr:not(.liste_titre):not(.liste_titre_filter):not(.liste_total):hover,
-body.mod-lmdbsalescommissions div.fiche table.tagtable tr:not(.liste_titre):not(.liste_titre_filter):not(.liste_total):hover {
-	background-color: #edf4fb;
+body.mod-lmdbsalescommissions div.pagination li.pagination a,
+body.mod-lmdbsalescommissions div.pagination li.pagination span:not(.inactive),
+body.mod-lmdbsalescommissions div.pagination li.pagination a i {
+	color: var(--color-black);
 }

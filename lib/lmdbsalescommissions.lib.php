@@ -964,7 +964,7 @@ function lmdbsalescommissionsCountVisibleColumns($arrayfields, $extraColumns = 0
  */
 function lmdbsalescommissionsPrintScaffoldTable($langs, $descriptionKey)
 {
-	print '<table class="noborder centpercent">';
+	print '<table class="noborder liste centpercent">';
 	print '<tr class="liste_titre"><td>'.$langs->trans('Description').'</td></tr>';
 	print '<tr class="oddeven"><td><span class="opacitymedium">'.$langs->trans($descriptionKey).'</span></td></tr>';
 	print '</table>';

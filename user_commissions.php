@@ -137,7 +137,7 @@ print '<div class="underbanner clearboth"></div>';
 
 print '<br>';
 print load_fiche_titre($langs->trans('LmdbSalesCommissionsUserTabSummary'), '', 'fa-percent');
-print '<table class="noborder centpercent">';
+print '<table class="noborder liste centpercent">';
 print '<tr class="liste_titre"><td>'.$langs->trans('LmdbSalesCommissionsIndicator').'</td><td class="right">'.$langs->trans('Amount').'</td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('LmdbSalesCommissionsEstimatedCommission').'</td><td class="right">'.price($summary['margin_estimated']).'</td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('LmdbSalesCommissionsRuleTypeMargin').'</td><td class="right">'.price($summary['margin_acquired']).'</td></tr>';
@@ -150,7 +150,7 @@ print '</table>';
 
 print '<br>';
 print load_fiche_titre($langs->trans('LmdbSalesCommissionsUserTabObjectives'), '', 'fa-bullseye');
-print '<table class="noborder centpercent">';
+print '<table class="noborder liste centpercent">';
 print '<tr class="liste_titre"><td>'.$langs->trans('Type').'</td><td class="right">'.$langs->trans('LmdbSalesCommissionsTargetValue').'</td><td class="right">'.$langs->trans('LmdbSalesCommissionsRealizedValue').'</td><td class="right">'.$langs->trans('LmdbSalesCommissionsAchievementRate').'</td></tr>';
 foreach (array(
 	$langs->trans('LmdbSalesCommissionsMonthlyObjective') => array($monthlyObjective, $monthlyRealized),
@@ -173,7 +173,7 @@ print '</table>';
 
 print '<br>';
 print load_fiche_titre($langs->trans('LmdbSalesCommissionsUserTabMargin'), '', 'fa-percent');
-print '<table class="noborder centpercent">';
+print '<table class="noborder liste centpercent">';
 print '<tr class="liste_titre"><td>'.$langs->trans('Date').'</td><td>'.$langs->trans('ThirdParty').'</td><td>'.$langs->trans('Source').'</td><td class="right">'.$langs->trans('Margin').'</td><td class="right">'.$langs->trans('Rate').'</td><td class="right">'.$langs->trans('LmdbSalesCommissionsCommissionTotal').'</td><td class="right">'.$langs->trans('LmdbSalesCommissionsPayableTotal').'</td><td class="right">'.$langs->trans('LmdbSalesCommissionsPaidTotal').'</td></tr>';
 $sql = 'SELECT l.date_acquired, l.fk_soc, l.source_type, l.fk_source, l.source_ref, l.margin_base, l.rate, l.commission_total, l.payable_total, l.paid_total, s.nom AS thirdparty_name';
 $sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_line AS l';
@@ -199,7 +199,7 @@ print '</table>';
 
 print '<br>';
 print load_fiche_titre($langs->trans('LmdbSalesCommissionsUserTabTier'), '', 'fa-layer-group');
-print '<table class="noborder centpercent">';
+print '<table class="noborder liste centpercent">';
 print '<tr class="liste_titre"><td>'.$langs->trans('Date').'</td><td>'.$langs->trans('Source').'</td><td class="right">'.$langs->trans('AmountHT').'</td><td class="right">'.$langs->trans('LmdbSalesCommissionsCommissionTotal').'</td><td class="right">'.$langs->trans('LmdbSalesCommissionsPayableTotal').'</td><td class="right">'.$langs->trans('LmdbSalesCommissionsPaidTotal').'</td></tr>';
 $sql = 'SELECT date_acquired, source_type, fk_source, source_ref, amount_base, commission_total, payable_total, paid_total';
 $sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_line';
@@ -224,7 +224,7 @@ print '</table>';
 
 print '<br>';
 print load_fiche_titre($langs->trans('LmdbSalesCommissionsUserTabDue'), '', 'fa-calendar-check');
-print '<table class="noborder centpercent">';
+print '<table class="noborder liste centpercent">';
 print '<tr class="liste_titre"><td>'.$langs->trans('Event').'</td><td>'.$langs->trans('Source').'</td><td class="right">'.$langs->trans('Amount').'</td><td class="center">'.$langs->trans('Status').'</td></tr>';
 $sql = 'SELECT d.event_type, d.amount, d.status, l.source_type, l.fk_source, l.source_ref';
 $sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_due AS d';
@@ -252,7 +252,7 @@ print '</table>';
 
 print '<br>';
 print load_fiche_titre($langs->trans('LmdbSalesCommissionsUserTabHistory'), '', 'fa-history');
-print '<table class="noborder centpercent">';
+print '<table class="noborder liste centpercent">';
 print '<tr class="liste_titre"><td>'.$langs->trans('Period').'</td><td class="right">'.$langs->trans('LmdbSalesCommissionsTargetValue').'</td><td class="right">'.$langs->trans('LmdbSalesCommissionsRealizedValue').'</td><td class="right">'.$langs->trans('LmdbSalesCommissionsAchievementRate').'</td><td class="center">'.$langs->trans('Status').'</td></tr>';
 $sql = 'SELECT objective_type, year, month, target_value, realized_value, achievement_rate, status';
 $sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_objective_archive';
