@@ -28,7 +28,7 @@ if ($action !== '') {
 	accessforbidden($langs->trans('LmdbSalesCommissionsActionNotAvailableYet'));
 }
 
-llxHeader('', $langs->trans('About'));
+llxHeader('', $langs->trans('About'), '', '', 0, 0, array(), lmdbsalescommissionsGetCssFiles(), '', lmdbsalescommissionsGetBodyClass());
 $head = lmdbsalescommissionsAdminPrepareHead();
 print dol_get_fiche_head($head, 'about', $langs->trans('LmdbSalesCommissionsSetup'), -1, 'fa-percent');
 print load_fiche_titre($langs->trans('About'), lmdbsalescommissionsBuildModuleListLink(), 'title_setup');
@@ -39,7 +39,7 @@ print '<tr class="oddeven"><td>'.$langs->trans('Module').'</td><td>'.$langs->tra
 print '<tr class="oddeven"><td>'.$langs->trans('Version').'</td><td>0.1.0</td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('Author').'</td><td>Pierre Ardoin &lt;developpeur@lesmetiersdubatiment.fr&gt;</td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('Description').'</td><td>'.$langs->trans('LmdbSalesCommissionsDescLong').'</td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('Compatibility').'</td><td>'.$langs->trans('LmdbSalesCommissionsCompatibilitySummary').'</td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('LmdbSalesCommissionsCompatibility').'</td><td>'.$langs->trans('LmdbSalesCommissionsCompatibilitySummary').'</td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('Dependencies').'</td><td>'.$langs->trans('LmdbSalesCommissionsNoMandatoryDependency').'</td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('MainFeatures').'</td><td>'.$langs->trans('LmdbSalesCommissionsMainFeaturesSummary').'</td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('License').'</td><td>AGPL-3.0-or-later</td></tr>';

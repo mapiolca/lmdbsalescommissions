@@ -197,7 +197,7 @@ if ($action === 'export') {
 
 $form = new Form($db);
 
-llxHeader('', $langs->trans('LmdbSalesCommissionsExports'));
+llxHeader('', $langs->trans('LmdbSalesCommissionsExports'), '', '', 0, 0, array(), lmdbsalescommissionsGetCssFiles(), '', lmdbsalescommissionsGetBodyClass());
 
 print load_fiche_titre($langs->trans('LmdbSalesCommissionsExports'), '', 'fa-percent');
 

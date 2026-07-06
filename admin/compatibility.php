@@ -29,10 +29,10 @@ if ($action !== '') {
 	accessforbidden($langs->trans('LmdbSalesCommissionsActionNotAvailableYet'));
 }
 
-llxHeader('', $langs->trans('Compatibility'));
+llxHeader('', $langs->trans('LmdbSalesCommissionsCompatibility'), '', '', 0, 0, array(), lmdbsalescommissionsGetCssFiles(), '', lmdbsalescommissionsGetBodyClass());
 $head = lmdbsalescommissionsAdminPrepareHead();
 print dol_get_fiche_head($head, 'compatibility', $langs->trans('LmdbSalesCommissionsSetup'), -1, 'fa-percent');
-print load_fiche_titre($langs->trans('Compatibility'), lmdbsalescommissionsBuildModuleListLink(), 'title_setup');
+print load_fiche_titre($langs->trans('LmdbSalesCommissionsCompatibility'), lmdbsalescommissionsBuildModuleListLink(), 'title_setup');
 
 print '<table class="noborder centpercent">';
 print '<tr class="liste_titre"><td>'.$langs->trans('Parameter').'</td><td>'.$langs->trans('Value').'</td></tr>';

@@ -190,7 +190,7 @@ if ($action === 'addobjective' || $action === 'updateobjective') {
 	}
 }
 
-llxHeader('', $langs->trans('LmdbSalesCommissionsObjectives'));
+llxHeader('', $langs->trans('LmdbSalesCommissionsObjectives'), '', '', 0, 0, array(), lmdbsalescommissionsGetCssFiles(), '', lmdbsalescommissionsGetBodyClass());
 
 $head = lmdbsalescommissionsAdminPrepareHead();
 print dol_get_fiche_head($head, 'objectives', $langs->trans('LmdbSalesCommissionsSetup'), -1, 'fa-percent');

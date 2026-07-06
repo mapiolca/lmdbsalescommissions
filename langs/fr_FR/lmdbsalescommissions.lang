@@ -17,6 +17,7 @@ LmdbSalesCommissionsAssignments=Affectation aux agents et groupes
 LmdbSalesCommissionsObjectives=Objectifs commerciaux
 LmdbSalesCommissionsMaintenance=Recalculs / maintenance
 LmdbSalesCommissionsChecks=Aide / contrôles
+LmdbSalesCommissionsCompatibility=Compatibilité
 LmdbSalesCommissionsActionNotAvailableYet=Cette action sera disponible dans une prochaine étape du module.
 LmdbSalesCommissionsDashboardScaffold=Le tableau de bord global sera alimenté lorsque les objets métier et les services de calcul seront disponibles.
 LmdbSalesCommissionsDueScaffold=La liste des commissions à verser sera développée après la création des échéances de versement.

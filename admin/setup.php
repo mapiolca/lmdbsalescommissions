@@ -37,7 +37,7 @@ if ($action !== '') {
 	accessforbidden($langs->trans('LmdbSalesCommissionsActionNotAvailableYet'));
 }
 
-llxHeader('', $langs->trans('LmdbSalesCommissionsSetup'));
+llxHeader('', $langs->trans('LmdbSalesCommissionsSetup'), '', '', 0, 0, array(), lmdbsalescommissionsGetCssFiles(), '', lmdbsalescommissionsGetBodyClass());
 
 $head = lmdbsalescommissionsAdminPrepareHead();
 print dol_get_fiche_head($head, 'settings', $langs->trans('LmdbSalesCommissionsSetup'), -1, 'fa-percent');

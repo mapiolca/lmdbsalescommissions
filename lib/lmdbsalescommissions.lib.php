@@ -62,7 +62,7 @@ function lmdbsalescommissionsAdminPrepareHead()
 	$h++;
 
 	$head[$h][0] = dol_buildpath('/lmdbsalescommissions/admin/compatibility.php', 1);
-	$head[$h][1] = $langs->trans('Compatibility');
+	$head[$h][1] = $langs->trans('LmdbSalesCommissionsCompatibility');
 	$head[$h][2] = 'compatibility';
 	$h++;
 
@@ -72,6 +72,32 @@ function lmdbsalescommissionsAdminPrepareHead()
 	$h++;
 
 	return $head;
+}
+
+/**
+ * Return module CSS files for pages rendered by llxHeader().
+ *
+ * @return array<int, string>
+ */
+function lmdbsalescommissionsGetCssFiles()
+{
+	return array(dol_buildpath('/lmdbsalescommissions/css/lmdbsalescommissions.css', 1));
+}
+
+/**
+ * Return body CSS classes for module pages.
+ *
+ * @param string $extraClass Extra body classes
+ * @return string
+ */
+function lmdbsalescommissionsGetBodyClass($extraClass = '')
+{
+	$bodyClass = 'mod-lmdbsalescommissions';
+	if ($extraClass !== '') {
+		$bodyClass .= ' '.$extraClass;
+	}
+
+	return $bodyClass;
 }
 
 /**

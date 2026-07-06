@@ -254,7 +254,7 @@ if ($action === 'addtiergrid' || $action === 'updatetiergrid') {
 	}
 }
 
-llxHeader('', $langs->trans('LmdbSalesCommissionsTierGrids'));
+llxHeader('', $langs->trans('LmdbSalesCommissionsTierGrids'), '', '', 0, 0, array(), lmdbsalescommissionsGetCssFiles(), '', lmdbsalescommissionsGetBodyClass());
 
 $head = lmdbsalescommissionsAdminPrepareHead();
 print dol_get_fiche_head($head, 'tiergrids', $langs->trans('LmdbSalesCommissionsSetup'), -1, 'fa-percent');

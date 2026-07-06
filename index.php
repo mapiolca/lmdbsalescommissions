@@ -119,7 +119,7 @@ if ($resdue && is_object($objdue = $db->fetch_object($resdue))) {
 	$db->free($resdue);
 }
 
-llxHeader('', $langs->trans('LmdbSalesCommissionsDashboard'));
+llxHeader('', $langs->trans('LmdbSalesCommissionsDashboard'), '', '', 0, 0, array(), lmdbsalescommissionsGetCssFiles(), '', lmdbsalescommissionsGetBodyClass());
 
 print load_fiche_titre($langs->trans('LmdbSalesCommissionsDashboard'), '', 'fa-percent');
 

@@ -17,6 +17,7 @@ LmdbSalesCommissionsAssignments=Agent and group assignments
 LmdbSalesCommissionsObjectives=Sales objectives
 LmdbSalesCommissionsMaintenance=Recalculations / maintenance
 LmdbSalesCommissionsChecks=Help / checks
+LmdbSalesCommissionsCompatibility=Compatibility
 LmdbSalesCommissionsActionNotAvailableYet=This action will be available in a later module step.
 LmdbSalesCommissionsDashboardScaffold=The global dashboard will be populated once business objects and calculation services are available.
 LmdbSalesCommissionsDueScaffold=The payable commissions list will be implemented after payment due dates are created.

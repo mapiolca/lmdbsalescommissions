@@ -117,7 +117,7 @@ $yearlyObjective = lmdbsalescommissionsCanReadObjectiveUserScope($user, $id) ? $
 $monthlyRealized = lmdbsalescommissions_user_sum_realized($db, $id, 'monthly', $year, $month, $entitySql);
 $yearlyRealized = lmdbsalescommissions_user_sum_realized($db, $id, 'yearly', $year, 0, $entitySql);
 
-llxHeader('', $langs->trans('LmdbSalesCommissions'));
+llxHeader('', $langs->trans('LmdbSalesCommissions'), '', '', 0, 0, array(), lmdbsalescommissionsGetCssFiles(), '', lmdbsalescommissionsGetBodyClass());
 
 $head = user_prepare_head($object);
 print dol_get_fiche_head($head, 'lmdbsalescommissions', $langs->trans('User'), -1, 'user');

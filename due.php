@@ -221,7 +221,7 @@ if (!$resql) {
 	setEventMessages($db->lasterror(), null, 'errors');
 }
 
-llxHeader('', $langs->trans('LmdbSalesCommissionsDue'));
+llxHeader('', $langs->trans('LmdbSalesCommissionsDue'), '', '', 0, 0, array(), lmdbsalescommissionsGetCssFiles(), '', lmdbsalescommissionsGetBodyClass());
 
 print_barre_liste($langs->trans('LmdbSalesCommissionsDue'), $page, $_SERVER['PHP_SELF'], $param, $sortfield, $sortorder, '', $num, $num, 'fa-percent', 0, '', '', $limit, 0, 0, 1);
 

@@ -98,7 +98,7 @@ $checks[] = array(
 	'count' => lmdbsalescommissions_check_count($db, 'SELECT COUNT(*) AS nb FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_objective AS o WHERE o.entity IN ('.$entityObjective.') AND o.active = 1 AND o.year < '.$currentYear.' AND NOT EXISTS (SELECT a.rowid FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_objective_archive AS a WHERE a.entity IN ('.$entityArchive.') AND a.fk_objective = o.rowid)'),
 );
 
-llxHeader('', $langs->trans('LmdbSalesCommissionsChecks'));
+llxHeader('', $langs->trans('LmdbSalesCommissionsChecks'), '', '', 0, 0, array(), lmdbsalescommissionsGetCssFiles(), '', lmdbsalescommissionsGetBodyClass());
 $head = lmdbsalescommissionsAdminPrepareHead();
 print dol_get_fiche_head($head, 'checks', $langs->trans('LmdbSalesCommissionsSetup'), -1, 'fa-percent');
 print load_fiche_titre($langs->trans('LmdbSalesCommissionsChecks'), lmdbsalescommissionsBuildModuleListLink(), 'title_setup');

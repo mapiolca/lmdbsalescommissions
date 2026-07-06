@@ -169,7 +169,7 @@ if ($action === 'archiveobjective') {
 	accessforbidden($langs->trans('LmdbSalesCommissionsActionNotAvailableYet'));
 }
 
-llxHeader('', $langs->trans('LmdbSalesCommissionsMaintenance'));
+llxHeader('', $langs->trans('LmdbSalesCommissionsMaintenance'), '', '', 0, 0, array(), lmdbsalescommissionsGetCssFiles(), '', lmdbsalescommissionsGetBodyClass());
 $head = lmdbsalescommissionsAdminPrepareHead();
 print dol_get_fiche_head($head, 'maintenance', $langs->trans('LmdbSalesCommissionsSetup'), -1, 'fa-percent');
 print load_fiche_titre($langs->trans('LmdbSalesCommissionsMaintenance'), lmdbsalescommissionsBuildModuleListLink(), 'title_setup');

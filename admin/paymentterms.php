@@ -235,7 +235,7 @@ if ($action === 'addpaymentterm' || $action === 'updatepaymentterm') {
 	}
 }
 
-llxHeader('', $langs->trans('LmdbSalesCommissionsPaymentTerms'));
+llxHeader('', $langs->trans('LmdbSalesCommissionsPaymentTerms'), '', '', 0, 0, array(), lmdbsalescommissionsGetCssFiles(), '', lmdbsalescommissionsGetBodyClass());
 
 $head = lmdbsalescommissionsAdminPrepareHead();
 print dol_get_fiche_head($head, 'paymentterms', $langs->trans('LmdbSalesCommissionsSetup'), -1, 'fa-percent');

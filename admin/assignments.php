@@ -167,7 +167,7 @@ if ($action === 'addassignment' || $action === 'updateassignment') {
 	}
 }
 
-llxHeader('', $langs->trans('LmdbSalesCommissionsAssignments'));
+llxHeader('', $langs->trans('LmdbSalesCommissionsAssignments'), '', '', 0, 0, array(), lmdbsalescommissionsGetCssFiles(), '', lmdbsalescommissionsGetBodyClass());
 
 $head = lmdbsalescommissionsAdminPrepareHead();
 print dol_get_fiche_head($head, 'assignments', $langs->trans('LmdbSalesCommissionsSetup'), -1, 'fa-percent');

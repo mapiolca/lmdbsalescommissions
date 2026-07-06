@@ -190,7 +190,7 @@ if (!$resql) {
 	setEventMessages($db->lasterror(), null, 'errors');
 }
 
-llxHeader('', $langs->trans('LmdbSalesCommissionsPaid'));
+llxHeader('', $langs->trans('LmdbSalesCommissionsPaid'), '', '', 0, 0, array(), lmdbsalescommissionsGetCssFiles(), '', lmdbsalescommissionsGetBodyClass());
 
 print_barre_liste($langs->trans('LmdbSalesCommissionsPaid'), $page, $_SERVER['PHP_SELF'], $param, $sortfield, $sortorder, '', $num, $num, 'fa-percent', 0, '', '', $limit, 0, 0, 1);
 
