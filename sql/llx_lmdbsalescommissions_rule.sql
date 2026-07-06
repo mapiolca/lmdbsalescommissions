@@ -1,0 +1,26 @@
+CREATE TABLE llx_lmdbsalescommissions_rule
+(
+	rowid integer AUTO_INCREMENT PRIMARY KEY,
+	entity integer DEFAULT 1 NOT NULL,
+	ref varchar(128) NOT NULL,
+	label varchar(255) NOT NULL,
+	rule_type varchar(32) NOT NULL,
+	rate double(10,4) DEFAULT NULL,
+	fk_tier_grid integer DEFAULT NULL,
+	fk_payment_term integer DEFAULT NULL,
+	source_type varchar(32) DEFAULT 'proposal' NOT NULL,
+	period_type varchar(32) DEFAULT 'monthly' NOT NULL,
+	cumulative tinyint DEFAULT 1 NOT NULL,
+	priority integer DEFAULT 0 NOT NULL,
+	active tinyint DEFAULT 1 NOT NULL,
+	date_start date DEFAULT NULL,
+	date_end date DEFAULT NULL,
+	negative_margin_mode varchar(32) DEFAULT 'zero' NOT NULL,
+	description text,
+	note_private text,
+	date_creation datetime NOT NULL,
+	tms timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+	fk_user_creat integer DEFAULT NULL,
+	fk_user_modif integer DEFAULT NULL,
+	import_key varchar(14)
+) ENGINE=innodb;

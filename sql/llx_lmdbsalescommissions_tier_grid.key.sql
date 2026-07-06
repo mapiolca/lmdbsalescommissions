@@ -1,0 +1,4 @@
+ALTER TABLE llx_lmdbsalescommissions_tier_grid ADD UNIQUE INDEX uk_lmdbsalescommissions_tier_grid_ref (entity, ref);
+ALTER TABLE llx_lmdbsalescommissions_tier_grid ADD INDEX idx_lmdbsalescommissions_tier_grid_entity (entity);
+ALTER TABLE llx_lmdbsalescommissions_tier_grid ADD INDEX idx_lmdbsalescommissions_tier_grid_period (period_type);
+ALTER TABLE llx_lmdbsalescommissions_tier_grid ADD INDEX idx_lmdbsalescommissions_tier_grid_active (active);

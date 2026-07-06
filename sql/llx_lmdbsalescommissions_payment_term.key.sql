@@ -1,0 +1,4 @@
+ALTER TABLE llx_lmdbsalescommissions_payment_term ADD UNIQUE INDEX uk_lmdbsalescommissions_payment_ref (entity, ref);
+ALTER TABLE llx_lmdbsalescommissions_payment_term ADD INDEX idx_lmdbsalescommissions_payment_entity (entity);
+ALTER TABLE llx_lmdbsalescommissions_payment_term ADD INDEX idx_lmdbsalescommissions_payment_active (active);
+ALTER TABLE llx_lmdbsalescommissions_payment_term ADD INDEX idx_lmdbsalescommissions_payment_default (is_default);

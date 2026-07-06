@@ -1,0 +1,8 @@
+ALTER TABLE llx_lmdbsalescommissions_rule_assignment ADD INDEX idx_lmdbsalescommissions_assign_entity (entity);
+ALTER TABLE llx_lmdbsalescommissions_rule_assignment ADD INDEX idx_lmdbsalescommissions_assign_type (assignment_type);
+ALTER TABLE llx_lmdbsalescommissions_rule_assignment ADD INDEX idx_lmdbsalescommissions_assign_user (fk_user);
+ALTER TABLE llx_lmdbsalescommissions_rule_assignment ADD INDEX idx_lmdbsalescommissions_assign_group (fk_usergroup);
+ALTER TABLE llx_lmdbsalescommissions_rule_assignment ADD INDEX idx_lmdbsalescommissions_assign_rule (fk_rule);
+ALTER TABLE llx_lmdbsalescommissions_rule_assignment ADD INDEX idx_lmdbsalescommissions_assign_payment (fk_payment_term);
+ALTER TABLE llx_lmdbsalescommissions_rule_assignment ADD INDEX idx_lmdbsalescommissions_assign_active (active);
+ALTER TABLE llx_lmdbsalescommissions_rule_assignment ADD INDEX idx_lmdbsalescommissions_assign_dates (date_start, date_end);

@@ -1,0 +1,8 @@
+ALTER TABLE llx_lmdbsalescommissions_objective ADD INDEX idx_lmdbsalescommissions_objective_entity (entity);
+ALTER TABLE llx_lmdbsalescommissions_objective ADD INDEX idx_lmdbsalescommissions_objective_type (assignment_type);
+ALTER TABLE llx_lmdbsalescommissions_objective ADD INDEX idx_lmdbsalescommissions_objective_user (fk_user);
+ALTER TABLE llx_lmdbsalescommissions_objective ADD INDEX idx_lmdbsalescommissions_objective_group (fk_usergroup);
+ALTER TABLE llx_lmdbsalescommissions_objective ADD INDEX idx_lmdbsalescommissions_objective_period (objective_type, year, month);
+ALTER TABLE llx_lmdbsalescommissions_objective ADD INDEX idx_lmdbsalescommissions_objective_base (base_type);
+ALTER TABLE llx_lmdbsalescommissions_objective ADD INDEX idx_lmdbsalescommissions_objective_active (active);
+ALTER TABLE llx_lmdbsalescommissions_objective ADD INDEX idx_lmdbsalescommissions_objective_dates (date_start, date_end);

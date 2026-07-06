@@ -1,0 +1,8 @@
+ALTER TABLE llx_lmdbsalescommissions_objective_archive ADD UNIQUE INDEX uk_lmdbsalescommissions_archive_user_period (entity, fk_user, objective_type, year, month);
+ALTER TABLE llx_lmdbsalescommissions_objective_archive ADD INDEX idx_lmdbsalescommissions_archive_entity (entity);
+ALTER TABLE llx_lmdbsalescommissions_objective_archive ADD INDEX idx_lmdbsalescommissions_archive_user (fk_user);
+ALTER TABLE llx_lmdbsalescommissions_objective_archive ADD INDEX idx_lmdbsalescommissions_archive_objective (fk_objective);
+ALTER TABLE llx_lmdbsalescommissions_objective_archive ADD INDEX idx_lmdbsalescommissions_archive_period (objective_type, year, month);
+ALTER TABLE llx_lmdbsalescommissions_objective_archive ADD INDEX idx_lmdbsalescommissions_archive_status (status);
+ALTER TABLE llx_lmdbsalescommissions_objective_archive ADD INDEX idx_lmdbsalescommissions_archive_date (date_archive);
+ALTER TABLE llx_lmdbsalescommissions_objective_archive ADD INDEX idx_lmdbsalescommissions_archive_user_archive (fk_user_archive);

@@ -1,0 +1,11 @@
+ALTER TABLE llx_lmdbsalescommissions_line ADD UNIQUE INDEX uk_lmdbsalescommissions_line_source_rule (entity, fk_user, source_type, fk_source, mode, fk_rule);
+ALTER TABLE llx_lmdbsalescommissions_line ADD INDEX idx_lmdbsalescommissions_line_entity (entity);
+ALTER TABLE llx_lmdbsalescommissions_line ADD INDEX idx_lmdbsalescommissions_line_user (fk_user);
+ALTER TABLE llx_lmdbsalescommissions_line ADD INDEX idx_lmdbsalescommissions_line_soc (fk_soc);
+ALTER TABLE llx_lmdbsalescommissions_line ADD INDEX idx_lmdbsalescommissions_line_source (source_type, fk_source);
+ALTER TABLE llx_lmdbsalescommissions_line ADD INDEX idx_lmdbsalescommissions_line_mode (mode);
+ALTER TABLE llx_lmdbsalescommissions_line ADD INDEX idx_lmdbsalescommissions_line_tier (fk_tier);
+ALTER TABLE llx_lmdbsalescommissions_line ADD INDEX idx_lmdbsalescommissions_line_rule (fk_rule);
+ALTER TABLE llx_lmdbsalescommissions_line ADD INDEX idx_lmdbsalescommissions_line_payment (fk_payment_term);
+ALTER TABLE llx_lmdbsalescommissions_line ADD INDEX idx_lmdbsalescommissions_line_status (status);
+ALTER TABLE llx_lmdbsalescommissions_line ADD INDEX idx_lmdbsalescommissions_line_acquired (date_acquired);

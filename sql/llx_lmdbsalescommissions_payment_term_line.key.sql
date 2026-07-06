@@ -1,0 +1,6 @@
+ALTER TABLE llx_lmdbsalescommissions_payment_term_line ADD UNIQUE INDEX uk_lmdbsalescommissions_payment_line_event (entity, fk_payment_term, event_type);
+ALTER TABLE llx_lmdbsalescommissions_payment_term_line ADD INDEX idx_lmdbsalescommissions_payment_line_entity (entity);
+ALTER TABLE llx_lmdbsalescommissions_payment_term_line ADD INDEX idx_lmdbsalescommissions_payment_line_term (fk_payment_term);
+ALTER TABLE llx_lmdbsalescommissions_payment_term_line ADD INDEX idx_lmdbsalescommissions_payment_line_event (event_type);
+ALTER TABLE llx_lmdbsalescommissions_payment_term_line ADD INDEX idx_lmdbsalescommissions_payment_line_rang (rang);
+ALTER TABLE llx_lmdbsalescommissions_payment_term_line ADD INDEX idx_lmdbsalescommissions_payment_line_active (active);
