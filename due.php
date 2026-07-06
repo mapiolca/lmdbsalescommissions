@@ -157,7 +157,7 @@ if ($search_mode !== '') {
 
 $sql = 'SELECT d.rowid, d.event_type, d.percentage, d.amount, d.status, d.date_due, d.date_paid,';
 $sql .= ' l.rowid AS line_id, l.fk_user, l.fk_soc, l.source_type, l.fk_source, l.source_ref, l.mode, l.commission_total,';
-$sql .= ' u.lastname, u.firstname, u.login, u.statut AS user_status, s.nom AS thirdparty_name';
+$sql .= ' u.lastname, u.firstname, u.login, u.statut AS user_status, u.photo AS user_photo, u.email AS user_email, s.nom AS thirdparty_name';
 $sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_due AS d';
 $sql .= ' INNER JOIN '.MAIN_DB_PREFIX.'lmdbsalescommissions_line AS l ON l.rowid = d.fk_commission_line AND l.entity = d.entity';
 $sql .= ' LEFT JOIN '.MAIN_DB_PREFIX.'user AS u ON u.rowid = l.fk_user';
@@ -217,7 +217,7 @@ print '<table class="tagtable liste centpercent" id="lmdbsalescommissions-due-li
 print '<tr class="liste_titre">';
 print_liste_field_titre('', $_SERVER['PHP_SELF'], '', '', '', '', $sortfield, $sortorder, 'center maxwidthsearch ');
 print_liste_field_titre('Source', $_SERVER['PHP_SELF'], 'l.source_ref', $param, '', '', $sortfield, $sortorder);
-print_liste_field_titre('DateDue', $_SERVER['PHP_SELF'], 'd.date_due', $param, '', '', $sortfield, $sortorder);
+print_liste_field_titre('DateDue', $_SERVER['PHP_SELF'], 'd.date_due', $param, '', '', $sortfield, $sortorder, 'center ');
 print_liste_field_titre('SalesRepresentative', $_SERVER['PHP_SELF'], 'u.lastname', $param, '', '', $sortfield, $sortorder);
 print_liste_field_titre('ThirdParty', $_SERVER['PHP_SELF'], 's.nom', $param, '', '', $sortfield, $sortorder);
 print_liste_field_titre('Mode', $_SERVER['PHP_SELF'], 'l.mode', $param, '', '', $sortfield, $sortorder);
@@ -259,8 +259,8 @@ if ($resql) {
 		print '<tr class="oddeven">';
 		print '<td class="center"></td>';
 		print '<td>'.lmdbsalescommissionsBuildSourceNomUrl($db, (string) $obj->source_type, (int) $obj->fk_source, (string) $obj->source_ref).'</td>';
-		print '<td>'.(!empty($obj->date_due) ? dol_print_date($db->jdate($obj->date_due), 'day') : '').'</td>';
-		print '<td>'.lmdbsalescommissionsBuildUserNomUrl($db, (int) $obj->fk_user, (string) $obj->lastname, (string) $obj->firstname, (string) $obj->login, (int) $obj->user_status).'</td>';
+		print '<td class="center">'.(!empty($obj->date_due) ? dol_print_date($db->jdate($obj->date_due), 'day') : '').'</td>';
+		print '<td>'.lmdbsalescommissionsBuildUserNomUrl($db, (int) $obj->fk_user, (string) $obj->lastname, (string) $obj->firstname, (string) $obj->login, (int) $obj->user_status, (string) $obj->user_photo, (string) $obj->user_email).'</td>';
 		print '<td>'.lmdbsalescommissionsBuildThirdpartyNomUrl($db, (int) $obj->fk_soc, (string) $obj->thirdparty_name).'</td>';
 		print '<td>'.dol_escape_htmltag(lmdbsalescommissionsGetModeLabel($langs, (string) $obj->mode)).'</td>';
 		print '<td>'.dol_escape_htmltag(lmdbsalescommissionsGetDueEventLabel($langs, (string) $obj->event_type)).'</td>';

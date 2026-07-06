@@ -530,9 +530,11 @@ function lmdbsalescommissionsStatusBadge($label, $type)
  * @param string $firstname First name
  * @param string $login     Login
  * @param int    $status    User status
+ * @param string $photo     User photo filename
+ * @param string $email     User email
  * @return string
  */
-function lmdbsalescommissionsBuildUserNomUrl($db, $userId, $lastname, $firstname, $login, $status = 1)
+function lmdbsalescommissionsBuildUserNomUrl($db, $userId, $lastname, $firstname, $login, $status = 1, $photo = '', $email = '')
 {
 	$label = trim((string) $firstname.' '.(string) $lastname);
 	if ($label === '') {
@@ -551,6 +553,8 @@ function lmdbsalescommissionsBuildUserNomUrl($db, $userId, $lastname, $firstname
 	$userstatic->login = (string) $login;
 	$userstatic->status = (int) $status;
 	$userstatic->statut = (int) $status;
+	$userstatic->photo = (string) $photo;
+	$userstatic->email = (string) $email;
 
 	return $userstatic->getNomUrl(-1, '', 0, 0, 0);
 }
