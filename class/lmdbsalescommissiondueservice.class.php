@@ -234,7 +234,7 @@ class LmdbSalesCommissionDueService
 		$due->percentage = $percentage;
 		$due->amount = $amount;
 		$due->status = $status;
-		$due->date_due = $status === self::STATUS_DUE ? dol_now() : null;
+		$due->date_due = $status === self::STATUS_DUE ? (!empty($line->date_acquired) ? (int) $line->date_acquired : dol_now()) : null;
 
 		$result = $due->create($user);
 		if ($result <= 0) {

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Ajout d'un rattrapage rétroactif manuel des devis signés depuis la maintenance, basé sur la date de signature.
+- Ajout des lignes de suivi `tracking` à commission nulle pour remonter le chiffre signé lorsqu'aucune règle de commissionnement ne s'applique.
+- Correction des agrégations de chiffre d'affaires/objectifs pour compter chaque devis une seule fois même s'il possède plusieurs lignes de commission.
+
 - Correction de l'initialisation du handler base de données des objets métier pour éviter une erreur fatale lors des créations via `CommonObject::createCommon()`.
 
 ## 0.1.0

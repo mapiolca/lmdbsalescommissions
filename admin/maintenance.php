@@ -17,6 +17,7 @@ require_once DOL_DOCUMENT_ROOT.'/core/class/html.form.class.php';
 require_once dol_buildpath('/lmdbsalescommissions/lib/lmdbsalescommissions.lib.php', 0);
 require_once dol_buildpath('/lmdbsalescommissions/class/lmdbsalescommissionobjectivearchiveservice.class.php', 0);
 require_once dol_buildpath('/lmdbsalescommissions/class/lmdbsalescommissiondueservice.class.php', 0);
+require_once dol_buildpath('/lmdbsalescommissions/class/lmdbsalescommissionretroactiveservice.class.php', 0);
 
 $langs->loadLangs(array('admin', 'lmdbsalescommissions@lmdbsalescommissions'));
 $action = GETPOST('action', 'aZ09');
@@ -126,6 +127,41 @@ if ($action === 'archiveobjective') {
 			setEventMessages($langs->trans('LmdbSalesCommissionsRebuildDuesDone', $processed, $created), null, 'mesgs');
 		}
 	}
+} elseif ($action === 'backfillsignedproposals') {
+	if (!lmdbsalescommissionsCanConfigure($user) && !lmdbsalescommissionsCanDo($user, 'maintenance', 'recalculate')) {
+		accessforbidden();
+	}
+	if (GETPOST('token', 'alpha') === '') {
+		accessforbidden($langs->trans('ErrorBadToken'));
+	}
+
+	$date_start = dol_mktime(0, 0, 0, GETPOSTINT('retroactive_date_startmonth'), GETPOSTINT('retroactive_date_startday'), GETPOSTINT('retroactive_date_startyear'));
+	$date_end = dol_mktime(23, 59, 59, GETPOSTINT('retroactive_date_endmonth'), GETPOSTINT('retroactive_date_endday'), GETPOSTINT('retroactive_date_endyear'));
+	$fk_user_backfill = GETPOSTINT('fk_user_backfill');
+
+	if ($date_start <= 0 || $date_end <= 0 || $date_end < $date_start) {
+		setEventMessages($langs->trans('LmdbSalesCommissionsBackfillInvalidPeriod'), null, 'errors');
+	} else {
+		$retroactiveService = new LmdbSalesCommissionRetroactiveService($db);
+		$stats = $retroactiveService->backfillSignedProposals($date_start, $date_end, $user, $fk_user_backfill);
+		$message = $langs->trans(
+			'LmdbSalesCommissionsRetroactiveBackfillDone',
+			$stats['analysed'],
+			$stats['processed'],
+			$stats['created'],
+			$stats['existing'],
+			$stats['tracking'],
+			$stats['skipped_no_user'],
+			$stats['errors']
+		);
+		if ($stats['errors'] > 0) {
+			$errors = $retroactiveService->error !== '' ? array($langs->trans($retroactiveService->error)) : array();
+			$errors = array_merge($errors, $retroactiveService->errors);
+			setEventMessages($message, $errors, 'warnings');
+		} else {
+			setEventMessages($message, null, 'mesgs');
+		}
+	}
 } elseif ($action !== '') {
 	accessforbidden($langs->trans('LmdbSalesCommissionsActionNotAvailableYet'));
 }
@@ -161,9 +197,28 @@ print '</table>';
 print '<div class="center"><input type="submit" class="button button-save" value="'.$langs->trans('LmdbSalesCommissionsRebuildDues').'"></div>';
 print '</form>';
 
+print '<br>';
+print '<form method="POST" action="'.$_SERVER['PHP_SELF'].'" name="retroactivebackfillform">';
+print '<input type="hidden" name="token" value="'.newToken().'">';
+print '<input type="hidden" name="action" value="backfillsignedproposals">';
+print '<table class="border centpercent">';
+print '<tr class="liste_titre"><td colspan="2">'.$langs->trans('LmdbSalesCommissionsRetroactiveBackfill').'</td></tr>';
+print '<tr><td colspan="2"><span class="opacitymedium">'.$langs->trans('LmdbSalesCommissionsRetroactiveBackfillDesc').'</span></td></tr>';
+print '<tr><td class="titlefield fieldrequired">'.$langs->trans('LmdbSalesCommissionsRetroactiveDateStart').'</td><td>';
+print $form->selectDate(GETPOSTINT('retroactive_date_startyear') > 0 ? dol_mktime(0, 0, 0, GETPOSTINT('retroactive_date_startmonth'), GETPOSTINT('retroactive_date_startday'), GETPOSTINT('retroactive_date_startyear')) : -1, 'retroactive_date_start', 0, 0, 1, 'retroactivebackfillform', 1, 0);
+print '</td></tr>';
+print '<tr><td class="fieldrequired">'.$langs->trans('LmdbSalesCommissionsRetroactiveDateEnd').'</td><td>';
+print $form->selectDate(GETPOSTINT('retroactive_date_endyear') > 0 ? dol_mktime(23, 59, 59, GETPOSTINT('retroactive_date_endmonth'), GETPOSTINT('retroactive_date_endday'), GETPOSTINT('retroactive_date_endyear')) : -1, 'retroactive_date_end', 0, 0, 1, 'retroactivebackfillform', 1, 0);
+print '</td></tr>';
+print '<tr><td>'.$langs->trans('SalesRepresentative').'</td><td>'.$form->selectarray('fk_user_backfill', $userOptions, GETPOSTINT('fk_user_backfill'), 1, 0, 0, '', 0, 0, 0, '', 'minwidth300').'</td></tr>';
+print '</table>';
+print '<div class="center"><input type="submit" class="button button-save" value="'.$langs->trans('LmdbSalesCommissionsRetroactiveBackfill').'"></div>';
+print '</form>';
+
 if (function_exists('ajax_combobox')) {
 	print ajax_combobox('fk_user');
 	print ajax_combobox('fk_user_rebuild');
+	print ajax_combobox('fk_user_backfill');
 	print ajax_combobox('objective_type');
 }
 

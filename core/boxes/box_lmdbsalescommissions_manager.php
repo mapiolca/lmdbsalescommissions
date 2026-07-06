@@ -60,7 +60,7 @@ class box_lmdbsalescommissions_manager extends ModeleBoxes
 
 		require_once dol_buildpath('/lmdbsalescommissions/class/lmdbsalescommissiondueservice.class.php', 0);
 
-		$sql = 'SELECT SUM(l.commission_total) AS commission_total, SUM(l.payable_total) AS payable_total, SUM(l.paid_total) AS paid_total, SUM(l.amount_base) AS amount_base_total, SUM(l.margin_base) AS margin_base_total';
+		$sql = 'SELECT SUM(l.commission_total) AS commission_total, SUM(l.payable_total) AS payable_total, SUM(l.paid_total) AS paid_total';
 		$sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_line AS l';
 		$sql .= ' WHERE l.entity IN ('.$this->db->sanitize(getEntity('lmdbsalescommissions_line')).')';
 		$values = array(
@@ -75,9 +75,23 @@ class box_lmdbsalescommissions_manager extends ModeleBoxes
 			$values['LmdbSalesCommissionsCommissionTotal'] = (float) $obj->commission_total;
 			$values['LmdbSalesCommissionsPayableTotal'] = (float) $obj->payable_total;
 			$values['LmdbSalesCommissionsPaidTotal'] = (float) $obj->paid_total;
-			$values['AmountHT'] = (float) $obj->amount_base_total;
-			$values['Margin'] = (float) $obj->margin_base_total;
 			$this->db->free($resql);
+		}
+
+		$sql = 'SELECT SUM(src.amount_base) AS amount_base_total, SUM(src.margin_base) AS margin_base_total';
+		$sql .= ' FROM (';
+		$sql .= ' SELECT l.entity, l.fk_user, l.source_type, l.fk_source, MAX(l.amount_base) AS amount_base, MAX(l.margin_base) AS margin_base';
+		$sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_line AS l';
+		$sql .= ' WHERE l.entity IN ('.$this->db->sanitize(getEntity('lmdbsalescommissions_line')).')';
+		$sql .= " AND l.source_type = 'proposal'";
+		$sql .= ' AND l.status = 1';
+		$sql .= ' GROUP BY l.entity, l.fk_user, l.source_type, l.fk_source';
+		$sql .= ') AS src';
+		$resbase = $this->db->query($sql);
+		if ($resbase && is_object($objbase = $this->db->fetch_object($resbase))) {
+			$values['AmountHT'] = (float) $objbase->amount_base_total;
+			$values['Margin'] = (float) $objbase->margin_base_total;
+			$this->db->free($resbase);
 		}
 
 		$sql = 'SELECT SUM(d.amount) AS amount_due';

@@ -20,6 +20,9 @@ class LmdbSalesCommissionLineService
 	public const STATUS_ACQUIRED = 1;
 	public const STATUS_CANCELLED = 6;
 	public const STATUS_BLOCKED = 7;
+	public const MODE_MARGIN = 'margin';
+	public const MODE_TIER = 'tier';
+	public const MODE_TRACKING = 'tracking';
 
 	/** @var DoliDB Database handler */
 	private $db;
@@ -29,6 +32,9 @@ class LmdbSalesCommissionLineService
 
 	/** @var array<int, string> Error list */
 	public $errors = array();
+
+	/** @var array{created:int, existing:int, tracking:int, errors:int} Last acquisition result counters */
+	public $lastResult = array('created' => 0, 'existing' => 0, 'tracking' => 0, 'errors' => 0);
 
 	/**
 	 * Constructor.
@@ -51,43 +57,81 @@ class LmdbSalesCommissionLineService
 	{
 		$this->error = '';
 		$this->errors = array();
+		$this->lastResult = array('created' => 0, 'existing' => 0, 'tracking' => 0, 'errors' => 0);
 
 		if (!is_object($proposal) || empty($proposal->id)) {
 			$this->error = 'LmdbSalesCommissionsInvalidProposal';
+			$this->lastResult['errors']++;
 			return -1;
 		}
 
-		$salesUserId = LmdbSalesCommissionProposalService::getSalesUserId($proposal);
+		$salesUserId = LmdbSalesCommissionProposalService::resolveSalesUserId($this->db, $proposal);
 		if ($salesUserId <= 0) {
 			$this->error = 'LmdbSalesCommissionsProposalWithoutSalesUser';
 			return 0;
 		}
 
 		$entity = !empty($proposal->entity) ? (int) $proposal->entity : 1;
+		$businessDate = LmdbSalesCommissionProposalService::getSignatureDate($proposal);
+		if ($businessDate <= 0) {
+			$businessDate = dol_now();
+		}
+
 		$resolver = new LmdbSalesCommissionRuleResolver($this->db);
-		$profile = $resolver->resolveForUser($salesUserId, dol_now(), $entity, 'proposal');
+		$profile = $resolver->resolveForUser($salesUserId, $businessDate, $entity, 'proposal');
 		if (!empty($profile['errors'])) {
 			$this->errors = $profile['errors'];
+			$this->lastResult['errors']++;
 			return -1;
 		}
 
 		$created = 0;
 		$margin = LmdbSalesCommissionProposalService::getEstimatedMargin($proposal);
 		$totalHt = property_exists($proposal, 'total_ht') && is_numeric($proposal->total_ht) ? (float) $proposal->total_ht : 0.0;
+		$hasCommissionRule = false;
 
+		if (isset($profile['selected']['margin']) && is_array($profile['selected']['margin'])) {
+			$hasCommissionRule = true;
+		}
 		if (isset($profile['selected']['margin']) && is_array($profile['selected']['margin']) && $margin !== null) {
 			$rule = $profile['selected']['margin'];
 			$base = max(0, $margin);
 			$rate = (float) ($rule['rate'] ?? 0);
-			$created += $this->createLineIfMissing($proposal, $user, $salesUserId, $entity, 'margin', $totalHt, $margin, $rate, $base * $rate / 100, $rule);
+			$result = $this->createLineIfMissing($proposal, $user, $salesUserId, $entity, self::MODE_MARGIN, $totalHt, $margin, $rate, $base * $rate / 100, $rule, $businessDate);
+			if ($result < 0) {
+				$this->lastResult['errors']++;
+				return -1;
+			}
+			$created += $result;
 		}
 
 		if (isset($profile['selected']['tier']) && is_array($profile['selected']['tier'])) {
+			$hasCommissionRule = true;
 			$rule = $profile['selected']['tier'];
-			$created += $this->createLineIfMissing($proposal, $user, $salesUserId, $entity, 'tier', $totalHt, null, null, 0.0, $rule);
+			$result = $this->createLineIfMissing($proposal, $user, $salesUserId, $entity, self::MODE_TIER, $totalHt, null, null, 0.0, $rule, $businessDate);
+			if ($result < 0) {
+				$this->lastResult['errors']++;
+				return -1;
+			}
+			$created += $result;
 			require_once __DIR__.'/lmdbsalescommissiontierservice.class.php';
 			$tierService = new LmdbSalesCommissionTierService($this->db);
-			$tierService->calculateForUser($salesUserId, $user, dol_now(), $entity);
+			$tierServiceResult = $tierService->calculateForUser($salesUserId, $user, $businessDate, $entity);
+			if (isset($tierServiceResult['status']) && $tierServiceResult['status'] === 'error') {
+				$this->error = $tierService->error;
+				$this->errors = $tierService->errors;
+				$this->lastResult['errors']++;
+				return -1;
+			}
+		}
+
+		if (!$hasCommissionRule) {
+			$result = $this->createTrackingLineIfMissing($proposal, $user, $salesUserId, $entity, $totalHt, $margin, $businessDate);
+			if ($result < 0) {
+				$this->lastResult['errors']++;
+				return -1;
+			}
+			$created += $result;
 		}
 
 		return $created;
@@ -135,11 +179,13 @@ class LmdbSalesCommissionLineService
 	 * @param float|null           $rate        Rate
 	 * @param float                $amount      Commission amount
 	 * @param array<string, mixed> $rule        Resolved rule
+	 * @param int                  $dateAcquired Acquisition date
 	 * @return int
 	 */
-	private function createLineIfMissing($proposal, $user, $salesUserId, $entity, $mode, $amountBase, $marginBase, $rate, $amount, array $rule)
+	private function createLineIfMissing($proposal, $user, $salesUserId, $entity, $mode, $amountBase, $marginBase, $rate, $amount, array $rule, $dateAcquired)
 	{
 		if ($this->lineExists($entity, $salesUserId, (int) $proposal->id, $mode, (int) $rule['rule_id'])) {
+			$this->lastResult['existing']++;
 			return 0;
 		}
 
@@ -159,7 +205,7 @@ class LmdbSalesCommissionLineService
 		$line->payable_total = 0;
 		$line->paid_total = 0;
 		$line->status = self::STATUS_ACQUIRED;
-		$line->date_acquired = dol_now();
+		$line->date_acquired = $dateAcquired;
 		$line->fk_rule = (int) $rule['rule_id'];
 		$line->fk_payment_term = isset($rule['fk_payment_term']) ? (int) $rule['fk_payment_term'] : null;
 		$line->rule_source = (string) $rule['source'];
@@ -185,6 +231,66 @@ class LmdbSalesCommissionLineService
 		}
 
 		dol_syslog(__METHOD__.': acquired '.$mode.' commission line '.$result.' for proposal '.$proposal->id, LOG_INFO);
+
+		$this->lastResult['created']++;
+
+		return 1;
+	}
+
+	/**
+	 * Create a zero-commission tracking line if no rule applies.
+	 *
+	 * @param object     $proposal     Proposal object
+	 * @param User       $user         Triggering user
+	 * @param int        $salesUserId  Sales user id
+	 * @param int        $entity       Entity id
+	 * @param float      $amountBase   Source amount
+	 * @param float|null $marginBase   Margin base
+	 * @param int        $dateAcquired Acquisition date
+	 * @return int
+	 */
+	private function createTrackingLineIfMissing($proposal, $user, $salesUserId, $entity, $amountBase, $marginBase, $dateAcquired)
+	{
+		if ($this->lineExists($entity, $salesUserId, (int) $proposal->id, self::MODE_TRACKING, 0)) {
+			$this->lastResult['existing']++;
+			$this->lastResult['tracking']++;
+			return 0;
+		}
+
+		$line = new LmdbSalesCommissionLine($this->db);
+		$line->entity = $entity;
+		$line->fk_user = $salesUserId;
+		$line->fk_soc = property_exists($proposal, 'socid') ? (int) $proposal->socid : null;
+		$line->source_type = 'proposal';
+		$line->fk_source = (int) $proposal->id;
+		$line->source_ref = property_exists($proposal, 'ref') ? (string) $proposal->ref : '';
+		$line->mode = self::MODE_TRACKING;
+		$line->amount_base = $amountBase;
+		$line->margin_base = $marginBase;
+		$line->rate = null;
+		$line->fk_tier = null;
+		$line->commission_total = 0;
+		$line->payable_total = 0;
+		$line->paid_total = 0;
+		$line->status = self::STATUS_ACQUIRED;
+		$line->date_acquired = $dateAcquired;
+		$line->fk_rule = 0;
+		$line->fk_payment_term = null;
+		$line->rule_source = 'none';
+		$line->snapshot_rule_label = 'LmdbSalesCommissionsTrackingWithoutRule';
+		$line->snapshot_rule_rate = null;
+
+		$result = $line->create($user);
+		if ($result <= 0) {
+			$this->error = $line->error;
+			$this->errors = $line->errors;
+			return -1;
+		}
+
+		dol_syslog(__METHOD__.': acquired tracking line '.$result.' for proposal '.$proposal->id, LOG_INFO);
+
+		$this->lastResult['created']++;
+		$this->lastResult['tracking']++;
 
 		return 1;
 	}

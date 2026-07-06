@@ -79,7 +79,7 @@ class LmdbSalesCommissionTierService
 		}
 
 		$bonus = is_array($reached) ? (float) $reached['bonus_amount'] : 0.0;
-		$lineResult = $this->upsertPeriodLine($fkUser, $user, $effectiveEntity, $rule, $period, $turnover, $bonus, $reached);
+		$lineResult = $this->upsertPeriodLine($fkUser, $user, $effectiveEntity, $rule, $period, $turnover, $bonus, $reached, $effectiveDate);
 		if ($lineResult < 0) {
 			return array('status' => 'error', 'error' => $this->error);
 		}
@@ -222,11 +222,12 @@ class LmdbSalesCommissionTierService
 	 * @param array<string, mixed>   $rule     Resolved rule
 	 * @param array<string, mixed>   $period   Period data
 	 * @param float                  $turnover Turnover
-	 * @param float                  $bonus    Bonus
-	 * @param array<string, mixed>|null $tier  Reached tier
+	 * @param float                     $bonus         Bonus
+	 * @param array<string, mixed>|null $tier          Reached tier
+	 * @param int                       $dateAcquired  Acquisition date
 	 * @return int
 	 */
-	private function upsertPeriodLine($fkUser, $user, $entity, array $rule, array $period, $turnover, $bonus, $tier)
+	private function upsertPeriodLine($fkUser, $user, $entity, array $rule, array $period, $turnover, $bonus, $tier, $dateAcquired)
 	{
 		$existingId = $this->fetchPeriodLineId($entity, $fkUser, (int) $period['key'], (int) $rule['rule_id']);
 		$line = new LmdbSalesCommissionLine($this->db);
@@ -250,7 +251,7 @@ class LmdbSalesCommissionTierService
 		$line->payable_total = 0;
 		$line->paid_total = 0;
 		$line->status = LmdbSalesCommissionLineService::STATUS_ACQUIRED;
-		$line->date_acquired = dol_now();
+		$line->date_acquired = $dateAcquired;
 		$line->fk_rule = (int) $rule['rule_id'];
 		$line->fk_payment_term = isset($rule['fk_payment_term']) ? (int) $rule['fk_payment_term'] : null;
 		$line->rule_source = (string) $rule['source'];

@@ -65,8 +65,7 @@ class box_lmdbsalescommissions_agent extends ModeleBoxes
 		$sql .= " SUM(CASE WHEN l.mode = 'margin' THEN l.commission_total ELSE 0 END) AS margin_total,";
 		$sql .= " SUM(CASE WHEN l.mode = 'tier' THEN l.commission_total ELSE 0 END) AS tier_total,";
 		$sql .= ' SUM(l.payable_total) AS payable_total,';
-		$sql .= ' SUM(l.paid_total) AS paid_total,';
-		$sql .= ' SUM(l.amount_base) AS amount_base_total';
+		$sql .= ' SUM(l.paid_total) AS paid_total';
 		$sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_line AS l';
 		$sql .= ' WHERE l.entity IN ('.$this->db->sanitize(getEntity('lmdbsalescommissions_line')).')';
 		$sql .= ' AND l.fk_user = '.((int) $user->id);
@@ -84,8 +83,23 @@ class box_lmdbsalescommissions_agent extends ModeleBoxes
 			$values['LmdbSalesCommissionsRuleTypeTier'] = (float) $obj->tier_total;
 			$values['LmdbSalesCommissionsPayableTotal'] = (float) $obj->payable_total;
 			$values['LmdbSalesCommissionsPaidTotal'] = (float) $obj->paid_total;
-			$values['AmountHT'] = (float) $obj->amount_base_total;
 			$this->db->free($resql);
+		}
+
+		$sql = 'SELECT SUM(src.amount_base) AS amount_base_total';
+		$sql .= ' FROM (';
+		$sql .= ' SELECT l.entity, l.fk_user, l.source_type, l.fk_source, MAX(l.amount_base) AS amount_base';
+		$sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_line AS l';
+		$sql .= ' WHERE l.entity IN ('.$this->db->sanitize(getEntity('lmdbsalescommissions_line')).')';
+		$sql .= ' AND l.fk_user = '.((int) $user->id);
+		$sql .= " AND l.source_type = 'proposal'";
+		$sql .= ' AND l.status = 1';
+		$sql .= ' GROUP BY l.entity, l.fk_user, l.source_type, l.fk_source';
+		$sql .= ') AS src';
+		$resbase = $this->db->query($sql);
+		if ($resbase && is_object($objbase = $this->db->fetch_object($resbase))) {
+			$values['AmountHT'] = (float) $objbase->amount_base_total;
+			$this->db->free($resbase);
 		}
 
 		$i = 0;

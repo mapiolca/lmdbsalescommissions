@@ -40,13 +40,18 @@ function lmdbsalescommissions_user_sum_realized($db, $fkUser, $type, $year, $mon
 	$dateStart = $type === 'monthly' ? dol_mktime(0, 0, 0, $month, 1, $year) : dol_mktime(0, 0, 0, 1, 1, $year);
 	$dateEnd = $type === 'monthly' ? dol_time_plus_duree(dol_time_plus_duree($dateStart, 1, 'm'), -1, 's') : dol_mktime(23, 59, 59, 12, 31, $year);
 
-	$sql = 'SELECT SUM(amount_base) AS realized';
+	$sql = 'SELECT SUM(src.amount_base) AS realized';
+	$sql .= ' FROM (';
+	$sql .= ' SELECT entity, fk_user, source_type, fk_source, MAX(amount_base) AS amount_base';
 	$sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_line';
 	$sql .= ' WHERE entity IN ('.$entitySql.')';
 	$sql .= ' AND fk_user = '.((int) $fkUser);
+	$sql .= " AND source_type = 'proposal'";
 	$sql .= ' AND status = 1';
 	$sql .= " AND date_acquired >= '".$db->idate($dateStart)."'";
 	$sql .= " AND date_acquired <= '".$db->idate($dateEnd)."'";
+	$sql .= ' GROUP BY entity, fk_user, source_type, fk_source';
+	$sql .= ') AS src';
 
 	$resql = $db->query($sql);
 	if (!$resql) {

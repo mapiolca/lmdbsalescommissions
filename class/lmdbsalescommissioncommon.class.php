@@ -71,7 +71,9 @@ abstract class LmdbSalesCommissionCommon extends CommonObject
 	{
 		global $conf;
 
-		$this->entity = (int) $conf->entity;
+		if (empty($this->entity)) {
+			$this->entity = (int) $conf->entity;
+		}
 
 		return $this->createCommon($user, $notrigger);
 	}

@@ -64,4 +64,155 @@ class LmdbSalesCommissionProposalService
 
 		return 0;
 	}
+
+	/**
+	 * Resolve the effective sales user for a historical proposal.
+	 *
+	 * Thirdparty sales representatives are the source of truth for backfills. When the
+	 * thirdparty has none or several representatives, the proposal author is used.
+	 *
+	 * @param DoliDB|null $db       Database handler
+	 * @param object      $proposal Proposal object
+	 * @return int
+	 */
+	public static function resolveSalesUserId($db, $proposal)
+	{
+		if (!is_object($proposal)) {
+			return 0;
+		}
+
+		$authorId = self::getProposalAuthorId($proposal);
+		$socid = 0;
+		foreach (array('socid', 'fk_soc') as $property) {
+			if (property_exists($proposal, $property) && (int) $proposal->{$property} > 0) {
+				$socid = (int) $proposal->{$property};
+				break;
+			}
+		}
+
+		if (is_object($db) && $socid > 0) {
+			$salesUsers = self::fetchThirdpartySalesUsers($db, $socid);
+			$countSalesUsers = count($salesUsers);
+			if ($countSalesUsers === 1) {
+				return (int) $salesUsers[0];
+			}
+			if ($countSalesUsers > 1 && $authorId > 0 && self::isUsableUserId($db, $authorId)) {
+				return $authorId;
+			}
+		}
+
+		if ($authorId > 0 && (!is_object($db) || self::isUsableUserId($db, $authorId))) {
+			return $authorId;
+		}
+
+		foreach (array('fk_user_comm', 'fk_user_commercial', 'commercial_id') as $property) {
+			if (property_exists($proposal, $property) && (int) $proposal->{$property} > 0 && (!is_object($db) || self::isUsableUserId($db, (int) $proposal->{$property}))) {
+				return (int) $proposal->{$property};
+			}
+		}
+
+		return 0;
+	}
+
+	/**
+	 * Return proposal signature date.
+	 *
+	 * @param object $proposal Proposal object
+	 * @return int Timestamp, 0 if unavailable
+	 */
+	public static function getSignatureDate($proposal)
+	{
+		if (!is_object($proposal)) {
+			return 0;
+		}
+
+		if (property_exists($proposal, 'date_signature') && (int) $proposal->date_signature > 0) {
+			return (int) $proposal->date_signature;
+		}
+
+		return 0;
+	}
+
+	/**
+	 * Return proposal author id.
+	 *
+	 * @param object $proposal Proposal object
+	 * @return int
+	 */
+	private static function getProposalAuthorId($proposal)
+	{
+		foreach (array('fk_user_author', 'user_author_id', 'user_creation_id') as $property) {
+			if (property_exists($proposal, $property) && (int) $proposal->{$property} > 0) {
+				return (int) $proposal->{$property};
+			}
+		}
+
+		return 0;
+	}
+
+	/**
+	 * Fetch active thirdparty sales users.
+	 *
+	 * @param DoliDB $db    Database handler
+	 * @param int    $socid Thirdparty id
+	 * @return array<int, int>
+	 */
+	private static function fetchThirdpartySalesUsers($db, $socid)
+	{
+		$salesUsers = array();
+		if ($socid <= 0) {
+			return $salesUsers;
+		}
+
+		$sql = 'SELECT DISTINCT sc.fk_user';
+		$sql .= ' FROM '.MAIN_DB_PREFIX.'societe_commerciaux AS sc';
+		$sql .= ' INNER JOIN '.MAIN_DB_PREFIX.'user AS u ON u.rowid = sc.fk_user';
+		$sql .= ' WHERE sc.fk_soc = '.((int) $socid);
+		$sql .= ' AND u.statut = 1';
+		$sql .= ' ORDER BY sc.fk_user ASC';
+
+		$resql = $db->query($sql);
+		if (!$resql) {
+			dol_syslog(__METHOD__.': '.$db->lasterror(), LOG_ERR);
+			return $salesUsers;
+		}
+
+		while (is_object($obj = $db->fetch_object($resql))) {
+			$salesUsers[] = (int) $obj->fk_user;
+		}
+		$db->free($resql);
+
+		return $salesUsers;
+	}
+
+	/**
+	 * Check that a user exists and is active.
+	 *
+	 * @param DoliDB $db     Database handler
+	 * @param int    $userId User id
+	 * @return bool
+	 */
+	private static function isUsableUserId($db, $userId)
+	{
+		if ($userId <= 0) {
+			return false;
+		}
+
+		$sql = 'SELECT rowid';
+		$sql .= ' FROM '.MAIN_DB_PREFIX.'user';
+		$sql .= ' WHERE rowid = '.((int) $userId);
+		$sql .= ' AND statut = 1';
+		$sql .= ' LIMIT 1';
+
+		$resql = $db->query($sql);
+		if (!$resql) {
+			dol_syslog(__METHOD__.': '.$db->lasterror(), LOG_ERR);
+			return false;
+		}
+
+		$isUsable = $db->num_rows($resql) > 0;
+		$db->free($resql);
+
+		return $isUsable;
+	}
 }

@@ -66,9 +66,7 @@ $sql .= " SUM(CASE WHEN l.mode = 'margin' THEN l.commission_total ELSE 0 END) AS
 $sql .= " SUM(CASE WHEN l.mode = 'tier' THEN l.commission_total ELSE 0 END) AS tier_total,";
 $sql .= ' SUM(l.commission_total) AS commission_total,';
 $sql .= ' SUM(l.payable_total) AS payable_total,';
-$sql .= ' SUM(l.paid_total) AS paid_total,';
-$sql .= ' SUM(l.amount_base) AS amount_base_total,';
-$sql .= ' SUM(l.margin_base) AS margin_base_total';
+$sql .= ' SUM(l.paid_total) AS paid_total';
 $sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_line AS l';
 $sql .= ' WHERE l.entity IN ('.$db->sanitize(getEntity('lmdbsalescommissions_line')).')';
 $sql .= $scope.$userfilter.$groupfilter;
@@ -84,9 +82,28 @@ $summary = array(
 );
 if ($resql && is_object($obj = $db->fetch_object($resql))) {
 	foreach ($summary as $key => $value) {
-		$summary[$key] = (float) $obj->{$key};
+		if (property_exists($obj, $key)) {
+			$summary[$key] = (float) $obj->{$key};
+		}
 	}
 	$db->free($resql);
+}
+
+$sql = 'SELECT SUM(src.amount_base) AS amount_base_total, SUM(src.margin_base) AS margin_base_total';
+$sql .= ' FROM (';
+$sql .= ' SELECT l.entity, l.fk_user, l.source_type, l.fk_source, MAX(l.amount_base) AS amount_base, MAX(l.margin_base) AS margin_base';
+$sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_line AS l';
+$sql .= ' WHERE l.entity IN ('.$db->sanitize(getEntity('lmdbsalescommissions_line')).')';
+$sql .= " AND l.source_type = 'proposal'";
+$sql .= ' AND l.status = 1';
+$sql .= $scope.$userfilter.$groupfilter;
+$sql .= ' GROUP BY l.entity, l.fk_user, l.source_type, l.fk_source';
+$sql .= ') AS src';
+$resbase = $db->query($sql);
+if ($resbase && is_object($objbase = $db->fetch_object($resbase))) {
+	$summary['amount_base_total'] = (float) $objbase->amount_base_total;
+	$summary['margin_base_total'] = (float) $objbase->margin_base_total;
+	$db->free($resbase);
 }
 
 $sql = 'SELECT SUM(d.amount) AS amount_due';

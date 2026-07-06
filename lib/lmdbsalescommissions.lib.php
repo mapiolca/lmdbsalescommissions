@@ -440,6 +440,7 @@ function lmdbsalescommissionsGetModeLabel($langs, $mode)
 	$labels = array(
 		'margin' => 'LmdbSalesCommissionsRuleTypeMargin',
 		'tier' => 'LmdbSalesCommissionsRuleTypeTier',
+		'tracking' => 'LmdbSalesCommissionsModeTracking',
 	);
 
 	return $langs->trans($labels[$mode] ?? $mode);
@@ -458,6 +459,7 @@ function lmdbsalescommissionsGetRuleSourceLabel($langs, $ruleSource)
 		'user' => 'User',
 		'group' => 'Group',
 		'default' => 'Default',
+		'none' => 'None',
 	);
 
 	return $langs->trans($labels[$ruleSource] ?? $ruleSource);
