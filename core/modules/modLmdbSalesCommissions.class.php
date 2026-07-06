@@ -37,7 +37,7 @@ class modLmdbSalesCommissions extends DolibarrModules
 		$this->name = preg_replace('/^mod/i', '', get_class($this));
 		$this->description = 'LmdbSalesCommissionsDesc';
 		$this->descriptionlong = 'LmdbSalesCommissionsDescLong';
-		$this->version = '0.1.0';
+		$this->version = '1.0';
 		$this->const_name = 'MAIN_MODULE_'.strtoupper($this->name);
 		$this->picto = 'fa-percent_fas_#f0b400';
 		$this->editor_name = 'Pierre Ardoin';
@@ -74,6 +74,38 @@ class modLmdbSalesCommissions extends DolibarrModules
 			),
 			array(
 				'file' => 'box_lmdbsalescommissions_manager.php@lmdbsalescommissions',
+				'enabledbydefaulton' => 'Home',
+			),
+			array(
+				'file' => 'box_lmdbsalescommissions_my_due.php@lmdbsalescommissions',
+				'enabledbydefaulton' => 'Home',
+			),
+			array(
+				'file' => 'box_lmdbsalescommissions_my_acquired_month.php@lmdbsalescommissions',
+				'enabledbydefaulton' => 'Home',
+			),
+			array(
+				'file' => 'box_lmdbsalescommissions_my_tier_progress.php@lmdbsalescommissions',
+				'enabledbydefaulton' => 'Home',
+			),
+			array(
+				'file' => 'box_lmdbsalescommissions_my_monthly_objective.php@lmdbsalescommissions',
+				'enabledbydefaulton' => 'Home',
+			),
+			array(
+				'file' => 'box_lmdbsalescommissions_due_global.php@lmdbsalescommissions',
+				'enabledbydefaulton' => 'Home',
+			),
+			array(
+				'file' => 'box_lmdbsalescommissions_agents_near_tier.php@lmdbsalescommissions',
+				'enabledbydefaulton' => 'Home',
+			),
+			array(
+				'file' => 'box_lmdbsalescommissions_late_objectives.php@lmdbsalescommissions',
+				'enabledbydefaulton' => 'Home',
+			),
+			array(
+				'file' => 'box_lmdbsalescommissions_anomalies.php@lmdbsalescommissions',
 				'enabledbydefaulton' => 'Home',
 			),
 		);

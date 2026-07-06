@@ -2,15 +2,14 @@
 /* Copyright (C) 2026		Pierre Ardoin <developpeur@lesmetiersdubatiment.fr> */
 
 include_once DOL_DOCUMENT_ROOT.'/core/boxes/modules_boxes.php';
+require_once dol_buildpath('/lmdbsalescommissions/class/LmdbSalesCommissionDashboardWidgetManager.class.php', 0);
 
 /**
- * Manager commission dashboard widget.
+ * Shared base for home dashboard boxes.
  */
-class box_lmdbsalescommissions_manager extends ModeleBoxes
+abstract class box_lmdbsalescommissions_dashboard_base extends ModeleBoxes
 {
-	public $boxcode = 'lmdbsalescommissions_manager';
 	public $boximg = 'fa-percent';
-	public $boxlabel = 'LmdbSalesCommissionsWidgetManager';
 	public $depends = array('lmdbsalescommissions');
 
 	/** @var DoliDB Database handler */
@@ -24,6 +23,12 @@ class box_lmdbsalescommissions_manager extends ModeleBoxes
 
 	/** @var array<int, array<int, array<string, mixed>>> Box content */
 	public $info_box_contents = array();
+
+	/** @var string Dashboard widget code reused by this home box */
+	protected $dashboardWidgetCode = '';
+
+	/** @var bool Force current user scope */
+	protected $forceOwnScope = false;
 
 	/**
 	 * Constructor.
@@ -47,36 +52,27 @@ class box_lmdbsalescommissions_manager extends ModeleBoxes
 	{
 		global $langs, $user;
 
-		unset($max);
-
 		$langs->loadLangs(array('lmdbsalescommissions@lmdbsalescommissions'));
-		$this->info_box_head = array('text' => $langs->trans('LmdbSalesCommissionsWidgetManager'));
+		$this->info_box_head = array('text' => $langs->trans($this->boxlabel));
 		$this->info_box_contents = array();
 
-		if (!isModEnabled('lmdbsalescommissions') || (!$user->admin && !$user->hasRight('lmdbsalescommissions', 'commission', 'readall'))) {
+		$manager = new LmdbSalesCommissionDashboardWidgetManager($this->db);
+		$definitions = $manager->getAllowedWidgetDefinitions($user);
+		if (!isset($definitions[$this->dashboardWidgetCode])) {
 			$this->info_box_contents[0][0] = array('td' => '', 'text' => $langs->trans('NotEnoughPermissions'), 'asis' => 0);
 			return;
 		}
 
-		require_once dol_buildpath('/lmdbsalescommissions/class/LmdbSalesCommissionDashboardService.class.php', 0);
-
 		$service = new LmdbSalesCommissionDashboardService($this->db);
 		$filters = $service->getDefaultFilters($user);
-		$summary = $service->getKpiSummary($filters, $user);
-		$values = array(
-			'LmdbSalesCommissionsCommissionTotal' => (float) $summary['commission_total'],
-			'LmdbSalesCommissionsPayableTotal' => (float) $summary['commission_due'],
-			'LmdbSalesCommissionsPaidTotal' => (float) $summary['commission_paid'],
-			'AmountHT' => (float) $summary['turnover_signed'],
-			'Margin' => (float) $summary['margin_signed'],
-		);
-
-		$i = 0;
-		foreach ($values as $label => $value) {
-			$this->info_box_contents[$i][0] = array('td' => 'class="tdoverflowmax200"', 'text' => $langs->trans($label), 'asis' => 0);
-			$this->info_box_contents[$i][1] = array('td' => 'class="right"', 'text' => price($value), 'asis' => 0);
-			$i++;
+		if ($this->forceOwnScope) {
+			$filters['fk_user'] = (int) $user->id;
 		}
+		$widget = new LmdbSalesCommissionDashboardWidget($this->db, $service, $definitions[$this->dashboardWidgetCode], $filters);
+		$widget->box_id = $this->boxcode;
+		$widget->boxcode = $this->boxcode;
+		$widget->loadBox($max);
+		$this->info_box_contents = $widget->info_box_contents;
 	}
 
 	/**

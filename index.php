@@ -19,14 +19,59 @@ if (!$res) {
 }
 
 require_once dol_buildpath('/lmdbsalescommissions/lib/lmdbsalescommissions.lib.php', 0);
-require_once dol_buildpath('/lmdbsalescommissions/class/lmdbsalescommissiondueservice.class.php', 0);
+require_once dol_buildpath('/lmdbsalescommissions/class/LmdbSalesCommissionDashboardService.class.php', 0);
+require_once dol_buildpath('/lmdbsalescommissions/class/LmdbSalesCommissionDashboardWidgetManager.class.php', 0);
 require_once DOL_DOCUMENT_ROOT.'/core/class/html.form.class.php';
+require_once DOL_DOCUMENT_ROOT.'/core/class/html.formother.class.php';
+require_once DOL_DOCUMENT_ROOT.'/core/lib/ajax.lib.php';
+
+/**
+ * Parse comma-separated widget codes from layout action.
+ *
+ * @param string $raw Raw input
+ * @return array<int, string>
+ */
+function lmdbsalescommissions_parse_widget_codes($raw)
+{
+	$codes = array();
+	foreach (explode(',', $raw) as $code) {
+		$code = trim($code);
+		if ($code !== '' && preg_match('/^[a-z0-9_]+$/', $code)) {
+			$codes[] = $code;
+		}
+	}
+
+	return array_values(array_unique($codes));
+}
+
+/**
+ * Return dashboard query string.
+ *
+ * @param array<string, mixed> $filters Dashboard filters
+ * @return string
+ */
+function lmdbsalescommissions_build_dashboard_param(array $filters)
+{
+	$param = '';
+	foreach (array('fk_user', 'fk_usergroup', 'year', 'month') as $key) {
+		if (!empty($filters[$key])) {
+			$param .= '&'.$key.'='.((int) $filters[$key]);
+		}
+	}
+	foreach (array('source', 'commission_type', 'status', 'objective_status') as $key) {
+		if (!empty($filters[$key]) && $filters[$key] !== 'all') {
+			$param .= '&'.$key.'='.urlencode((string) $filters[$key]);
+		}
+	}
+	$param .= lmdbsalescommissionsBuildDateFilterParams('date_start');
+	$param .= lmdbsalescommissionsBuildDateFilterParams('date_end');
+
+	return $param;
+}
 
 $langs->loadLangs(array('lmdbsalescommissions@lmdbsalescommissions'));
 
 $action = GETPOST('action', 'aZ09');
-$fk_user = GETPOSTINT('fk_user');
-$fk_usergroup = GETPOSTINT('fk_usergroup');
 
 if (!isModEnabled('lmdbsalescommissions')) {
 	accessforbidden();
@@ -36,126 +81,160 @@ if (!lmdbsalescommissionsCanReadCommissions($user)) {
 	accessforbidden();
 }
 
-if (!lmdbsalescommissionsCanReadUserScope($user, $fk_user)) {
+$form = new Form($db);
+$formother = new FormOther($db);
+$dashboardService = new LmdbSalesCommissionDashboardService($db);
+$widgetManager = new LmdbSalesCommissionDashboardWidgetManager($db);
+
+$rawFilters = array(
+	'fk_user' => GETPOSTINT('fk_user'),
+	'fk_usergroup' => GETPOSTINT('fk_usergroup'),
+	'year' => GETPOSTINT('year'),
+	'month' => GETPOSTINT('month'),
+	'date_start' => lmdbsalescommissionsGetDateFilterValue('date_start', false),
+	'date_end' => lmdbsalescommissionsGetDateFilterValue('date_end', true),
+	'source' => GETPOST('source', 'aZ09'),
+	'commission_type' => GETPOST('commission_type', 'aZ09'),
+	'status' => GETPOST('status', 'aZ09'),
+	'objective_status' => GETPOST('objective_status', 'aZ09'),
+);
+$filters = $dashboardService->normalizeFilters($rawFilters, $user);
+$param = lmdbsalescommissions_build_dashboard_param($filters);
+
+if ($filters['fk_user'] > 0 && !lmdbsalescommissionsCanReadUserScope($user, $filters['fk_user'])) {
 	accessforbidden();
 }
 
-if ($action !== '') {
+if ($action === 'savewidgetlayout') {
+	if (GETPOST('token', 'alpha') === '') {
+		accessforbidden($langs->trans('ErrorBadToken'));
+	}
+	$leftWidgets = lmdbsalescommissions_parse_widget_codes(GETPOST('left_widgets', 'alphanohtml'));
+	$rightWidgets = lmdbsalescommissions_parse_widget_codes(GETPOST('right_widgets', 'alphanohtml'));
+	$result = $widgetManager->saveUserWidgetLayout($user, $leftWidgets, $rightWidgets);
+	if ($result < 0) {
+		http_response_code(500);
+		print 'KO';
+	} else {
+		print 'OK';
+	}
+	exit;
+}
+
+if ($action === 'addwidget') {
+	if (GETPOST('token', 'alpha') === '') {
+		accessforbidden($langs->trans('ErrorBadToken'));
+	}
+	$widgetCode = GETPOST('widget_code', 'aZ09');
+	$states = $widgetManager->getUserWidgetStates($user);
+	$leftWidgets = array();
+	$rightWidgets = array();
+	foreach ($states as $code => $state) {
+		if (empty($state['visible'])) {
+			continue;
+		}
+		if ((int) $state['column'] === 0) {
+			$leftWidgets[] = $code;
+		} else {
+			$rightWidgets[] = $code;
+		}
+	}
+	$definitions = $widgetManager->getAllowedWidgetDefinitions($user);
+	if (isset($definitions[$widgetCode])) {
+		if (count($leftWidgets) <= count($rightWidgets)) {
+			$leftWidgets[] = $widgetCode;
+		} else {
+			$rightWidgets[] = $widgetCode;
+		}
+		$widgetManager->saveUserWidgetLayout($user, $leftWidgets, $rightWidgets);
+	}
+	header('Location: '.$_SERVER['PHP_SELF'].($param !== '' ? '?'.preg_replace('/^&/', '', $param) : ''));
+	exit;
+} elseif ($action !== '') {
 	accessforbidden($langs->trans('LmdbSalesCommissionsActionNotAvailableYet'));
 }
 
-$form = new Form($db);
-
-$param = '';
-if ($fk_user > 0) {
-	$param .= '&fk_user='.((int) $fk_user);
-}
-if ($fk_usergroup > 0) {
-	$param .= '&fk_usergroup='.((int) $fk_usergroup);
-}
-
-$scope = lmdbsalescommissionsBuildCommissionScopeSql($db, $user, 'l');
-$groupfilter = '';
-if ($fk_usergroup > 0) {
-	$groupfilter = ' AND EXISTS (SELECT ugu.rowid FROM '.MAIN_DB_PREFIX.'usergroup_user AS ugu WHERE ugu.fk_user = l.fk_user AND ugu.fk_usergroup = '.((int) $fk_usergroup).' AND ugu.entity IN ('.$db->sanitize(getEntity('usergroup')).'))';
-}
-$userfilter = $fk_user > 0 ? ' AND l.fk_user = '.((int) $fk_user) : '';
-
-$sql = 'SELECT';
-$sql .= " SUM(CASE WHEN l.mode = 'margin' THEN l.commission_total ELSE 0 END) AS margin_total,";
-$sql .= " SUM(CASE WHEN l.mode = 'tier' THEN l.commission_total ELSE 0 END) AS tier_total,";
-$sql .= ' SUM(l.commission_total) AS commission_total,';
-$sql .= ' SUM(l.payable_total) AS payable_total,';
-$sql .= ' SUM(l.paid_total) AS paid_total';
-$sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_line AS l';
-$sql .= ' WHERE l.entity IN ('.$db->sanitize(getEntity('lmdbsalescommissions_line')).')';
-$sql .= $scope.$userfilter.$groupfilter;
-$resql = $db->query($sql);
-$summary = array(
-	'margin_total' => 0.0,
-	'tier_total' => 0.0,
-	'commission_total' => 0.0,
-	'payable_total' => 0.0,
-	'paid_total' => 0.0,
-	'amount_base_total' => 0.0,
-	'margin_base_total' => 0.0,
-);
-if ($resql && is_object($obj = $db->fetch_object($resql))) {
-	foreach ($summary as $key => $value) {
-		if (property_exists($obj, $key)) {
-			$summary[$key] = (float) $obj->{$key};
-		}
-	}
-	$db->free($resql);
-}
-
-$sql = 'SELECT SUM(src.amount_base) AS amount_base_total, SUM(src.margin_base) AS margin_base_total';
-$sql .= ' FROM (';
-$sql .= ' SELECT l.entity, l.fk_user, l.source_type, l.fk_source, MAX(l.amount_base) AS amount_base, MAX(l.margin_base) AS margin_base';
-$sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_line AS l';
-$sql .= ' WHERE l.entity IN ('.$db->sanitize(getEntity('lmdbsalescommissions_line')).')';
-$sql .= " AND l.source_type = 'proposal'";
-$sql .= ' AND l.status = 1';
-$sql .= $scope.$userfilter.$groupfilter;
-$sql .= ' GROUP BY l.entity, l.fk_user, l.source_type, l.fk_source';
-$sql .= ') AS src';
-$resbase = $db->query($sql);
-if ($resbase && is_object($objbase = $db->fetch_object($resbase))) {
-	$summary['amount_base_total'] = (float) $objbase->amount_base_total;
-	$summary['margin_base_total'] = (float) $objbase->margin_base_total;
-	$db->free($resbase);
-}
-
-$sql = 'SELECT SUM(d.amount) AS amount_due';
-$sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_due AS d';
-$sql .= ' INNER JOIN '.MAIN_DB_PREFIX.'lmdbsalescommissions_line AS l ON l.rowid = d.fk_commission_line AND l.entity = d.entity';
-$sql .= ' WHERE d.entity IN ('.$db->sanitize(getEntity('lmdbsalescommissions_due')).')';
-$sql .= ' AND d.status = '.LmdbSalesCommissionDueService::STATUS_DUE;
-$sql .= $scope.$userfilter.$groupfilter;
-$resdue = $db->query($sql);
-$amount_due = 0.0;
-if ($resdue && is_object($objdue = $db->fetch_object($resdue))) {
-	$amount_due = (float) $objdue->amount_due;
-	$db->free($resdue);
-}
+$states = $widgetManager->getUserWidgetStates($user);
+$token = newToken();
+$selectboxlist = $widgetManager->renderAddBoxSelector($states, $token);
+$columns = $widgetManager->renderWidgetColumns($states, $filters, $user);
 
 llxHeader('', $langs->trans('LmdbSalesCommissionsDashboard'), '', '', 0, 0, array(), lmdbsalescommissionsGetCssFiles(), '', lmdbsalescommissionsGetBodyClass());
 
-print load_fiche_titre($langs->trans('LmdbSalesCommissionsDashboard'), '', 'fa-percent');
+print load_fiche_titre($langs->trans('LmdbSalesCommissionsDashboard'), $selectboxlist, 'fa-percent');
 
-print '<form method="GET" action="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'">';
+print '<form method="GET" action="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'" id="lmdbsalescommissions-dashboard-filters">';
 print '<div class="div-table-responsive-no-min">';
 print '<table class="noborder liste centpercent">';
 print '<tr class="liste_titre"><td colspan="4">'.$langs->trans('Filters').'</td></tr>';
 print '<tr class="oddeven">';
-print '<td>'.$langs->trans('SalesRepresentative').'</td><td>'.$form->selectarray('fk_user', lmdbsalescommissionsGetUserOptions($db), $fk_user, 1, 0, 0, '', 0, 0, 0, '', 'minwidth200', 1).'</td>';
-print '<td>'.$langs->trans('Group').'</td><td>'.$form->selectarray('fk_usergroup', lmdbsalescommissionsGetUserGroupOptions($db), $fk_usergroup, 1, 0, 0, '', 0, 0, 0, '', 'minwidth200', 1).' <button type="submit" class="button small">'.$langs->trans('Search').'</button></td>';
+print '<td>'.$langs->trans('SalesRepresentative').'</td>';
+$canChooseUser = !empty($user->admin) || $user->hasRight('lmdbsalescommissions', 'commission', 'readall') || $user->hasRight('lmdbsalescommissions', 'commission', 'readgroup');
+$userOptions = lmdbsalescommissionsGetAccessibleUserOptions($db, $user, $canChooseUser);
+print '<td>'.$form->selectarray('fk_user', $userOptions, (int) $filters['fk_user'], $canChooseUser ? 1 : 0, 0, 0, '', 0, 0, 0, '', 'minwidth200', 1).'</td>';
+print '<td>'.$langs->trans('Group').'</td>';
+print '<td>'.$form->selectarray('fk_usergroup', lmdbsalescommissionsGetAccessibleUserGroupOptions($db, $user, true), (int) $filters['fk_usergroup'], 1, 0, 0, '', 0, 0, 0, '', 'minwidth200', 1).'</td>';
+print '</tr>';
+print '<tr class="oddeven">';
+print '<td>'.$langs->trans('Year').'</td>';
+print '<td>'.$formother->selectyear((int) $filters['year'], 'year', 1, 5, 2, 0, 0, '', 'minwidth100', true).'</td>';
+print '<td>'.$langs->trans('Month').'</td>';
+$monthOptions = array(0 => '');
+for ($month = 1; $month <= 12; $month++) {
+	$monthOptions[$month] = dol_print_date(dol_mktime(0, 0, 0, $month, 1, 2000), '%B');
+}
+print '<td>'.$form->selectarray('month', $monthOptions, (int) $filters['month'], 1, 0, 0, '', 0, 0, 0, '', 'minwidth100', 1).'</td>';
+print '</tr>';
+print '<tr class="oddeven">';
+print '<td>'.$langs->trans('Date').'</td>';
+print '<td>'.lmdbsalescommissionsRenderDateRangeFilter($form, (int) $filters['date_start'], (int) $filters['date_end'], 'date_start', 'date_end', 'lmdbsalescommissions-dashboard-filters').'</td>';
+print '<td>'.$langs->trans('Source').'</td>';
+$sourceOptions = array('all' => $langs->trans('All'), 'proposal' => $langs->trans('Propal'), 'order' => $langs->trans('Order'), 'contract' => $langs->trans('Contract'));
+print '<td>'.$form->selectarray('source', $sourceOptions, (string) $filters['source'], 0, 0, 0, '', 0, 0, 0, '', 'minwidth150', 1).'</td>';
+print '</tr>';
+print '<tr class="oddeven">';
+print '<td>'.$langs->trans('LmdbSalesCommissionsCommissionType').'</td>';
+$typeOptions = array('all' => $langs->trans('All'), 'margin' => $langs->trans('LmdbSalesCommissionsRuleTypeMargin'), 'tier' => $langs->trans('LmdbSalesCommissionsRuleTypeTier'));
+print '<td>'.$form->selectarray('commission_type', $typeOptions, (string) $filters['commission_type'], 0, 0, 0, '', 0, 0, 0, '', 'minwidth150', 1).'</td>';
+print '<td>'.$langs->trans('Status').'</td>';
+$statusOptions = array(
+	'all' => $langs->trans('All'),
+	'estimated' => $langs->trans('LmdbSalesCommissionsLineStatusEstimated'),
+	'acquired' => $langs->trans('LmdbSalesCommissionsLineStatusAcquired'),
+	'payable' => $langs->trans('LmdbSalesCommissionsDueStatusDue'),
+	'paid' => $langs->trans('LmdbSalesCommissionsDueStatusPaid'),
+	'cancelled' => $langs->trans('LmdbSalesCommissionsLineStatusCancelled'),
+	'blocked' => $langs->trans('LmdbSalesCommissionsLineStatusBlocked'),
+);
+print '<td>'.$form->selectarray('status', $statusOptions, (string) $filters['status'], 0, 0, 0, '', 0, 0, 0, '', 'minwidth150', 1).'</td>';
+print '</tr>';
+print '<tr class="oddeven">';
+print '<td>'.$langs->trans('LmdbSalesCommissionsObjectives').'</td>';
+$objectiveStatusOptions = array(
+	'all' => $langs->trans('All'),
+	'achieved' => $langs->trans('LmdbSalesCommissionsObjectiveStatusAchieved'),
+	'not_achieved' => $langs->trans('LmdbSalesCommissionsObjectiveStatusNotAchieved'),
+	'no_objective' => $langs->trans('LmdbSalesCommissionsObjectiveStatusNoObjective'),
+);
+print '<td>'.$form->selectarray('objective_status', $objectiveStatusOptions, (string) $filters['objective_status'], 0, 0, 0, '', 0, 0, 0, '', 'minwidth150', 1).'</td>';
+print '<td></td>';
+print '<td><input type="submit" class="button small" value="'.$langs->trans('Search').'"> ';
+print '<a class="button small" href="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'">'.$langs->trans('Reset').'</a></td>';
 print '</tr>';
 print '</table>';
 print '</div>';
 print '</form>';
 
+print '<br>';
 print '<div class="fichecenter">';
-print '<div class="fichehalfleft">';
-print '<table class="noborder liste centpercent">';
-print '<tr class="liste_titre"><td>'.$langs->trans('LmdbSalesCommissionsIndicator').'</td><td class="right">'.$langs->trans('Amount').'</td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('LmdbSalesCommissionsRuleTypeMargin').'</td><td class="right">'.price($summary['margin_total']).'</td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('LmdbSalesCommissionsRuleTypeTier').'</td><td class="right">'.price($summary['tier_total']).'</td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('LmdbSalesCommissionsCommissionTotal').'</td><td class="right">'.price($summary['commission_total']).'</td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('LmdbSalesCommissionsDue').'</td><td class="right">'.price($amount_due).'</td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('LmdbSalesCommissionsPaidTotal').'</td><td class="right">'.price($summary['paid_total']).'</td></tr>';
-print '</table>';
+print '<div class="fichehalfleft" id="boxhalfleft">';
+print $columns['left'];
 print '</div>';
-print '<div class="fichehalfright">';
-print '<table class="noborder liste centpercent">';
-print '<tr class="liste_titre"><td>'.$langs->trans('LmdbSalesCommissionsIndicator').'</td><td class="right">'.$langs->trans('Amount').'</td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('AmountHT').'</td><td class="right">'.price($summary['amount_base_total']).'</td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('Margin').'</td><td class="right">'.price($summary['margin_base_total']).'</td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('LmdbSalesCommissionsPayableTotal').'</td><td class="right">'.price($summary['payable_total']).'</td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('LmdbSalesCommissionsRemainingToPay').'</td><td class="right">'.price(max(0, $summary['payable_total'] - $summary['paid_total'])).'</td></tr>';
-print '</table>';
+print '<div class="fichehalfright" id="boxhalfright">';
+print $columns['right'];
 print '</div>';
 print '</div>';
+print $widgetManager->renderLayoutScript($token);
 
 llxFooter();
 $db->close();
