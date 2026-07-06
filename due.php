@@ -151,8 +151,6 @@ if (!$resql) {
 
 llxHeader('', $langs->trans('LmdbSalesCommissionsDue'));
 
-print load_fiche_titre($langs->trans('LmdbSalesCommissionsDue'), '', 'fa-percent');
-
 print_barre_liste($langs->trans('LmdbSalesCommissionsDue'), $page, $_SERVER['PHP_SELF'], $param, $sortfield, $sortorder, '', $num, $num, 'fa-percent', 0, '', '', $limit);
 
 print '<table class="noborder centpercent">';
