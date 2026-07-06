@@ -51,6 +51,16 @@ abstract class LmdbSalesCommissionCommon extends CommonObject
 	public $import_key;
 
 	/**
+	 * Constructor.
+	 *
+	 * @param DoliDB $db Database handler
+	 */
+	public function __construct($db)
+	{
+		$this->db = $db;
+	}
+
+	/**
 	 * Create record.
 	 *
 	 * @param User $user      User making creation

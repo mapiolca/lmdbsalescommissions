@@ -1,5 +1,9 @@
 # ChangeLog
 
+## Unreleased
+
+- Correction de l'initialisation du handler base de données des objets métier pour éviter une erreur fatale lors des créations via `CommonObject::createCommon()`.
+
 ## 0.1.0
 
 - Création du socle du module `lmdbsalescommissions`.
