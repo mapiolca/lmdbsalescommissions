@@ -244,10 +244,11 @@ print '<input type="hidden" name="sortorder" value="'.dol_escape_htmltag($sortor
 print '<input type="hidden" name="limit" value="'.((int) $limit).'">';
 print '<table class="tagtable liste centpercent" id="lmdbsalescommissions-tracking-list">';
 print '<tr class="liste_titre">';
+print_liste_field_titre('', $_SERVER['PHP_SELF'], '', '', '', '', $sortfield, $sortorder, 'center maxwidthsearch ');
+print_liste_field_titre('Source', $_SERVER['PHP_SELF'], 'l.source_ref', $param, '', '', $sortfield, $sortorder);
 print_liste_field_titre('Date', $_SERVER['PHP_SELF'], 'l.date_acquired', $param, '', '', $sortfield, $sortorder);
 print_liste_field_titre('SalesRepresentative', $_SERVER['PHP_SELF'], 'u.lastname', $param, '', '', $sortfield, $sortorder);
 print_liste_field_titre('ThirdParty', $_SERVER['PHP_SELF'], 's.nom', $param, '', '', $sortfield, $sortorder);
-print_liste_field_titre('Source', $_SERVER['PHP_SELF'], 'l.source_ref', $param, '', '', $sortfield, $sortorder);
 print_liste_field_titre('Mode', $_SERVER['PHP_SELF'], 'l.mode', $param, '', '', $sortfield, $sortorder);
 print_liste_field_titre('AmountHT', $_SERVER['PHP_SELF'], 'l.amount_base', $param, '', 'class="right"', $sortfield, $sortorder);
 print_liste_field_titre('Margin', $_SERVER['PHP_SELF'], 'l.margin_base', $param, '', 'class="right"', $sortfield, $sortorder);
@@ -259,26 +260,19 @@ print_liste_field_titre('Status', $_SERVER['PHP_SELF'], 'l.status', $param, '', 
 print '</tr>';
 
 print '<tr class="liste_titre_filter">';
-$dateFilter = '';
-if (!empty($conf->main_checkbox_left_column)) {
-	$dateFilter .= $form->showFilterButtons('left');
-}
-$dateFilter .= lmdbsalescommissionsRenderDateRangeFilter($form, $search_date_start, $search_date_end, 'search_date_start', 'search_date_end');
-if (empty($conf->main_checkbox_left_column)) {
-	$dateFilter .= $form->showFilterButtons();
-}
-print '<td class="liste_titre center">'.$dateFilter.'</td>';
+print '<td class="liste_titre center maxwidthsearch">'.$form->showFilterButtons('left').'</td>';
+print '<td>';
+print '<input type="text" class="flat maxwidth100" name="search_source_ref" value="'.dol_escape_htmltag($search_source_ref).'">';
+print '<br>';
+print $form->selectarray('search_source_type', $source_type_options, $search_source_type, 1, 0, 0, '', 0, 0, 0, '', 'maxwidth100', 1);
+print '</td>';
+print '<td class="liste_titre center">'.lmdbsalescommissionsRenderDateRangeFilter($form, $search_date_start, $search_date_end, 'search_date_start', 'search_date_end').'</td>';
 print '<td>';
 print $form->selectarray('fk_user', lmdbsalescommissionsGetUserOptions($db), $fk_user, 1, 0, 0, '', 0, 0, 0, '', 'minwidth150 maxwidth200', 1);
 print '<br>';
 print $form->selectarray('fk_usergroup', lmdbsalescommissionsGetUserGroupOptions($db), $fk_usergroup, 1, 0, 0, '', 0, 0, 0, '', 'minwidth150 maxwidth200', 1);
 print '</td>';
 print '<td><input type="text" class="flat width50" name="fk_soc" value="'.($fk_soc > 0 ? (int) $fk_soc : '').'"></td>';
-print '<td>';
-print '<input type="text" class="flat maxwidth100" name="search_source_ref" value="'.dol_escape_htmltag($search_source_ref).'">';
-print '<br>';
-print $form->selectarray('search_source_type', $source_type_options, $search_source_type, 1, 0, 0, '', 0, 0, 0, '', 'maxwidth100', 1);
-print '</td>';
 print '<td>';
 print $form->selectarray('search_mode', $mode_options, $search_mode, 1, 0, 0, '', 0, 0, 0, '', 'minwidth125 maxwidth200', 1);
 print '<br>';
@@ -305,10 +299,11 @@ if ($resql) {
 		$status = (int) $obj->status;
 
 		print '<tr class="oddeven">';
+		print '<td class="center"></td>';
+		print '<td>'.lmdbsalescommissionsBuildSourceNomUrl($db, (string) $obj->source_type, (int) $obj->fk_source, (string) $obj->source_ref).'</td>';
 		print '<td>'.dol_print_date($db->jdate($obj->date_acquired), 'day').'</td>';
 		print '<td>'.lmdbsalescommissionsBuildUserNomUrl($db, (int) $obj->fk_user, (string) $obj->lastname, (string) $obj->firstname, (string) $obj->login, (int) $obj->user_status).'</td>';
 		print '<td>'.lmdbsalescommissionsBuildThirdpartyNomUrl($db, (int) $obj->fk_soc, (string) $obj->thirdparty_name).'</td>';
-		print '<td>'.lmdbsalescommissionsBuildSourceNomUrl($db, (string) $obj->source_type, (int) $obj->fk_source, (string) $obj->source_ref).'</td>';
 		print '<td>'.dol_escape_htmltag(lmdbsalescommissionsGetModeLabel($langs, (string) $obj->mode)).'</td>';
 		print '<td class="right">'.price((float) $obj->amount_base).'</td>';
 		print '<td class="right">'.($obj->margin_base !== null ? price((float) $obj->margin_base) : '').'</td>';
@@ -321,14 +316,14 @@ if ($resql) {
 	}
 	$db->free($resql);
 	if ($nb === 0) {
-		lmdbsalescommissionsPrintNoRecordRow($langs, 12);
+		lmdbsalescommissionsPrintNoRecordRow($langs, 13);
 	} else {
 		print '<tr class="liste_total">';
-		print '<td colspan="8">'.$langs->trans('Total').'</td><td class="right">'.price($sum_commission).'</td><td class="right">'.price($sum_payable).'</td><td class="right">'.price($sum_paid).'</td><td></td>';
+		print '<td colspan="9">'.$langs->trans('Total').'</td><td class="right">'.price($sum_commission).'</td><td class="right">'.price($sum_payable).'</td><td class="right">'.price($sum_paid).'</td><td></td>';
 		print '</tr>';
 	}
 } else {
-	lmdbsalescommissionsPrintNoRecordRow($langs, 12);
+	lmdbsalescommissionsPrintNoRecordRow($langs, 13);
 }
 print '</table>';
 print '</form>';

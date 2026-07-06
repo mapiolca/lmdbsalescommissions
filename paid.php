@@ -182,35 +182,29 @@ print '<input type="hidden" name="sortorder" value="'.dol_escape_htmltag($sortor
 print '<input type="hidden" name="limit" value="'.((int) $limit).'">';
 print '<table class="tagtable liste centpercent" id="lmdbsalescommissions-paid-list">';
 print '<tr class="liste_titre">';
+print_liste_field_titre('', $_SERVER['PHP_SELF'], '', '', '', '', $sortfield, $sortorder, 'center maxwidthsearch ');
+print_liste_field_titre('Source', $_SERVER['PHP_SELF'], 'l.source_ref', $param, '', '', $sortfield, $sortorder);
 print_liste_field_titre('DatePayment', $_SERVER['PHP_SELF'], 'd.date_paid', $param, '', '', $sortfield, $sortorder);
 print_liste_field_titre('SalesRepresentative', $_SERVER['PHP_SELF'], 'u.lastname', $param, '', '', $sortfield, $sortorder);
 print_liste_field_titre('ThirdParty', $_SERVER['PHP_SELF'], 's.nom', $param, '', '', $sortfield, $sortorder);
-print_liste_field_titre('Source', $_SERVER['PHP_SELF'], 'l.source_ref', $param, '', '', $sortfield, $sortorder);
-print_liste_field_titre('Event', $_SERVER['PHP_SELF'], 'd.event_type', $param, '', '', $sortfield, $sortorder);
 print_liste_field_titre('Mode', $_SERVER['PHP_SELF'], 'l.mode', $param, '', '', $sortfield, $sortorder);
+print_liste_field_titre('Event', $_SERVER['PHP_SELF'], 'd.event_type', $param, '', '', $sortfield, $sortorder);
 print_liste_field_titre('Amount', $_SERVER['PHP_SELF'], 'd.amount', $param, '', 'class="right"', $sortfield, $sortorder);
 print_liste_field_titre('LmdbSalesCommissionsPaidBy', $_SERVER['PHP_SELF'], 'up.lastname', $param, '', '', $sortfield, $sortorder);
 print '</tr>';
 
 print '<tr class="liste_titre_filter">';
-$dateFilter = '';
-if (!empty($conf->main_checkbox_left_column)) {
-	$dateFilter .= $form->showFilterButtons('left');
-}
-$dateFilter .= lmdbsalescommissionsRenderDateRangeFilter($form, $search_date_start, $search_date_end, 'search_date_start', 'search_date_end');
-if (empty($conf->main_checkbox_left_column)) {
-	$dateFilter .= $form->showFilterButtons();
-}
-print '<td class="liste_titre center">'.$dateFilter.'</td>';
+print '<td class="liste_titre center maxwidthsearch">'.$form->showFilterButtons('left').'</td>';
+print '<td><input type="text" class="flat maxwidth100" name="search_source_ref" value="'.dol_escape_htmltag($search_source_ref).'"></td>';
+print '<td class="liste_titre center">'.lmdbsalescommissionsRenderDateRangeFilter($form, $search_date_start, $search_date_end, 'search_date_start', 'search_date_end').'</td>';
 print '<td>';
 print $form->selectarray('fk_user', lmdbsalescommissionsGetUserOptions($db), $fk_user, 1, 0, 0, '', 0, 0, 0, '', 'minwidth150 maxwidth200', 1);
 print '<br>';
 print $form->selectarray('fk_usergroup', lmdbsalescommissionsGetUserGroupOptions($db), $fk_usergroup, 1, 0, 0, '', 0, 0, 0, '', 'minwidth150 maxwidth200', 1);
 print '</td>';
 print '<td></td>';
-print '<td><input type="text" class="flat maxwidth100" name="search_source_ref" value="'.dol_escape_htmltag($search_source_ref).'"></td>';
-print '<td>'.$form->selectarray('search_event_type', array('proposal_signed' => $langs->trans('LmdbSalesCommissionsEventProposalSigned'), 'deposit_paid' => $langs->trans('LmdbSalesCommissionsEventDepositPaid'), 'final_invoice_paid' => $langs->trans('LmdbSalesCommissionsEventFinalInvoicePaid')), $search_event_type, 1, 0, 0, '', 0, 0, 0, '', 'minwidth150 maxwidth200', 1).'</td>';
 print '<td>'.$form->selectarray('search_mode', array('margin' => $langs->trans('LmdbSalesCommissionsRuleTypeMargin'), 'tier' => $langs->trans('LmdbSalesCommissionsRuleTypeTier'), 'tracking' => $langs->trans('LmdbSalesCommissionsModeTracking')), $search_mode, 1, 0, 0, '', 0, 0, 0, '', 'minwidth125 maxwidth200', 1).'</td>';
+print '<td>'.$form->selectarray('search_event_type', array('proposal_signed' => $langs->trans('LmdbSalesCommissionsEventProposalSigned'), 'deposit_paid' => $langs->trans('LmdbSalesCommissionsEventDepositPaid'), 'final_invoice_paid' => $langs->trans('LmdbSalesCommissionsEventFinalInvoicePaid')), $search_event_type, 1, 0, 0, '', 0, 0, 0, '', 'minwidth150 maxwidth200', 1).'</td>';
 print '<td></td>';
 print '<td></td>';
 print '</tr>';
@@ -224,26 +218,27 @@ if ($resql) {
 		}
 
 		print '<tr class="oddeven">';
+		print '<td class="center"></td>';
+		print '<td>'.lmdbsalescommissionsBuildSourceNomUrl($db, (string) $obj->source_type, (int) $obj->fk_source, (string) $obj->source_ref).'</td>';
 		print '<td>'.dol_print_date($db->jdate($obj->date_paid), 'day').'</td>';
 		print '<td>'.lmdbsalescommissionsBuildUserNomUrl($db, (int) $obj->fk_user, (string) $obj->lastname, (string) $obj->firstname, (string) $obj->login, (int) $obj->user_status).'</td>';
 		print '<td>'.lmdbsalescommissionsBuildThirdpartyNomUrl($db, (int) $obj->fk_soc, (string) $obj->thirdparty_name).'</td>';
-		print '<td>'.lmdbsalescommissionsBuildSourceNomUrl($db, (string) $obj->source_type, (int) $obj->fk_source, (string) $obj->source_ref).'</td>';
-		print '<td>'.dol_escape_htmltag(lmdbsalescommissionsGetDueEventLabel($langs, (string) $obj->event_type)).'</td>';
 		print '<td>'.dol_escape_htmltag(lmdbsalescommissionsGetModeLabel($langs, (string) $obj->mode)).'</td>';
+		print '<td>'.dol_escape_htmltag(lmdbsalescommissionsGetDueEventLabel($langs, (string) $obj->event_type)).'</td>';
 		print '<td class="right">'.price((float) $obj->amount).'</td>';
 		print '<td>'.lmdbsalescommissionsBuildUserNomUrl($db, (int) $obj->fk_user_paid, (string) $obj->paid_lastname, (string) $obj->paid_firstname, (string) $obj->paid_login, (int) $obj->paid_user_status).'</td>';
 		print '</tr>';
 	}
 	$db->free($resql);
 	if ($nb === 0) {
-		lmdbsalescommissionsPrintNoRecordRow($langs, 8);
+		lmdbsalescommissionsPrintNoRecordRow($langs, 9);
 	} else {
 		print '<tr class="liste_total">';
-		print '<td colspan="6">'.$langs->trans('Total').'</td><td class="right">'.price($sum_paid).'</td><td></td>';
+		print '<td colspan="7">'.$langs->trans('Total').'</td><td class="right">'.price($sum_paid).'</td><td></td>';
 		print '</tr>';
 	}
 } else {
-	lmdbsalescommissionsPrintNoRecordRow($langs, 8);
+	lmdbsalescommissionsPrintNoRecordRow($langs, 9);
 }
 print '</table>';
 print '</form>';
