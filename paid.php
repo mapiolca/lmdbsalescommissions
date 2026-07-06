@@ -82,7 +82,7 @@ if ($search_mode !== '') {
 
 $sqlselect = 'SELECT d.rowid, d.event_type, d.amount, d.date_paid, d.fk_user_paid,';
 $sqlselect .= ' l.fk_user, l.fk_soc, l.source_type, l.fk_source, l.source_ref, l.mode,';
-$sqlselect .= ' u.lastname, u.firstname, u.login, up.lastname AS paid_lastname, up.firstname AS paid_firstname, up.login AS paid_login, s.nom AS thirdparty_name';
+$sqlselect .= ' u.lastname, u.firstname, u.login, u.statut AS user_status, up.lastname AS paid_lastname, up.firstname AS paid_firstname, up.login AS paid_login, up.statut AS paid_user_status, s.nom AS thirdparty_name';
 $sqlfrom = ' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_due AS d';
 $sqlfrom .= ' INNER JOIN '.MAIN_DB_PREFIX.'lmdbsalescommissions_line AS l ON l.rowid = d.fk_commission_line AND l.entity = d.entity';
 $sqlfrom .= ' LEFT JOIN '.MAIN_DB_PREFIX.'user AS u ON u.rowid = l.fk_user';
@@ -167,31 +167,16 @@ if ($resql) {
 		if ($nb > $limit) {
 			break;
 		}
-		$agent = trim((string) $obj->firstname.' '.(string) $obj->lastname);
-		if ($agent === '') {
-			$agent = (string) $obj->login;
-		}
-		$paidBy = trim((string) $obj->paid_firstname.' '.(string) $obj->paid_lastname);
-		if ($paidBy === '') {
-			$paidBy = (string) $obj->paid_login;
-		}
-		$sourceUrl = lmdbsalescommissionsBuildSourceUrl((string) $obj->source_type, (int) $obj->fk_source);
 
 		print '<tr class="oddeven">';
 		print '<td>'.dol_print_date($db->jdate($obj->date_paid), 'day').'</td>';
-		print '<td>'.dol_escape_htmltag($agent).'</td>';
-		print '<td>'.dol_escape_htmltag((string) $obj->thirdparty_name).'</td>';
-		print '<td>';
-		if ($sourceUrl !== '') {
-			print '<a href="'.dol_escape_htmltag($sourceUrl).'">'.dol_escape_htmltag((string) $obj->source_ref).'</a>';
-		} else {
-			print dol_escape_htmltag((string) $obj->source_ref);
-		}
-		print '</td>';
+		print '<td>'.lmdbsalescommissionsBuildUserNomUrl($db, (int) $obj->fk_user, (string) $obj->lastname, (string) $obj->firstname, (string) $obj->login, (int) $obj->user_status).'</td>';
+		print '<td>'.lmdbsalescommissionsBuildThirdpartyNomUrl($db, (int) $obj->fk_soc, (string) $obj->thirdparty_name).'</td>';
+		print '<td>'.lmdbsalescommissionsBuildSourceNomUrl($db, (string) $obj->source_type, (int) $obj->fk_source, (string) $obj->source_ref).'</td>';
 		print '<td>'.dol_escape_htmltag(lmdbsalescommissionsGetDueEventLabel($langs, (string) $obj->event_type)).'</td>';
 		print '<td>'.dol_escape_htmltag(lmdbsalescommissionsGetModeLabel($langs, (string) $obj->mode)).'</td>';
 		print '<td class="right">'.price((float) $obj->amount).'</td>';
-		print '<td>'.dol_escape_htmltag($paidBy).'</td>';
+		print '<td>'.lmdbsalescommissionsBuildUserNomUrl($db, (int) $obj->fk_user_paid, (string) $obj->paid_lastname, (string) $obj->paid_firstname, (string) $obj->paid_login, (int) $obj->paid_user_status).'</td>';
 		print '</tr>';
 	}
 	$db->free($resql);

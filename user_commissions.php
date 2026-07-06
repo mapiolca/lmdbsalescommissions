@@ -168,7 +168,7 @@ print '<br>';
 print load_fiche_titre($langs->trans('LmdbSalesCommissionsUserTabMargin'), '', 'fa-percent');
 print '<table class="noborder centpercent">';
 print '<tr class="liste_titre"><td>'.$langs->trans('Date').'</td><td>'.$langs->trans('ThirdParty').'</td><td>'.$langs->trans('Source').'</td><td class="right">'.$langs->trans('Margin').'</td><td class="right">'.$langs->trans('Rate').'</td><td class="right">'.$langs->trans('LmdbSalesCommissionsCommissionTotal').'</td><td class="right">'.$langs->trans('LmdbSalesCommissionsPayableTotal').'</td><td class="right">'.$langs->trans('LmdbSalesCommissionsPaidTotal').'</td></tr>';
-$sql = 'SELECT l.date_acquired, l.source_type, l.fk_source, l.source_ref, l.margin_base, l.rate, l.commission_total, l.payable_total, l.paid_total, s.nom AS thirdparty_name';
+$sql = 'SELECT l.date_acquired, l.fk_soc, l.source_type, l.fk_source, l.source_ref, l.margin_base, l.rate, l.commission_total, l.payable_total, l.paid_total, s.nom AS thirdparty_name';
 $sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_line AS l';
 $sql .= ' LEFT JOIN '.MAIN_DB_PREFIX.'societe AS s ON s.rowid = l.fk_soc';
 $sql .= ' WHERE l.entity IN ('.$entitySql.') AND l.fk_user = '.((int) $id)." AND l.mode = 'margin'";
@@ -179,9 +179,8 @@ $marginRows = 0;
 if ($resmargin) {
 	while (is_object($obj = $db->fetch_object($resmargin))) {
 		$marginRows++;
-		$sourceUrl = lmdbsalescommissionsBuildSourceUrl((string) $obj->source_type, (int) $obj->fk_source);
-		print '<tr class="oddeven"><td>'.dol_print_date($db->jdate($obj->date_acquired), 'day').'</td><td>'.dol_escape_htmltag((string) $obj->thirdparty_name).'</td><td>';
-		print $sourceUrl !== '' ? '<a href="'.dol_escape_htmltag($sourceUrl).'">'.dol_escape_htmltag((string) $obj->source_ref).'</a>' : dol_escape_htmltag((string) $obj->source_ref);
+		print '<tr class="oddeven"><td>'.dol_print_date($db->jdate($obj->date_acquired), 'day').'</td><td>'.lmdbsalescommissionsBuildThirdpartyNomUrl($db, (int) $obj->fk_soc, (string) $obj->thirdparty_name).'</td><td>';
+		print lmdbsalescommissionsBuildSourceNomUrl($db, (string) $obj->source_type, (int) $obj->fk_source, (string) $obj->source_ref);
 		print '</td><td class="right">'.price((float) $obj->margin_base).'</td><td class="right">'.price((float) $obj->rate).'%</td><td class="right">'.price((float) $obj->commission_total).'</td><td class="right">'.price((float) $obj->payable_total).'</td><td class="right">'.price((float) $obj->paid_total).'</td></tr>';
 	}
 	$db->free($resmargin);
@@ -205,9 +204,8 @@ $tierRows = 0;
 if ($restier) {
 	while (is_object($obj = $db->fetch_object($restier))) {
 		$tierRows++;
-		$sourceUrl = lmdbsalescommissionsBuildSourceUrl((string) $obj->source_type, (int) $obj->fk_source);
 		print '<tr class="oddeven"><td>'.dol_print_date($db->jdate($obj->date_acquired), 'day').'</td><td>';
-		print $sourceUrl !== '' ? '<a href="'.dol_escape_htmltag($sourceUrl).'">'.dol_escape_htmltag((string) $obj->source_ref).'</a>' : dol_escape_htmltag((string) $obj->source_ref);
+		print lmdbsalescommissionsBuildSourceNomUrl($db, (string) $obj->source_type, (int) $obj->fk_source, (string) $obj->source_ref);
 		print '</td><td class="right">'.price((float) $obj->amount_base).'</td><td class="right">'.price((float) $obj->commission_total).'</td><td class="right">'.price((float) $obj->payable_total).'</td><td class="right">'.price((float) $obj->paid_total).'</td></tr>';
 	}
 	$db->free($restier);
@@ -233,10 +231,9 @@ $dueRows = 0;
 if ($resdue) {
 	while (is_object($obj = $db->fetch_object($resdue))) {
 		$dueRows++;
-		$sourceUrl = lmdbsalescommissionsBuildSourceUrl((string) $obj->source_type, (int) $obj->fk_source);
 		$status = (int) $obj->status;
 		print '<tr class="oddeven"><td>'.dol_escape_htmltag(lmdbsalescommissionsGetDueEventLabel($langs, (string) $obj->event_type)).'</td><td>';
-		print $sourceUrl !== '' ? '<a href="'.dol_escape_htmltag($sourceUrl).'">'.dol_escape_htmltag((string) $obj->source_ref).'</a>' : dol_escape_htmltag((string) $obj->source_ref);
+		print lmdbsalescommissionsBuildSourceNomUrl($db, (string) $obj->source_type, (int) $obj->fk_source, (string) $obj->source_ref);
 		print '</td><td class="right">'.price((float) $obj->amount).'</td><td class="center">'.lmdbsalescommissionsStatusBadge(lmdbsalescommissionsGetDueStatusLabel($langs, $status), $status === LmdbSalesCommissionDueService::STATUS_DUE ? 1 : 0).'</td></tr>';
 	}
 	$db->free($resdue);

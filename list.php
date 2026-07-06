@@ -29,16 +29,21 @@ $fk_usergroup = GETPOSTINT('fk_usergroup');
 $fk_soc = GETPOSTINT('fk_soc');
 $search_source_type = GETPOST('search_source_type', 'aZ09');
 $search_source_ref = GETPOST('search_source_ref', 'alpha');
-$search_status = GETPOST('search_status', 'alpha');
+$search_status = GETPOST('search_status', 'array:intcomma');
 $search_mode = GETPOST('search_mode', 'aZ09');
 $search_rule_source = GETPOST('search_rule_source', 'aZ09');
 $sortfield = GETPOST('sortfield', 'aZ09comma');
 $sortorder = GETPOST('sortorder', 'aZ09comma');
+$button_search = GETPOST('button_search_x', 'alpha') || GETPOST('button_search', 'alpha');
+$button_removefilter = GETPOST('button_removefilter_x', 'alpha') || GETPOST('button_removefilter', 'alpha');
 $page = GETPOSTINT('page');
-if ($page < 0) {
+if ($page < 0 || $button_search || $button_removefilter) {
 	$page = 0;
 }
-$limit = getDolGlobalInt('MAIN_SIZE_LISTE_LIMIT', 20);
+$limit = GETPOSTINT('limit');
+if ($limit <= 0) {
+	$limit = getDolGlobalInt('MAIN_SIZE_LISTE_LIMIT', 20);
+}
 $offset = $limit * $page;
 if (empty($sortfield)) {
 	$sortfield = 'l.date_acquired';
@@ -63,7 +68,50 @@ if ($action !== '') {
 	accessforbidden($langs->trans('LmdbSalesCommissionsActionNotAvailableYet'));
 }
 
+if (!is_array($search_status)) {
+	$search_status = array();
+}
+$search_status = array_values(array_unique(array_map('intval', $search_status)));
+$allowed_status = array(0, 1, 6, 7);
+$search_status = array_values(array_filter($search_status, static function ($status) use ($allowed_status) {
+	return in_array((int) $status, $allowed_status, true);
+}));
+
+if ($button_removefilter) {
+	$fk_user = 0;
+	$fk_usergroup = 0;
+	$fk_soc = 0;
+	$search_source_type = '';
+	$search_source_ref = '';
+	$search_status = array();
+	$search_mode = '';
+	$search_rule_source = '';
+}
+
 $form = new Form($db);
+
+$source_type_options = array(
+	'proposal' => $langs->trans('Propal'),
+	'order' => $langs->trans('Order'),
+	'contract' => $langs->trans('Contract'),
+);
+$mode_options = array(
+	'margin' => $langs->trans('LmdbSalesCommissionsRuleTypeMargin'),
+	'tier' => $langs->trans('LmdbSalesCommissionsRuleTypeTier'),
+	'tracking' => $langs->trans('LmdbSalesCommissionsModeTracking'),
+);
+$rule_source_options = array(
+	'user' => $langs->trans('User'),
+	'group' => $langs->trans('Group'),
+	'default' => $langs->trans('Default'),
+	'none' => $langs->trans('None'),
+);
+$status_options = array(
+	'0' => $langs->trans('LmdbSalesCommissionsLineStatusEstimated'),
+	'1' => $langs->trans('LmdbSalesCommissionsLineStatusAcquired'),
+	'6' => $langs->trans('LmdbSalesCommissionsLineStatusCancelled'),
+	'7' => $langs->trans('LmdbSalesCommissionsLineStatusBlocked'),
+);
 
 $param = '';
 if ($fk_user > 0) {
@@ -81,8 +129,8 @@ if ($search_source_type !== '') {
 if ($search_source_ref !== '') {
 	$param .= '&search_source_ref='.urlencode($search_source_ref);
 }
-if ($search_status !== '') {
-	$param .= '&search_status='.urlencode($search_status);
+foreach ($search_status as $status) {
+	$param .= '&search_status[]='.((int) $status);
 }
 if ($search_mode !== '') {
 	$param .= '&search_mode='.urlencode($search_mode);
@@ -92,7 +140,7 @@ if ($search_rule_source !== '') {
 }
 
 $sqlselect = 'SELECT l.rowid, l.entity, l.fk_user, l.fk_soc, l.source_type, l.fk_source, l.source_ref, l.mode, l.amount_base, l.margin_base, l.rate, l.commission_total, l.payable_total, l.paid_total, l.status, l.date_acquired, l.rule_source, l.snapshot_rule_label,';
-$sqlselect .= ' u.lastname, u.firstname, u.login, s.nom AS thirdparty_name';
+$sqlselect .= ' u.lastname, u.firstname, u.login, u.statut AS user_status, s.nom AS thirdparty_name';
 $sqlfrom = ' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_line AS l';
 $sqlfrom .= ' LEFT JOIN '.MAIN_DB_PREFIX.'user AS u ON u.rowid = l.fk_user';
 $sqlfrom .= ' LEFT JOIN '.MAIN_DB_PREFIX.'societe AS s ON s.rowid = l.fk_soc';
@@ -113,8 +161,8 @@ if ($search_source_type !== '') {
 if ($search_source_ref !== '') {
 	$sqlwhere .= natural_search('l.source_ref', $search_source_ref);
 }
-if ($search_status !== '') {
-	$sqlwhere .= ' AND l.status = '.((int) $search_status);
+if (!empty($search_status)) {
+	$sqlwhere .= ' AND l.status IN ('.$db->sanitize(implode(',', array_map('intval', $search_status))).')';
 }
 if ($search_mode !== '') {
 	$sqlwhere .= " AND l.mode = '".$db->escape($search_mode)."'";
@@ -155,6 +203,10 @@ llxHeader('', $langs->trans('LmdbSalesCommissionsTracking'));
 
 print_barre_liste($langs->trans('LmdbSalesCommissionsTracking'), $page, $_SERVER['PHP_SELF'], $param, $sortfield, $sortorder, '', $num, $num, 'fa-percent', 0, '', '', $limit);
 
+print '<form method="GET" action="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'">';
+print '<input type="hidden" name="sortfield" value="'.dol_escape_htmltag($sortfield).'">';
+print '<input type="hidden" name="sortorder" value="'.dol_escape_htmltag($sortorder).'">';
+print '<input type="hidden" name="limit" value="'.((int) $limit).'">';
 print '<table class="noborder centpercent">';
 print '<tr class="liste_titre">';
 print_liste_field_titre('Date', $_SERVER['PHP_SELF'], 'l.date_acquired', $param, '', '', $sortfield, $sortorder);
@@ -171,21 +223,35 @@ print_liste_field_titre('LmdbSalesCommissionsPaidTotal', $_SERVER['PHP_SELF'], '
 print_liste_field_titre('Status', $_SERVER['PHP_SELF'], 'l.status', $param, '', 'class="center"', $sortfield, $sortorder);
 print '</tr>';
 
-print '<tr class="liste_titre_filter"><td colspan="12">';
-print '<form method="GET" action="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'">';
-print '<input type="hidden" name="sortfield" value="'.dol_escape_htmltag($sortfield).'">';
-print '<input type="hidden" name="sortorder" value="'.dol_escape_htmltag($sortorder).'">';
-print $langs->trans('SalesRepresentative').' '.$form->selectarray('fk_user', lmdbsalescommissionsGetUserOptions($db), $fk_user, 1, 0, 0, '', 0, 0, 0, '', 'minwidth150', 1).' ';
-print $langs->trans('Group').' '.$form->selectarray('fk_usergroup', lmdbsalescommissionsGetUserGroupOptions($db), $fk_usergroup, 1, 0, 0, '', 0, 0, 0, '', 'minwidth150', 1).' ';
-print $langs->trans('ThirdParty').' <input type="text" class="flat width50" name="fk_soc" value="'.($fk_soc > 0 ? (int) $fk_soc : '').'"> ';
-print $langs->trans('Source').' <input type="text" class="flat maxwidth100" name="search_source_ref" value="'.dol_escape_htmltag($search_source_ref).'"> ';
-print $langs->trans('Type').' '.$form->selectarray('search_source_type', array('proposal' => $langs->trans('Propal'), 'order' => $langs->trans('Order'), 'contract' => $langs->trans('Contract')), $search_source_type, 1, 0, 0, '', 0, 0, 0, '', 'minwidth100', 1).' ';
-print $langs->trans('Mode').' '.$form->selectarray('search_mode', array('margin' => $langs->trans('LmdbSalesCommissionsRuleTypeMargin'), 'tier' => $langs->trans('LmdbSalesCommissionsRuleTypeTier'), 'tracking' => $langs->trans('LmdbSalesCommissionsModeTracking')), $search_mode, 1, 0, 0, '', 0, 0, 0, '', 'minwidth100', 1).' ';
-print $langs->trans('LmdbSalesCommissionsRuleSource').' '.$form->selectarray('search_rule_source', array('user' => $langs->trans('User'), 'group' => $langs->trans('Group'), 'default' => $langs->trans('Default'), 'none' => $langs->trans('None')), $search_rule_source, 1, 0, 0, '', 0, 0, 0, '', 'minwidth100', 1).' ';
-print $langs->trans('Status').' '.$form->selectarray('search_status', array('0' => $langs->trans('LmdbSalesCommissionsLineStatusEstimated'), '1' => $langs->trans('LmdbSalesCommissionsLineStatusAcquired'), '6' => $langs->trans('LmdbSalesCommissionsLineStatusCancelled'), '7' => $langs->trans('LmdbSalesCommissionsLineStatusBlocked')), $search_status, 1, 0, 0, '', 0, 0, 0, '', 'minwidth100', 1).' ';
-print '<button type="submit" class="button small">'.$langs->trans('Search').'</button>';
-print '</form>';
-print '</td></tr>';
+print '<tr class="liste_titre_filter">';
+print '<td></td>';
+print '<td>';
+print $form->selectarray('fk_user', lmdbsalescommissionsGetUserOptions($db), $fk_user, 1, 0, 0, '', 0, 0, 0, '', 'minwidth150 maxwidth200', 1);
+print '<br>';
+print $form->selectarray('fk_usergroup', lmdbsalescommissionsGetUserGroupOptions($db), $fk_usergroup, 1, 0, 0, '', 0, 0, 0, '', 'minwidth150 maxwidth200', 1);
+print '</td>';
+print '<td><input type="text" class="flat width50" name="fk_soc" value="'.($fk_soc > 0 ? (int) $fk_soc : '').'"></td>';
+print '<td>';
+print '<input type="text" class="flat maxwidth100" name="search_source_ref" value="'.dol_escape_htmltag($search_source_ref).'">';
+print '<br>';
+print $form->selectarray('search_source_type', $source_type_options, $search_source_type, 1, 0, 0, '', 0, 0, 0, '', 'maxwidth100', 1);
+print '</td>';
+print '<td>';
+print $form->selectarray('search_mode', $mode_options, $search_mode, 1, 0, 0, '', 0, 0, 0, '', 'minwidth125 maxwidth200', 1);
+print '<br>';
+print $form->selectarray('search_rule_source', $rule_source_options, $search_rule_source, 1, 0, 0, '', 0, 0, 0, '', 'minwidth125 maxwidth200', 1);
+print '</td>';
+print '<td></td>';
+print '<td></td>';
+print '<td></td>';
+print '<td></td>';
+print '<td></td>';
+print '<td></td>';
+print '<td class="center">';
+print $form->multiselectarray('search_status', $status_options, $search_status, 0, 0, 'search_status width100 onrightofpage', 0, 0, '', '', '', 1);
+print $form->showFilterButtons();
+print '</td>';
+print '</tr>';
 
 if ($resql) {
 	$nb = 0;
@@ -194,25 +260,13 @@ if ($resql) {
 		if ($nb > $limit) {
 			break;
 		}
-		$agent = trim((string) $obj->firstname.' '.(string) $obj->lastname);
-		if ($agent === '') {
-			$agent = (string) $obj->login;
-		}
-		$sourceUrl = lmdbsalescommissionsBuildSourceUrl((string) $obj->source_type, (int) $obj->fk_source);
 		$status = (int) $obj->status;
-		$statusType = $status === 1 ? 1 : ($status === 0 ? 0 : -1);
 
 		print '<tr class="oddeven">';
 		print '<td>'.dol_print_date($db->jdate($obj->date_acquired), 'day').'</td>';
-		print '<td>'.dol_escape_htmltag($agent).'</td>';
-		print '<td>'.dol_escape_htmltag((string) $obj->thirdparty_name).'</td>';
-		print '<td>';
-		if ($sourceUrl !== '') {
-			print '<a href="'.dol_escape_htmltag($sourceUrl).'">'.dol_escape_htmltag((string) $obj->source_ref).'</a>';
-		} else {
-			print dol_escape_htmltag((string) $obj->source_ref);
-		}
-		print '</td>';
+		print '<td>'.lmdbsalescommissionsBuildUserNomUrl($db, (int) $obj->fk_user, (string) $obj->lastname, (string) $obj->firstname, (string) $obj->login, (int) $obj->user_status).'</td>';
+		print '<td>'.lmdbsalescommissionsBuildThirdpartyNomUrl($db, (int) $obj->fk_soc, (string) $obj->thirdparty_name).'</td>';
+		print '<td>'.lmdbsalescommissionsBuildSourceNomUrl($db, (string) $obj->source_type, (int) $obj->fk_source, (string) $obj->source_ref).'</td>';
 		print '<td>'.dol_escape_htmltag(lmdbsalescommissionsGetModeLabel($langs, (string) $obj->mode)).'</td>';
 		print '<td class="right">'.price((float) $obj->amount_base).'</td>';
 		print '<td class="right">'.($obj->margin_base !== null ? price((float) $obj->margin_base) : '').'</td>';
@@ -220,7 +274,7 @@ if ($resql) {
 		print '<td class="right">'.price((float) $obj->commission_total).'</td>';
 		print '<td class="right">'.price((float) $obj->payable_total).'</td>';
 		print '<td class="right">'.price((float) $obj->paid_total).'</td>';
-		print '<td class="center">'.lmdbsalescommissionsStatusBadge(lmdbsalescommissionsGetLineStatusLabel($langs, $status), $statusType).'</td>';
+		print '<td class="center">'.lmdbsalescommissionsStatusBadge(lmdbsalescommissionsGetLineStatusLabel($langs, $status), $status).'</td>';
 		print '</tr>';
 	}
 	$db->free($resql);
@@ -233,6 +287,7 @@ if ($resql) {
 	lmdbsalescommissionsPrintNoRecordRow($langs, 12);
 }
 print '</table>';
+print '</form>';
 
 llxFooter();
 $db->close();

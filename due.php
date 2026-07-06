@@ -113,7 +113,7 @@ if ($search_source_ref !== '') {
 
 $sql = 'SELECT d.rowid, d.event_type, d.percentage, d.amount, d.status, d.date_due, d.date_paid,';
 $sql .= ' l.rowid AS line_id, l.fk_user, l.fk_soc, l.source_type, l.fk_source, l.source_ref, l.commission_total,';
-$sql .= ' u.lastname, u.firstname, u.login, s.nom AS thirdparty_name';
+$sql .= ' u.lastname, u.firstname, u.login, u.statut AS user_status, s.nom AS thirdparty_name';
 $sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_due AS d';
 $sql .= ' INNER JOIN '.MAIN_DB_PREFIX.'lmdbsalescommissions_line AS l ON l.rowid = d.fk_commission_line AND l.entity = d.entity';
 $sql .= ' LEFT JOIN '.MAIN_DB_PREFIX.'user AS u ON u.rowid = l.fk_user';
@@ -187,25 +187,14 @@ if ($resql) {
 		if ($nb > $limit) {
 			break;
 		}
-		$agent = trim((string) $obj->firstname.' '.(string) $obj->lastname);
-		if ($agent === '') {
-			$agent = (string) $obj->login;
-		}
 		$status = (int) $obj->status;
 		$statusType = $status === LmdbSalesCommissionDueService::STATUS_DUE ? 1 : 0;
-		$sourceUrl = lmdbsalescommissionsBuildSourceUrl((string) $obj->source_type, (int) $obj->fk_source);
 		$total_due += (float) $obj->amount;
 
 		print '<tr class="oddeven">';
-		print '<td>'.dol_escape_htmltag($agent).'</td>';
-		print '<td>'.dol_escape_htmltag((string) $obj->thirdparty_name).'</td>';
-		print '<td>';
-		if ($sourceUrl !== '') {
-			print '<a href="'.dol_escape_htmltag($sourceUrl).'">'.dol_escape_htmltag((string) $obj->source_ref).'</a>';
-		} else {
-			print dol_escape_htmltag((string) $obj->source_ref);
-		}
-		print '</td>';
+		print '<td>'.lmdbsalescommissionsBuildUserNomUrl($db, (int) $obj->fk_user, (string) $obj->lastname, (string) $obj->firstname, (string) $obj->login, (int) $obj->user_status).'</td>';
+		print '<td>'.lmdbsalescommissionsBuildThirdpartyNomUrl($db, (int) $obj->fk_soc, (string) $obj->thirdparty_name).'</td>';
+		print '<td>'.lmdbsalescommissionsBuildSourceNomUrl($db, (string) $obj->source_type, (int) $obj->fk_source, (string) $obj->source_ref).'</td>';
 		print '<td>'.dol_escape_htmltag(lmdbsalescommissionsGetDueEventLabel($langs, (string) $obj->event_type)).'</td>';
 		print '<td class="right">'.price((float) $obj->commission_total).'</td>';
 		print '<td class="right">'.price((float) $obj->percentage).'%</td>';

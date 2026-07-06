@@ -505,13 +505,112 @@ function lmdbsalescommissionsGetObjectiveArchiveStatusLabel($langs, $status)
 /**
  * Return native badge for a status value.
  *
- * @param string $label Label
- * @param int    $type  Dolibarr status type
+ * @param string     $label Label
+ * @param int|string $type  Dolibarr status type
  * @return string
  */
 function lmdbsalescommissionsStatusBadge($label, $type)
 {
-	return dolGetStatus($label, '', '', '', 1, $type);
+	if (is_numeric($type)) {
+		$type = (int) $type >= 0 ? 'status'.((int) $type) : 'status8';
+	}
+	if (!is_string($type) || $type === '') {
+		$type = 'status0';
+	}
+
+	return dolGetStatus($label, $label, '', $type, 2);
+}
+
+/**
+ * Return native Dolibarr user link.
+ *
+ * @param DoliDB $db        Database handler
+ * @param int    $userId    User id
+ * @param string $lastname  Last name
+ * @param string $firstname First name
+ * @param string $login     Login
+ * @param int    $status    User status
+ * @return string
+ */
+function lmdbsalescommissionsBuildUserNomUrl($db, $userId, $lastname, $firstname, $login, $status = 1)
+{
+	$label = trim((string) $firstname.' '.(string) $lastname);
+	if ($label === '') {
+		$label = (string) $login;
+	}
+	if ($userId <= 0) {
+		return dol_escape_htmltag($label);
+	}
+
+	require_once DOL_DOCUMENT_ROOT.'/user/class/user.class.php';
+
+	$userstatic = new User($db);
+	$userstatic->id = (int) $userId;
+	$userstatic->lastname = (string) $lastname;
+	$userstatic->firstname = (string) $firstname;
+	$userstatic->login = (string) $login;
+	$userstatic->status = (int) $status;
+	$userstatic->statut = (int) $status;
+
+	return $userstatic->getNomUrl(1, '', 0, 1, 0);
+}
+
+/**
+ * Return native Dolibarr thirdparty link.
+ *
+ * @param DoliDB $db           Database handler
+ * @param int    $thirdpartyId Thirdparty id
+ * @param string $name         Thirdparty name
+ * @return string
+ */
+function lmdbsalescommissionsBuildThirdpartyNomUrl($db, $thirdpartyId, $name)
+{
+	if ($thirdpartyId <= 0) {
+		return dol_escape_htmltag((string) $name);
+	}
+
+	require_once DOL_DOCUMENT_ROOT.'/societe/class/societe.class.php';
+
+	$thirdpartystatic = new Societe($db);
+	$thirdpartystatic->id = (int) $thirdpartyId;
+	$thirdpartystatic->rowid = (int) $thirdpartyId;
+	$thirdpartystatic->name = (string) $name;
+	$thirdpartystatic->nom = (string) $name;
+
+	return $thirdpartystatic->getNomUrl(1, '', 0, 1);
+}
+
+/**
+ * Return native Dolibarr source link when available.
+ *
+ * @param DoliDB $db         Database handler
+ * @param string $sourceType Source type
+ * @param int    $sourceId   Source id
+ * @param string $sourceRef  Source reference
+ * @return string
+ */
+function lmdbsalescommissionsBuildSourceNomUrl($db, $sourceType, $sourceId, $sourceRef)
+{
+	if ($sourceId <= 0) {
+		return dol_escape_htmltag((string) $sourceRef);
+	}
+
+	if ($sourceType === 'proposal') {
+		require_once DOL_DOCUMENT_ROOT.'/comm/propal/class/propal.class.php';
+
+		$proposalstatic = new Propal($db);
+		$proposalstatic->id = (int) $sourceId;
+		$proposalstatic->ref = (string) $sourceRef;
+
+		return $proposalstatic->getNomUrl(1, '', '', 1);
+	}
+
+	$sourceUrl = lmdbsalescommissionsBuildSourceUrl($sourceType, $sourceId);
+	if ($sourceUrl !== '') {
+		return '<a href="'.dol_escape_htmltag($sourceUrl).'">'.dol_escape_htmltag((string) $sourceRef).'</a>';
+	}
+
+	return dol_escape_htmltag((string) $sourceRef);
 }
 
 /**
