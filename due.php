@@ -94,6 +94,21 @@ $mode_options = array(
 	'tracking' => $langs->trans('LmdbSalesCommissionsModeTracking'),
 );
 
+$contextpage = 'lmdbsalescommissions_due_list';
+$arrayfields = array(
+	'source' => array('label' => 'Source', 'checked' => 1, 'position' => 10),
+	'date' => array('label' => 'DateDue', 'checked' => 1, 'position' => 20),
+	'salesrep' => array('label' => 'SalesRepresentative', 'checked' => 1, 'position' => 30),
+	'thirdparty' => array('label' => 'ThirdParty', 'checked' => 1, 'position' => 40),
+	'mode' => array('label' => 'Mode', 'checked' => 1, 'position' => 50),
+	'event' => array('label' => 'Event', 'checked' => 1, 'position' => 60),
+	'commission_total' => array('label' => 'LmdbSalesCommissionsCommissionTotal', 'checked' => 1, 'position' => 70),
+	'percentage' => array('label' => 'Percentage', 'checked' => 1, 'position' => 80),
+	'amount' => array('label' => 'Amount', 'checked' => 1, 'position' => 90),
+	'status' => array('label' => 'Status', 'checked' => 1, 'position' => 100),
+);
+$arrayfields = dol_sort_array($arrayfields, 'position');
+
 if ($action === 'markpaid') {
 	if (!lmdbsalescommissionsCanDo($user, 'due', 'pay')) {
 		accessforbidden();
@@ -130,6 +145,10 @@ if ($action === 'markpaid') {
 	}
 } elseif ($action !== '') {
 	accessforbidden($langs->trans('LmdbSalesCommissionsActionNotAvailableYet'));
+}
+
+if (GETPOST('formfilteraction', 'alphanohtml') === 'listafterchangingselectedfields') {
+	include DOL_DOCUMENT_ROOT.'/core/actions_changeselectedfields.inc.php';
 }
 
 $param = '';
@@ -207,7 +226,14 @@ llxHeader('', $langs->trans('LmdbSalesCommissionsDue'));
 print_barre_liste($langs->trans('LmdbSalesCommissionsDue'), $page, $_SERVER['PHP_SELF'], $param, $sortfield, $sortorder, '', $num, $num, 'fa-percent', 0, '', '', $limit, 0, 0, 1);
 
 $filterFormId = 'lmdbsalescommissionsDueFilter';
-print '<form method="GET" id="'.$filterFormId.'" action="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'">';
+$selectedfields = $form->multiSelectArrayWithCheckbox('selectedfields', $arrayfields, $contextpage, 1);
+$selectedfields = lmdbsalescommissionsAttachFormToControls($selectedfields, $filterFormId);
+$visibleColumnCount = lmdbsalescommissionsCountVisibleColumns($arrayfields, 2);
+
+print '<form method="POST" id="'.$filterFormId.'" action="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'">';
+print '<input type="hidden" name="token" value="'.newToken().'">';
+print '<input type="hidden" name="formfilteraction" value="list">';
+print '<input type="hidden" name="contextpage" value="'.dol_escape_htmltag($contextpage).'">';
 print '<input type="hidden" name="sortfield" value="'.dol_escape_htmltag($sortfield).'">';
 print '<input type="hidden" name="sortorder" value="'.dol_escape_htmltag($sortorder).'">';
 print '<input type="hidden" name="limit" value="'.((int) $limit).'">';
@@ -215,32 +241,32 @@ print '</form>';
 
 print '<table class="tagtable liste centpercent" id="lmdbsalescommissions-due-list">';
 print '<tr class="liste_titre">';
-print_liste_field_titre('', $_SERVER['PHP_SELF'], '', '', '', '', $sortfield, $sortorder, 'center maxwidthsearch ');
-print_liste_field_titre('Source', $_SERVER['PHP_SELF'], 'l.source_ref', $param, '', '', $sortfield, $sortorder);
-print_liste_field_titre('DateDue', $_SERVER['PHP_SELF'], 'd.date_due', $param, '', '', $sortfield, $sortorder, 'center ');
-print_liste_field_titre('SalesRepresentative', $_SERVER['PHP_SELF'], 'u.lastname', $param, '', '', $sortfield, $sortorder);
-print_liste_field_titre('ThirdParty', $_SERVER['PHP_SELF'], 's.nom', $param, '', '', $sortfield, $sortorder);
-print_liste_field_titre('Mode', $_SERVER['PHP_SELF'], 'l.mode', $param, '', '', $sortfield, $sortorder);
-print_liste_field_titre('Event', $_SERVER['PHP_SELF'], 'd.event_type', $param, '', '', $sortfield, $sortorder);
-print_liste_field_titre('LmdbSalesCommissionsCommissionTotal', $_SERVER['PHP_SELF'], 'l.commission_total', $param, '', 'class="right"', $sortfield, $sortorder);
-print_liste_field_titre('Percentage', $_SERVER['PHP_SELF'], 'd.percentage', $param, '', 'class="right"', $sortfield, $sortorder);
-print_liste_field_titre('Amount', $_SERVER['PHP_SELF'], 'd.amount', $param, '', 'class="right"', $sortfield, $sortorder);
-print_liste_field_titre('Status', $_SERVER['PHP_SELF'], 'd.status', $param, '', '', $sortfield, $sortorder, 'center ');
+print_liste_field_titre($selectedfields, $_SERVER['PHP_SELF'], '', '', '', '', $sortfield, $sortorder, 'center maxwidthsearch ');
+if (!empty($arrayfields['source']['checked'])) print_liste_field_titre($arrayfields['source']['label'], $_SERVER['PHP_SELF'], 'l.source_ref', $param, '', '', $sortfield, $sortorder);
+if (!empty($arrayfields['date']['checked'])) print_liste_field_titre($arrayfields['date']['label'], $_SERVER['PHP_SELF'], 'd.date_due', $param, '', '', $sortfield, $sortorder, 'center ');
+if (!empty($arrayfields['salesrep']['checked'])) print_liste_field_titre($arrayfields['salesrep']['label'], $_SERVER['PHP_SELF'], 'u.lastname', $param, '', '', $sortfield, $sortorder);
+if (!empty($arrayfields['thirdparty']['checked'])) print_liste_field_titre($arrayfields['thirdparty']['label'], $_SERVER['PHP_SELF'], 's.nom', $param, '', '', $sortfield, $sortorder);
+if (!empty($arrayfields['mode']['checked'])) print_liste_field_titre($arrayfields['mode']['label'], $_SERVER['PHP_SELF'], 'l.mode', $param, '', '', $sortfield, $sortorder);
+if (!empty($arrayfields['event']['checked'])) print_liste_field_titre($arrayfields['event']['label'], $_SERVER['PHP_SELF'], 'd.event_type', $param, '', '', $sortfield, $sortorder);
+if (!empty($arrayfields['commission_total']['checked'])) print_liste_field_titre($arrayfields['commission_total']['label'], $_SERVER['PHP_SELF'], 'l.commission_total', $param, '', 'class="right"', $sortfield, $sortorder);
+if (!empty($arrayfields['percentage']['checked'])) print_liste_field_titre($arrayfields['percentage']['label'], $_SERVER['PHP_SELF'], 'd.percentage', $param, '', 'class="right"', $sortfield, $sortorder);
+if (!empty($arrayfields['amount']['checked'])) print_liste_field_titre($arrayfields['amount']['label'], $_SERVER['PHP_SELF'], 'd.amount', $param, '', 'class="right"', $sortfield, $sortorder);
+if (!empty($arrayfields['status']['checked'])) print_liste_field_titre($arrayfields['status']['label'], $_SERVER['PHP_SELF'], 'd.status', $param, '', '', $sortfield, $sortorder, 'center ');
 print '<th class="center">'.$langs->trans('Action').'</th>';
 print '</tr>';
 
 print '<tr class="liste_titre_filter">';
 print '<td class="liste_titre center maxwidthsearch">'.lmdbsalescommissionsAttachFormToControls($form->showFilterButtons('left'), $filterFormId).'</td>';
-print '<td><input form="'.$filterFormId.'" type="text" class="flat maxwidth100" name="search_source_ref" value="'.dol_escape_htmltag($search_source_ref).'"></td>';
-print '<td class="liste_titre center">'.lmdbsalescommissionsRenderDateRangeFilter($form, $search_date_start, $search_date_end, 'search_date_start', 'search_date_end', $filterFormId).'</td>';
-print '<td>'.lmdbsalescommissionsAttachFormToControls($form->selectarray('fk_user', lmdbsalescommissionsGetUserOptions($db), $fk_user, 1, 0, 0, '', 0, 0, 0, '', 'minwidth150 maxwidth200', 1), $filterFormId).'</td>';
-print '<td></td>';
-print '<td>'.lmdbsalescommissionsAttachFormToControls($form->selectarray('search_mode', $mode_options, $search_mode, 1, 0, 0, '', 0, 0, 0, '', 'minwidth125 maxwidth200', 1), $filterFormId).'</td>';
-print '<td>'.lmdbsalescommissionsAttachFormToControls($form->selectarray('search_event_type', array('proposal_signed' => $langs->trans('LmdbSalesCommissionsEventProposalSigned'), 'deposit_paid' => $langs->trans('LmdbSalesCommissionsEventDepositPaid'), 'final_invoice_paid' => $langs->trans('LmdbSalesCommissionsEventFinalInvoicePaid')), $search_event_type, 1, 0, 0, '', 0, 0, 0, '', 'minwidth150 maxwidth200', 1), $filterFormId).'</td>';
-print '<td></td>';
-print '<td></td>';
-print '<td></td>';
-print '<td class="center">'.lmdbsalescommissionsAttachFormToControls($form->selectarray('search_status', array('0' => $langs->trans('LmdbSalesCommissionsDueStatusWaiting'), '1' => $langs->trans('LmdbSalesCommissionsDueStatusDue')), $search_status, 1, 0, 0, '', 0, 0, 0, '', 'minwidth100', 1), $filterFormId).'</td>';
+if (!empty($arrayfields['source']['checked'])) print '<td><input form="'.$filterFormId.'" type="text" class="flat maxwidth100" name="search_source_ref" value="'.dol_escape_htmltag($search_source_ref).'"></td>';
+if (!empty($arrayfields['date']['checked'])) print '<td class="liste_titre center">'.lmdbsalescommissionsRenderDateRangeFilter($form, $search_date_start, $search_date_end, 'search_date_start', 'search_date_end', $filterFormId).'</td>';
+if (!empty($arrayfields['salesrep']['checked'])) print '<td>'.lmdbsalescommissionsAttachFormToControls($form->selectarray('fk_user', lmdbsalescommissionsGetUserOptions($db), $fk_user, 1, 0, 0, '', 0, 0, 0, '', 'minwidth150 maxwidth200', 1), $filterFormId).'</td>';
+if (!empty($arrayfields['thirdparty']['checked'])) print '<td></td>';
+if (!empty($arrayfields['mode']['checked'])) print '<td>'.lmdbsalescommissionsAttachFormToControls($form->selectarray('search_mode', $mode_options, $search_mode, 1, 0, 0, '', 0, 0, 0, '', 'minwidth125 maxwidth200', 1), $filterFormId).'</td>';
+if (!empty($arrayfields['event']['checked'])) print '<td>'.lmdbsalescommissionsAttachFormToControls($form->selectarray('search_event_type', array('proposal_signed' => $langs->trans('LmdbSalesCommissionsEventProposalSigned'), 'deposit_paid' => $langs->trans('LmdbSalesCommissionsEventDepositPaid'), 'final_invoice_paid' => $langs->trans('LmdbSalesCommissionsEventFinalInvoicePaid')), $search_event_type, 1, 0, 0, '', 0, 0, 0, '', 'minwidth150 maxwidth200', 1), $filterFormId).'</td>';
+if (!empty($arrayfields['commission_total']['checked'])) print '<td></td>';
+if (!empty($arrayfields['percentage']['checked'])) print '<td></td>';
+if (!empty($arrayfields['amount']['checked'])) print '<td></td>';
+if (!empty($arrayfields['status']['checked'])) print '<td class="center">'.lmdbsalescommissionsAttachFormToControls($form->selectarray('search_status', array('0' => $langs->trans('LmdbSalesCommissionsDueStatusWaiting'), '1' => $langs->trans('LmdbSalesCommissionsDueStatusDue')), $search_status, 1, 0, 0, '', 0, 0, 0, '', 'minwidth100', 1), $filterFormId).'</td>';
 print '<td></td>';
 print '</tr>';
 
@@ -258,16 +284,16 @@ if ($resql) {
 
 		print '<tr class="oddeven">';
 		print '<td class="center"></td>';
-		print '<td>'.lmdbsalescommissionsBuildSourceNomUrl($db, (string) $obj->source_type, (int) $obj->fk_source, (string) $obj->source_ref).'</td>';
-		print '<td class="center">'.(!empty($obj->date_due) ? dol_print_date($db->jdate($obj->date_due), 'day') : '').'</td>';
-		print '<td>'.lmdbsalescommissionsBuildUserNomUrl($db, (int) $obj->fk_user, (string) $obj->lastname, (string) $obj->firstname, (string) $obj->login, (int) $obj->user_status, (string) $obj->user_photo, (string) $obj->user_email).'</td>';
-		print '<td>'.lmdbsalescommissionsBuildThirdpartyNomUrl($db, (int) $obj->fk_soc, (string) $obj->thirdparty_name).'</td>';
-		print '<td>'.dol_escape_htmltag(lmdbsalescommissionsGetModeLabel($langs, (string) $obj->mode)).'</td>';
-		print '<td>'.dol_escape_htmltag(lmdbsalescommissionsGetDueEventLabel($langs, (string) $obj->event_type)).'</td>';
-		print '<td class="right">'.price((float) $obj->commission_total).'</td>';
-		print '<td class="right">'.price((float) $obj->percentage).'%</td>';
-		print '<td class="right">'.price((float) $obj->amount).'</td>';
-		print '<td class="center">'.lmdbsalescommissionsStatusBadge(lmdbsalescommissionsGetDueStatusLabel($langs, $status), $statusType).'</td>';
+		if (!empty($arrayfields['source']['checked'])) print '<td>'.lmdbsalescommissionsBuildSourceNomUrl($db, (string) $obj->source_type, (int) $obj->fk_source, (string) $obj->source_ref).'</td>';
+		if (!empty($arrayfields['date']['checked'])) print '<td class="center">'.(!empty($obj->date_due) ? dol_print_date($db->jdate($obj->date_due), 'day') : '').'</td>';
+		if (!empty($arrayfields['salesrep']['checked'])) print '<td>'.lmdbsalescommissionsBuildUserNomUrl($db, (int) $obj->fk_user, (string) $obj->lastname, (string) $obj->firstname, (string) $obj->login, (int) $obj->user_status, (string) $obj->user_photo, (string) $obj->user_email).'</td>';
+		if (!empty($arrayfields['thirdparty']['checked'])) print '<td>'.lmdbsalescommissionsBuildThirdpartyNomUrl($db, (int) $obj->fk_soc, (string) $obj->thirdparty_name).'</td>';
+		if (!empty($arrayfields['mode']['checked'])) print '<td>'.dol_escape_htmltag(lmdbsalescommissionsGetModeLabel($langs, (string) $obj->mode)).'</td>';
+		if (!empty($arrayfields['event']['checked'])) print '<td>'.dol_escape_htmltag(lmdbsalescommissionsGetDueEventLabel($langs, (string) $obj->event_type)).'</td>';
+		if (!empty($arrayfields['commission_total']['checked'])) print '<td class="right">'.price((float) $obj->commission_total).'</td>';
+		if (!empty($arrayfields['percentage']['checked'])) print '<td class="right">'.price((float) $obj->percentage).'%</td>';
+		if (!empty($arrayfields['amount']['checked'])) print '<td class="right">'.price((float) $obj->amount).'</td>';
+		if (!empty($arrayfields['status']['checked'])) print '<td class="center">'.lmdbsalescommissionsStatusBadge(lmdbsalescommissionsGetDueStatusLabel($langs, $status), $statusType).'</td>';
 		print '<td class="center">';
 		if ($status === LmdbSalesCommissionDueService::STATUS_DUE && lmdbsalescommissionsCanDo($user, 'due', 'pay')) {
 			print '<form method="POST" action="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'" class="inline-block">';
@@ -285,13 +311,22 @@ if ($resql) {
 	$db->free($resql);
 
 	if ($nb === 0) {
-		lmdbsalescommissionsPrintNoRecordRow($langs, 12);
+		lmdbsalescommissionsPrintNoRecordRow($langs, $visibleColumnCount);
 	} else {
+		$totalLabelColspan = 1;
+		foreach (array('source', 'date', 'salesrep', 'thirdparty', 'mode', 'event', 'commission_total', 'percentage') as $fieldKey) {
+			if (!empty($arrayfields[$fieldKey]['checked'])) {
+				$totalLabelColspan++;
+			}
+		}
 		print '<tr class="liste_total">';
-		print '<td colspan="9">'.$langs->trans('Total').'</td><td class="right">'.price($total_due).'</td><td colspan="2"></td></tr>';
+		print '<td colspan="'.$totalLabelColspan.'">'.$langs->trans('Total').'</td>';
+		if (!empty($arrayfields['amount']['checked'])) print '<td class="right">'.price($total_due).'</td>';
+		if (!empty($arrayfields['status']['checked'])) print '<td></td>';
+		print '<td></td></tr>';
 	}
 } else {
-	lmdbsalescommissionsPrintNoRecordRow($langs, 12);
+	lmdbsalescommissionsPrintNoRecordRow($langs, $visibleColumnCount);
 }
 print '</table>';
 

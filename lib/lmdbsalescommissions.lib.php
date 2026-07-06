@@ -911,6 +911,25 @@ function lmdbsalescommissionsPrintNoRecordRow($langs, $colspan = 1)
 }
 
 /**
+ * Count visible list columns from a native Dolibarr arrayfields definition.
+ *
+ * @param array<string,array<string,mixed>> $arrayfields Array fields definition
+ * @param int                              $extraColumns Extra non-hideable columns
+ * @return int
+ */
+function lmdbsalescommissionsCountVisibleColumns($arrayfields, $extraColumns = 0)
+{
+	$count = (int) $extraColumns;
+	foreach ($arrayfields as $field) {
+		if (!empty($field['checked'])) {
+			$count++;
+		}
+	}
+
+	return $count;
+}
+
+/**
  * Print a simple placeholder table for an empty V1 scaffold page.
  *
  * @param Translate $langs          Language object
