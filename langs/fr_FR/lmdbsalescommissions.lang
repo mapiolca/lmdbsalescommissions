@@ -209,6 +209,7 @@ LmdbSalesCommissionsChartMonthlyCompare=Commissions mensuelles N / N-1
 LmdbSalesCommissionsChartTurnoverMarginCommissions=CA, marge et commissions
 LmdbSalesCommissionsChartCommissionFunnel=Tunnel des commissions
 LmdbSalesCommissionsChartCommissionsByAgent=Commissions par agent
+LmdbSalesCommissionsChartTierProgress=Progression vers le prochain palier
 LmdbSalesCommissionsChartMonthlyObjectiveVsActual=Objectif mensuel vs réalisé
 LmdbSalesCommissionsChartAnnualObjectiveVsActual=Objectif annuel vs réalisé
 LmdbSalesCommissionsTableDueCommissions=Commissions à verser prochainement
