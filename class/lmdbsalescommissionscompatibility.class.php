@@ -81,6 +81,17 @@ class LmdbSalesCommissionsCompatibility
 				'available' => function_exists('getDolGlobalInt') && function_exists('getDolGlobalString') && function_exists('isModEnabled'),
 				'reason' => 'LmdbSalesCommissionsNativeHelpersUnavailable',
 			),
+			'native_invoice_payment_detection' => array(
+				'label' => 'LmdbSalesCommissionsCompatibilityNativeInvoicePaymentDetection',
+				'description' => 'LmdbSalesCommissionsCompatibilityNativeInvoicePaymentDetectionDesc',
+				'min_dolibarr' => self::MIN_DOLIBARR_VERSION,
+				'core_available_from' => self::MIN_DOLIBARR_VERSION,
+				'module_available_from' => self::MIN_DOLIBARR_VERSION,
+				'min_php' => self::MIN_PHP_VERSION,
+				'compatibility_check' => 'class_exists("Facture") || file_exists(DOL_DOCUMENT_ROOT."/compta/facture/class/facture.class.php")',
+				'available' => defined('DOL_DOCUMENT_ROOT') && file_exists(DOL_DOCUMENT_ROOT.'/compta/facture/class/facture.class.php'),
+				'reason' => 'LmdbSalesCommissionsNativeInvoicePaymentDetectionUnavailable',
+			),
 		);
 	}
 

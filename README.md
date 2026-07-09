@@ -35,6 +35,7 @@ Il ne contient pas le préfixe `htdocs/custom/`, car ce chemin est géré par Do
 - Estimation de commission sur la fiche devis.
 - Figeage des commissions lors de la signature d’un devis.
 - Génération d’échéances de versement et passage en versé.
+- Détection des échéances à verser depuis les factures d’acompte et factures finales liées au devis ou aux commandes issues du devis.
 - Pages métier : tableau de bord par widgets, à verser, suivi, versées, exports.
 - Onglet **Commissions** sur la fiche utilisateur.
 - Widgets Dolibarr agent et manager, ainsi que widgets d’accueil ciblés pour commissions à verser, objectif, palier, anomalies et synthèses manager.
@@ -62,7 +63,8 @@ Tous les exports restent centralisés dans **Facturation | Paiement > Commission
 5. Créer une grille de paliers si une règle de type palier est utilisée.
 6. Affecter la règle à un utilisateur, un groupe ou par défaut.
 7. Définir des objectifs mensuels ou annuels si nécessaire.
-8. Vérifier les contrôles de cohérence dans l’onglet **Aide / contrôles**.
+8. Choisir la règle de libération de l’échéance de facture finale dans les paramètres généraux du module.
+9. Vérifier les contrôles de cohérence dans l’onglet **Aide / contrôles**.
 
 ## Scénarios de validation
 
@@ -76,6 +78,8 @@ Tous les exports restent centralisés dans **Facturation | Paiement > Commission
 - Règle de groupe prioritaire sur une règle par défaut.
 - Conflit de règles détecté.
 - Commission figée à la signature du devis.
+- Échéance d’acompte rendue payable par une facture d’acompte payée liée directement au devis ou à une commande du devis.
+- Échéance de facture finale rendue payable selon le mode configuré pour les factures finales liées.
 - Échéance marquée comme versée par un utilisateur autorisé.
 - Widget masqué puis réaffiché sans chargement de données lorsqu’il est masqué.
 - Exports accessibles uniquement depuis la page **Exports**.
@@ -92,7 +96,7 @@ Tous les exports restent centralisés dans **Facturation | Paiement > Commission
 - Pas de génération automatique de facture fournisseur ou note de frais.
 - Pas de commissionnement par ligne produit/service.
 - Pas de gestion de plusieurs commerciaux sur un même devis.
-- La détection des paiements acompte/facture finale doit être validée selon les liens facture/devis de l’instance Dolibarr cible.
+- La détection des paiements acompte/facture finale repose sur les liens natifs Dolibarr entre devis, commandes et factures client.
 - Aucun modèle PDF/ODT n’est fourni dans cette V1.
 
 ## Licence

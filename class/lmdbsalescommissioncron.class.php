@@ -111,27 +111,27 @@ class LmdbSalesCommissionCron
 	/**
 	 * Detect due dates already payable from their native event.
 	 *
-	 * V1 marks proposal signature due dates at generation time; payment event reconciliation is kept
-	 * conservative until invoice/deposit source mapping is explicitly configured.
-	 *
 	 * @return int
 	 */
 	public function detectPayableDueDates()
 	{
-		$sql = 'UPDATE '.MAIN_DB_PREFIX.'lmdbsalescommissions_due';
-		$sql .= ' AS d INNER JOIN '.MAIN_DB_PREFIX.'lmdbsalescommissions_line AS l ON l.rowid = d.fk_commission_line AND l.entity = d.entity';
-		$sql .= ' SET d.status = '.LmdbSalesCommissionDueService::STATUS_DUE.', d.date_due = COALESCE(d.date_due, l.date_acquired, NOW())';
-		$sql .= ' WHERE d.entity IN ('.$this->db->sanitize(getEntity('lmdbsalescommissions_due')).')';
-		$sql .= " AND d.event_type = 'proposal_signed'";
-		$sql .= ' AND d.status = '.LmdbSalesCommissionDueService::STATUS_WAITING;
+		global $user;
 
-		if (!$this->db->query($sql)) {
-			$this->error = $this->db->lasterror();
+		$cronUser = is_object($user) ? $user : null;
+		if (!is_object($cronUser)) {
+			$this->error = 'ErrorNoUser';
 			return -1;
 		}
 
-		$count = $this->db->affected_rows($this->db->lastqueryid);
-		dol_syslog(__METHOD__.': marked '.$count.' signature due dates as payable', LOG_INFO);
+		$service = new LmdbSalesCommissionDueService($this->db);
+		$count = $service->detectPayableDueDates($cronUser);
+		if ($count < 0) {
+			$this->error = $service->error;
+			$this->errors = $service->errors;
+			return -1;
+		}
+
+		dol_syslog(__METHOD__.': marked '.$count.' due dates as payable', LOG_INFO);
 
 		return $count;
 	}

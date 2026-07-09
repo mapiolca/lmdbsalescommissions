@@ -55,7 +55,7 @@ Le nom technique `lmdbsalescommissions` doit être utilisé partout : tables SQL
 - Le dépôt ne contient pas le core Dolibarr : les tests d'activation, d'installation SQL, d'affichage des menus, des hooks, des crons et des notifications devront être vérifiés dans une instance Dolibarr cible.
 - Le périmètre V1 est large : commissions, paliers, objectifs, archives, widgets, exports, crons et notifications.
 - Les hooks de devis et les données de marge doivent être validés sur Dolibarr v20+.
-- Les événements de paiement acompte/facture finale restent conservateurs tant que le lien exact facture/devis n'est pas validé dans l'instance cible.
+- Les événements de paiement acompte/facture finale sont détectés depuis les liens natifs `element_element` entre devis, commandes et factures client, avec filtrage par entité.
 - Les documents PDF/ODT ne font pas partie de cette V1.
 
 ## Ordre de développement suivi
