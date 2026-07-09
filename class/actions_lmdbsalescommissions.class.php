@@ -82,11 +82,11 @@ class ActionsLmdbSalesCommissions
 			$this->resprints .= '<tr class="oddeven"><td>'.$commissionData['message'].'</td></tr>';
 		} else {
 			$headers = array(
-				(string) $commissionData['title'],
+				$langs->trans('LmdbSalesCommissionsProposalEstimateTableCommission'),
 				$langs->trans('LmdbSalesCommissionsMarginBase'),
 				$langs->trans('Rate'),
-				$langs->trans('LmdbSalesCommissionsRule'),
-				$langs->trans('LmdbSalesCommissionsRuleSource'),
+				$langs->trans('LmdbSalesCommissionsProposalEstimateTableRule'),
+				$langs->trans('LmdbSalesCommissionsProposalEstimateTableRuleSource'),
 				$langs->trans('Status'),
 			);
 			$values = array(
@@ -130,7 +130,6 @@ class ActionsLmdbSalesCommissions
 		require_once dol_buildpath('/lmdbsalescommissions/lib/lmdbsalescommissions.lib.php', 0);
 		require_once dol_buildpath('/lmdbsalescommissions/class/lmdbsalescommissionproposalservice.class.php', 0);
 		require_once dol_buildpath('/lmdbsalescommissions/class/lmdbsalescommissionruleresolver.class.php', 0);
-		require_once DOL_DOCUMENT_ROOT.'/user/class/user.class.php';
 
 		$langs->loadLangs(array('lmdbsalescommissions@lmdbsalescommissions'));
 
@@ -160,19 +159,8 @@ class ActionsLmdbSalesCommissions
 		$base = max(0, $margin);
 		$rate = (float) ($marginRule['rate'] ?? 0);
 		$amount = price2num($base * $rate / 100, 'MT');
-		$salesUserLabel = (string) $salesUserId;
-		if ((int) $user->id !== $salesUserId) {
-			$salesUser = new User($this->db);
-			if ($salesUser->fetch($salesUserId) > 0) {
-				$salesUserLabel = $salesUser->getFullName($langs);
-			}
-		}
-		$title = ((int) $user->id === $salesUserId)
-			? $langs->trans('LmdbSalesCommissionsYourEstimatedCommission')
-			: $langs->trans('LmdbSalesCommissionsUserEstimatedCommission', $salesUserLabel);
 
 		return array(
-			'title' => $title,
 			'amount' => lmdbsalescommissionsFormatTotalAmount($amount),
 			'margin' => lmdbsalescommissionsFormatTotalAmount($margin),
 			'rate' => lmdbsalescommissionsFormatTotalAmount($rate).' %',

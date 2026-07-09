@@ -327,11 +327,12 @@ class LmdbSalesCommissionDashboardService
 	public function getCommissionsByAgent(array $filters, $user, $limit = 10)
 	{
 		$where = $this->buildLineWhere('l', $filters, $user, 'date_acquired');
-		$sql = 'SELECT l.fk_user, u.lastname, u.firstname, u.login, SUM(l.commission_total) AS commission_total';
+		$sql = 'SELECT l.fk_user, u.lastname, u.firstname, u.login, u.statut AS user_status, u.photo AS user_photo, u.email AS user_email, SUM(l.commission_total) AS commission_total';
 		$sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_line AS l';
 		$sql .= ' LEFT JOIN '.MAIN_DB_PREFIX.'user AS u ON u.rowid = l.fk_user';
 		$sql .= ' WHERE l.status = 1'.$where;
-		$sql .= ' GROUP BY l.fk_user, u.lastname, u.firstname, u.login';
+		$sql .= ' AND l.fk_rule > 0';
+		$sql .= ' GROUP BY l.fk_user, u.lastname, u.firstname, u.login, u.statut, u.photo, u.email';
 		$sql .= ' ORDER BY commission_total DESC';
 		$sql .= $this->db->plimit($limit);
 

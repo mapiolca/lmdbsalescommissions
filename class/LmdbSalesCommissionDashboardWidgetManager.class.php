@@ -725,7 +725,7 @@ class LmdbSalesCommissionDashboardWidget extends ModeleBoxes
 		}
 		foreach ($rows as $row) {
 			$this->info_box_contents[] = array(
-				array('text' => lmdbsalescommissionsBuildUserNomUrl($this->db, (int) $row['fk_user'], (string) $row['lastname'], (string) $row['firstname'], (string) $row['login']), 'asis' => 1),
+				array('text' => lmdbsalescommissionsBuildUserNomUrl($this->db, (int) $row['fk_user'], (string) $row['lastname'], (string) $row['firstname'], (string) $row['login'], (int) $row['user_status'], (string) $row['user_photo'], (string) $row['user_email']), 'asis' => 1),
 				array('td' => 'class="right"', 'text' => lmdbsalescommissionsFormatTotalAmount($row['commission_total']), 'asis' => 1),
 			);
 		}
