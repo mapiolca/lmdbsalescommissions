@@ -288,9 +288,9 @@ if ($resql) {
 		if (!empty($arrayfields['thirdparty']['checked'])) print '<td>'.lmdbsalescommissionsBuildThirdpartyNomUrl($db, (int) $obj->fk_soc, (string) $obj->thirdparty_name).'</td>';
 		if (!empty($arrayfields['mode']['checked'])) print '<td>'.dol_escape_htmltag(lmdbsalescommissionsGetModeLabel($langs, (string) $obj->mode)).'</td>';
 		if (!empty($arrayfields['event']['checked'])) print '<td>'.dol_escape_htmltag(lmdbsalescommissionsGetDueEventLabel($langs, (string) $obj->event_type)).'</td>';
-		if (!empty($arrayfields['commission_total']['checked'])) print '<td class="right">'.price((float) $obj->commission_total).'</td>';
-		if (!empty($arrayfields['percentage']['checked'])) print '<td class="right">'.price((float) $obj->percentage).'%</td>';
-		if (!empty($arrayfields['amount']['checked'])) print '<td class="right">'.price((float) $obj->amount).'</td>';
+		if (!empty($arrayfields['commission_total']['checked'])) print '<td class="right">'.lmdbsalescommissionsFormatTotalAmount($obj->commission_total).'</td>';
+		if (!empty($arrayfields['percentage']['checked'])) print '<td class="right">'.lmdbsalescommissionsFormatTotalAmount($obj->percentage).'%</td>';
+		if (!empty($arrayfields['amount']['checked'])) print '<td class="right">'.lmdbsalescommissionsFormatTotalAmount($obj->amount).'</td>';
 		if (!empty($arrayfields['status']['checked'])) print '<td class="center">'.lmdbsalescommissionsStatusBadge(lmdbsalescommissionsGetDueStatusLabel($langs, $status), $statusType).'</td>';
 		print '<td class="center">';
 		if ($status === LmdbSalesCommissionDueService::STATUS_DUE && lmdbsalescommissionsCanDo($user, 'due', 'pay')) {
@@ -319,7 +319,7 @@ if ($resql) {
 		}
 		print '<tr class="liste_total">';
 		print '<td colspan="'.$totalLabelColspan.'">'.$langs->trans('Total').'</td>';
-		if (!empty($arrayfields['amount']['checked'])) print '<td class="right">'.price($total_due).'</td>';
+		if (!empty($arrayfields['amount']['checked'])) print '<td class="right">'.lmdbsalescommissionsFormatTotalAmount($total_due).'</td>';
 		if (!empty($arrayfields['status']['checked'])) print '<td></td>';
 		print '<td></td></tr>';
 	}

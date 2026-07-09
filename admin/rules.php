@@ -220,7 +220,7 @@ if ($mode === 'create' || $mode === 'edit') {
 	print '<tr><td class="titlefieldcreate fieldrequired">'.$langs->trans('Ref').'</td><td><input class="minwidth300" type="text" name="ref" value="'.dol_escape_htmltag((string) $rule->ref).'"></td></tr>';
 	print '<tr><td class="fieldrequired">'.$langs->trans('Label').'</td><td><input class="minwidth500" type="text" name="label" value="'.dol_escape_htmltag((string) $rule->label).'"></td></tr>';
 	print '<tr><td class="fieldrequired">'.$langs->trans('Type').'</td><td>'.$form->selectarray('rule_type', $ruletypes, (string) $rule->rule_type, 0, 0, 0, '', 0, 0, 0, '', 'minwidth300').'</td></tr>';
-	print '<tr><td>'.$langs->trans('Rate').'</td><td><input class="width75 right" type="text" name="rate" value="'.dol_escape_htmltag((string) $rule->rate).'"> %</td></tr>';
+	print '<tr><td>'.$langs->trans('Rate').'</td><td><input class="width75 right" type="text" name="rate" value="'.dol_escape_htmltag($rule->rate !== null ? price2num($rule->rate, 'MT') : '').'"> %</td></tr>';
 	print '<tr><td>'.$langs->trans('LmdbSalesCommissionsTierGrid').'</td><td>'.$form->selectarray('fk_tier_grid', $tierGridOptions, (int) $rule->fk_tier_grid, 0, 0, 0, '', 0, 0, 0, '', 'minwidth300').'</td></tr>';
 	print '<tr><td>'.$langs->trans('LmdbSalesCommissionsPaymentTerms').'</td><td>'.$form->selectarray('fk_payment_term', $paymentTermOptions, (int) $rule->fk_payment_term, 0, 0, 0, '', 0, 0, 0, '', 'minwidth300').'</td></tr>';
 	print '<tr><td class="fieldrequired">'.$langs->trans('Source').'</td><td>'.$form->selectarray('source_type', $sourcetypes, (string) ($rule->source_type ?: 'proposal'), 0, 0, 0, '', 0, 0, 0, '', 'minwidth300').'</td></tr>';
@@ -289,7 +289,7 @@ if (!$resql) {
 		print '<td>'.dol_escape_htmltag((string) $obj->ref).'</td>';
 		print '<td>'.dol_escape_htmltag((string) $obj->label).'</td>';
 		print '<td>'.dol_escape_htmltag($ruletypes[(string) $obj->rule_type] ?? (string) $obj->rule_type).'</td>';
-		print '<td class="right">'.($obj->rate !== null ? price((float) $obj->rate).' %' : '').'</td>';
+		print '<td class="right">'.($obj->rate !== null ? lmdbsalescommissionsFormatTotalAmount($obj->rate).' %' : '').'</td>';
 		print '<td>'.dol_escape_htmltag($sourcetypes[(string) $obj->source_type] ?? (string) $obj->source_type).'</td>';
 		print '<td>'.dol_escape_htmltag($periodtypes[(string) $obj->period_type] ?? (string) $obj->period_type).'</td>';
 		print '<td class="center">'.yn((int) $obj->cumulative).'</td>';

@@ -116,7 +116,7 @@ if ($action === 'addobjective' || $action === 'updateobjective') {
 	$year = GETPOSTINT('year');
 	$month = GETPOSTINT('month');
 	$base_type = GETPOST('base_type', 'aZ09');
-	$target_value = price2num(GETPOST('target_value', 'alphanohtml'), 'MU');
+	$target_value = price2num(GETPOST('target_value', 'alphanohtml'), 'MT');
 	$active = GETPOSTINT('active') ? 1 : 0;
 	$date_start = lmdbsalescommissions_objective_get_post_date('date_start');
 	$date_end = lmdbsalescommissions_objective_get_post_date('date_end');
@@ -219,7 +219,7 @@ if ($mode === 'create' || $mode === 'edit') {
 	print '<tr><td class="fieldrequired">'.$langs->trans('Year').'</td><td><input class="width75 right" type="text" name="year" value="'.dol_escape_htmltag((string) ($objective->year ?: (int) dol_print_date(dol_now(), '%Y'))).'"></td></tr>';
 	print '<tr><td>'.$langs->trans('Month').'</td><td><input class="width75 right" type="text" name="month" value="'.dol_escape_htmltag((string) $objective->month).'"></td></tr>';
 	print '<tr><td class="fieldrequired">'.$langs->trans('LmdbSalesCommissionsObjectiveBase').'</td><td>'.$form->selectarray('base_type', $baseTypes, (string) ($objective->base_type ?: 'signed_turnover'), 0, 0, 0, '', 0, 0, 0, '', 'minwidth300').'</td></tr>';
-	print '<tr><td>'.$langs->trans('LmdbSalesCommissionsTargetValue').'</td><td><input class="width100 right" type="text" name="target_value" value="'.dol_escape_htmltag((string) ($objective->target_value ?? 0)).'"></td></tr>';
+	print '<tr><td>'.$langs->trans('LmdbSalesCommissionsTargetValue').'</td><td><input class="width100 right" type="text" name="target_value" value="'.dol_escape_htmltag(price2num($objective->target_value ?? 0, 'MT')).'"></td></tr>';
 	print '<tr><td>'.$langs->trans('Active').'</td><td>'.$form->selectyesno('active', (int) ($objective->active !== null ? $objective->active : 1), 1).'</td></tr>';
 	print '<tr><td>'.$langs->trans('DateStart').'</td><td>'.$form->selectDate($objective->date_start, 'date_start', 0, 0, 1, 'objectiveform', 1, 0).'</td></tr>';
 	print '<tr><td>'.$langs->trans('DateEnd').'</td><td>'.$form->selectDate($objective->date_end, 'date_end', 0, 0, 1, 'objectiveform', 1, 0).'</td></tr>';
@@ -293,7 +293,7 @@ if (!$resql) {
 		print '<td>'.dol_escape_htmltag($objectiveTypes[(string) $obj->objective_type] ?? (string) $obj->objective_type).'</td>';
 		print '<td>'.dol_escape_htmltag($period).'</td>';
 		print '<td>'.dol_escape_htmltag($baseTypes[(string) $obj->base_type] ?? (string) $obj->base_type).'</td>';
-		print '<td class="right">'.price((float) $obj->target_value).'</td>';
+		print '<td class="right">'.lmdbsalescommissionsFormatTotalAmount($obj->target_value).'</td>';
 		print '<td class="right">'.((int) $obj->priority).'</td>';
 		print '<td class="center">'.yn((int) $obj->active).'</td>';
 		print '<td class="right"><a class="reposition" href="'.$_SERVER['PHP_SELF'].'?mode=edit&id='.((int) $obj->rowid).'">'.img_edit().'</a></td>';

@@ -339,12 +339,12 @@ if ($resql) {
 		if (!empty($arrayfields['salesrep']['checked'])) print '<td>'.lmdbsalescommissionsBuildUserNomUrl($db, (int) $obj->fk_user, (string) $obj->lastname, (string) $obj->firstname, (string) $obj->login, (int) $obj->user_status, (string) $obj->user_photo, (string) $obj->user_email).'</td>';
 		if (!empty($arrayfields['thirdparty']['checked'])) print '<td>'.lmdbsalescommissionsBuildThirdpartyNomUrl($db, (int) $obj->fk_soc, (string) $obj->thirdparty_name).'</td>';
 		if (!empty($arrayfields['mode']['checked'])) print '<td>'.dol_escape_htmltag(lmdbsalescommissionsGetModeLabel($langs, (string) $obj->mode)).'</td>';
-		if (!empty($arrayfields['amount_base']['checked'])) print '<td class="right">'.price((float) $obj->amount_base).'</td>';
-		if (!empty($arrayfields['margin_base']['checked'])) print '<td class="right">'.($obj->margin_base !== null ? price((float) $obj->margin_base) : '').'</td>';
-		if (!empty($arrayfields['rate']['checked'])) print '<td class="right">'.($obj->rate !== null ? price((float) $obj->rate).'%' : '').'</td>';
-		if (!empty($arrayfields['commission_total']['checked'])) print '<td class="right">'.price((float) $obj->commission_total).'</td>';
-		if (!empty($arrayfields['payable_total']['checked'])) print '<td class="right">'.price((float) $obj->payable_total).'</td>';
-		if (!empty($arrayfields['paid_total']['checked'])) print '<td class="right">'.price((float) $obj->paid_total).'</td>';
+		if (!empty($arrayfields['amount_base']['checked'])) print '<td class="right">'.lmdbsalescommissionsFormatTotalAmount($obj->amount_base).'</td>';
+		if (!empty($arrayfields['margin_base']['checked'])) print '<td class="right">'.($obj->margin_base !== null ? lmdbsalescommissionsFormatTotalAmount($obj->margin_base) : '').'</td>';
+		if (!empty($arrayfields['rate']['checked'])) print '<td class="right">'.($obj->rate !== null ? lmdbsalescommissionsFormatTotalAmount($obj->rate).'%' : '').'</td>';
+		if (!empty($arrayfields['commission_total']['checked'])) print '<td class="right">'.lmdbsalescommissionsFormatTotalAmount($obj->commission_total).'</td>';
+		if (!empty($arrayfields['payable_total']['checked'])) print '<td class="right">'.lmdbsalescommissionsFormatTotalAmount($obj->payable_total).'</td>';
+		if (!empty($arrayfields['paid_total']['checked'])) print '<td class="right">'.lmdbsalescommissionsFormatTotalAmount($obj->paid_total).'</td>';
 		if (!empty($arrayfields['status']['checked'])) print '<td class="center">'.lmdbsalescommissionsStatusBadge(lmdbsalescommissionsGetLineStatusLabel($langs, $status), $status).'</td>';
 		print '</tr>';
 	}
@@ -360,9 +360,9 @@ if ($resql) {
 		}
 		print '<tr class="liste_total">';
 		print '<td colspan="'.$totalLabelColspan.'">'.$langs->trans('Total').'</td>';
-		if (!empty($arrayfields['commission_total']['checked'])) print '<td class="right">'.price($sum_commission).'</td>';
-		if (!empty($arrayfields['payable_total']['checked'])) print '<td class="right">'.price($sum_payable).'</td>';
-		if (!empty($arrayfields['paid_total']['checked'])) print '<td class="right">'.price($sum_paid).'</td>';
+		if (!empty($arrayfields['commission_total']['checked'])) print '<td class="right">'.lmdbsalescommissionsFormatTotalAmount($sum_commission).'</td>';
+		if (!empty($arrayfields['payable_total']['checked'])) print '<td class="right">'.lmdbsalescommissionsFormatTotalAmount($sum_payable).'</td>';
+		if (!empty($arrayfields['paid_total']['checked'])) print '<td class="right">'.lmdbsalescommissionsFormatTotalAmount($sum_paid).'</td>';
 		if (!empty($arrayfields['status']['checked'])) print '<td></td>';
 		print '</tr>';
 	}

@@ -67,7 +67,7 @@ class LmdbSalesCommissionDueService
 			if ($percentage <= 0) {
 				continue;
 			}
-			$amount = $index === $count ? (float) $line->commission_total - $sum : price2num(((float) $line->commission_total * $percentage / 100), 'MT');
+			$amount = $index === $count ? (float) price2num((float) $line->commission_total - $sum, 'MT') : (float) price2num(((float) $line->commission_total * $percentage / 100), 'MT');
 			$sum += $amount;
 			$status = $eventType === 'proposal_signed' ? self::STATUS_DUE : self::STATUS_WAITING;
 			$result = $this->createDueIfMissing($line, $user, $eventType, $percentage, $amount, $status);
@@ -232,7 +232,7 @@ class LmdbSalesCommissionDueService
 		$due->fk_commission_line = (int) $line->id;
 		$due->event_type = $eventType;
 		$due->percentage = $percentage;
-		$due->amount = $amount;
+		$due->amount = (float) price2num($amount, 'MT');
 		$due->status = $status;
 		$due->date_due = $status === self::STATUS_DUE ? (!empty($line->date_acquired) ? (int) $line->date_acquired : dol_now()) : null;
 
@@ -278,8 +278,8 @@ class LmdbSalesCommissionDueService
 			return;
 		}
 
-		$line->payable_total = (float) $obj->payable;
-		$line->paid_total = (float) $obj->paid;
+		$line->payable_total = (float) price2num($obj->payable, 'MT');
+		$line->paid_total = (float) price2num($obj->paid, 'MT');
 		$line->update($user, 1);
 	}
 }

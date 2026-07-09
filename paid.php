@@ -250,7 +250,7 @@ if ($resql) {
 		if (!empty($arrayfields['thirdparty']['checked'])) print '<td>'.lmdbsalescommissionsBuildThirdpartyNomUrl($db, (int) $obj->fk_soc, (string) $obj->thirdparty_name).'</td>';
 		if (!empty($arrayfields['mode']['checked'])) print '<td>'.dol_escape_htmltag(lmdbsalescommissionsGetModeLabel($langs, (string) $obj->mode)).'</td>';
 		if (!empty($arrayfields['event']['checked'])) print '<td>'.dol_escape_htmltag(lmdbsalescommissionsGetDueEventLabel($langs, (string) $obj->event_type)).'</td>';
-		if (!empty($arrayfields['amount']['checked'])) print '<td class="right">'.price((float) $obj->amount).'</td>';
+		if (!empty($arrayfields['amount']['checked'])) print '<td class="right">'.lmdbsalescommissionsFormatTotalAmount($obj->amount).'</td>';
 		if (!empty($arrayfields['paid_by']['checked'])) print '<td>'.lmdbsalescommissionsBuildUserNomUrl($db, (int) $obj->fk_user_paid, (string) $obj->paid_lastname, (string) $obj->paid_firstname, (string) $obj->paid_login, (int) $obj->paid_user_status, (string) $obj->paid_user_photo, (string) $obj->paid_user_email).'</td>';
 		print '</tr>';
 	}
@@ -266,7 +266,7 @@ if ($resql) {
 		}
 		print '<tr class="liste_total">';
 		print '<td colspan="'.$totalLabelColspan.'">'.$langs->trans('Total').'</td>';
-		if (!empty($arrayfields['amount']['checked'])) print '<td class="right">'.price($sum_paid).'</td>';
+		if (!empty($arrayfields['amount']['checked'])) print '<td class="right">'.lmdbsalescommissionsFormatTotalAmount($sum_paid).'</td>';
 		if (!empty($arrayfields['paid_by']['checked'])) print '<td></td>';
 		print '</tr>';
 	}

@@ -1,6 +1,8 @@
 <?php
 /* Copyright (C) 2026		Pierre Ardoin <developpeur@lesmetiersdubatiment.fr> */
 
+require_once dol_buildpath('/lmdbsalescommissions/lib/lmdbsalescommissions.lib.php', 0);
+
 /**
  * Complete native substitution array for lmdbsalescommissions objects.
  *
@@ -21,7 +23,7 @@ function lmdbsalescommissions_completesubstitutionarray(&$substitutionarray, $la
 	$ref = property_exists($object, 'ref') && !empty($object->ref) ? (string) $object->ref : (property_exists($object, 'source_ref') ? (string) $object->source_ref : '');
 	$label = property_exists($object, 'label') && !empty($object->label) ? (string) $object->label : $ref;
 	$status = property_exists($object, 'status') ? (string) $object->status : '';
-	$amount = property_exists($object, 'commission_total') ? price((float) $object->commission_total) : (property_exists($object, 'amount') ? price((float) $object->amount) : '');
+	$amount = property_exists($object, 'commission_total') ? lmdbsalescommissionsFormatTotalAmount($object->commission_total) : (property_exists($object, 'amount') ? lmdbsalescommissionsFormatTotalAmount($object->amount) : '');
 
 	$substitutionarray['__LMDBSALESCOMMISSIONS_REF__'] = $ref;
 	$substitutionarray['__LMDBSALESCOMMISSIONS_LABEL__'] = $label;

@@ -119,7 +119,7 @@ if ($action === 'export') {
 				if ($agent === '') {
 					$agent = (string) $obj->login;
 				}
-				fputcsv($output, array(dol_print_date($db->jdate($obj->date_acquired), 'day'), $agent, (string) $obj->thirdparty_name, lmdbsalescommissionsGetSourceTypeLabel($langs, (string) $obj->source_type), (string) $obj->source_ref, lmdbsalescommissionsGetModeLabel($langs, (string) $obj->mode), price2num($obj->amount_base), price2num($obj->margin_base), price2num($obj->rate), price2num($obj->commission_total), price2num($obj->payable_total), price2num($obj->paid_total), lmdbsalescommissionsGetLineStatusLabel($langs, (int) $obj->status)), ';');
+				fputcsv($output, array(dol_print_date($db->jdate($obj->date_acquired), 'day'), $agent, (string) $obj->thirdparty_name, lmdbsalescommissionsGetSourceTypeLabel($langs, (string) $obj->source_type), (string) $obj->source_ref, lmdbsalescommissionsGetModeLabel($langs, (string) $obj->mode), price2num($obj->amount_base, 'MT'), price2num($obj->margin_base, 'MT'), price2num($obj->rate, 'MT'), price2num($obj->commission_total, 'MT'), price2num($obj->payable_total, 'MT'), price2num($obj->paid_total, 'MT'), lmdbsalescommissionsGetLineStatusLabel($langs, (int) $obj->status)), ';');
 			}
 			$db->free($resql);
 		}
@@ -142,7 +142,7 @@ if ($action === 'export') {
 				if ($agent === '') {
 					$agent = (string) $obj->login;
 				}
-				fputcsv($output, array(lmdbsalescommissionsGetDueEventLabel($langs, (string) $obj->event_type), $agent, (string) $obj->thirdparty_name, lmdbsalescommissionsGetSourceTypeLabel($langs, (string) $obj->source_type), (string) $obj->source_ref, lmdbsalescommissionsGetModeLabel($langs, (string) $obj->mode), price2num($obj->percentage), price2num($obj->amount), lmdbsalescommissionsGetDueStatusLabel($langs, (int) $obj->status), dol_print_date($db->jdate($obj->date_due), 'day'), dol_print_date($db->jdate($obj->date_paid), 'day')), ';');
+				fputcsv($output, array(lmdbsalescommissionsGetDueEventLabel($langs, (string) $obj->event_type), $agent, (string) $obj->thirdparty_name, lmdbsalescommissionsGetSourceTypeLabel($langs, (string) $obj->source_type), (string) $obj->source_ref, lmdbsalescommissionsGetModeLabel($langs, (string) $obj->mode), price2num($obj->percentage, 'MT'), price2num($obj->amount, 'MT'), lmdbsalescommissionsGetDueStatusLabel($langs, (int) $obj->status), dol_print_date($db->jdate($obj->date_due), 'day'), dol_print_date($db->jdate($obj->date_paid), 'day')), ';');
 			}
 			$db->free($resql);
 		}
@@ -179,7 +179,7 @@ if ($action === 'export') {
 				if ($agent === '') {
 					$agent = (string) $obj->login;
 				}
-				fputcsv($output, array((int) $obj->entity, (string) $obj->assignment_type, $agent, (string) $obj->group_name, (string) $obj->objective_type, (int) $obj->year, $obj->month !== null ? (int) $obj->month : '', (string) $obj->base_type, price2num($obj->target_value), (int) $obj->active, (int) $obj->priority), ';');
+				fputcsv($output, array((int) $obj->entity, (string) $obj->assignment_type, $agent, (string) $obj->group_name, (string) $obj->objective_type, (int) $obj->year, $obj->month !== null ? (int) $obj->month : '', (string) $obj->base_type, price2num($obj->target_value, 'MT'), (int) $obj->active, (int) $obj->priority), ';');
 			}
 			$db->free($resql);
 		}
@@ -212,7 +212,7 @@ if ($action === 'export') {
 				if ($agent === '') {
 					$agent = (string) $obj->login;
 				}
-				fputcsv($output, array((int) $obj->entity, $agent, (string) $obj->objective_type, (int) $obj->year, $obj->month !== null ? (int) $obj->month : '', price2num($obj->target_value), price2num($obj->realized_value), $obj->achievement_rate !== null ? price2num($obj->achievement_rate) : '', lmdbsalescommissionsGetObjectiveArchiveStatusLabel($langs, (int) $obj->status), (string) $obj->objective_source, dol_print_date($db->jdate($obj->date_archive), 'day')), ';');
+				fputcsv($output, array((int) $obj->entity, $agent, (string) $obj->objective_type, (int) $obj->year, $obj->month !== null ? (int) $obj->month : '', price2num($obj->target_value, 'MT'), price2num($obj->realized_value, 'MT'), $obj->achievement_rate !== null ? price2num($obj->achievement_rate, 'MT') : '', lmdbsalescommissionsGetObjectiveArchiveStatusLabel($langs, (int) $obj->status), (string) $obj->objective_source, dol_print_date($db->jdate($obj->date_archive), 'day')), ';');
 			}
 			$db->free($resql);
 		}
@@ -238,7 +238,7 @@ if ($action === 'export') {
 				if ($agent === '') {
 					$agent = (string) $row['login'];
 				}
-				fputcsv($output, array($agent, price2num($row['turnover']), price2num($row['reached_threshold']), price2num($row['next_threshold']), price2num($row['remaining']), price2num($row['potential_bonus']), price2num($row['rate'])), ';');
+				fputcsv($output, array($agent, price2num($row['turnover'], 'MT'), price2num($row['reached_threshold'], 'MT'), price2num($row['next_threshold'], 'MT'), price2num($row['remaining'], 'MT'), price2num($row['potential_bonus'], 'MT'), price2num($row['rate'], 'MT')), ';');
 			}
 		} elseif ($dataset === 'late_objectives') {
 			fputcsv($output, array('agent', 'objective_type', 'period', 'objective', 'realized', 'achievement_rate', 'gap'), ';');
@@ -247,7 +247,7 @@ if ($action === 'export') {
 				if ($agent === '') {
 					$agent = (string) $row['login'];
 				}
-				fputcsv($output, array($agent, (string) $row['objective_type'], (string) $row['period'], price2num($row['objective']), price2num($row['realized']), price2num($row['rate']), price2num($row['gap'])), ';');
+				fputcsv($output, array($agent, (string) $row['objective_type'], (string) $row['period'], price2num($row['objective'], 'MT'), price2num($row['realized'], 'MT'), price2num($row['rate'], 'MT'), price2num($row['gap'], 'MT')), ';');
 			}
 		} elseif ($dataset === 'top_deals') {
 			fputcsv($output, array('agent', 'client', 'source_type', 'source_ref', 'date_signature', 'turnover', 'margin', 'margin_rate', 'margin_commission', 'tier_bonus', 'commission_total', 'status'), ';');
@@ -258,12 +258,12 @@ if ($action === 'export') {
 				}
 				$amount = (float) $row['amount_base'];
 				$margin = (float) $row['margin_base'];
-				fputcsv($output, array($agent, (string) $row['thirdparty_name'], lmdbsalescommissionsGetSourceTypeLabel($langs, (string) $row['source_type']), (string) $row['source_ref'], dol_print_date($db->jdate($row['date_acquired']), 'day'), price2num($amount), price2num($margin), $amount > 0 ? price2num(($margin / $amount) * 100) : '', price2num($row['margin_commission']), price2num($row['tier_commission']), price2num($row['commission_total']), lmdbsalescommissionsGetLineStatusLabel($langs, (int) $row['status'])), ';');
+				fputcsv($output, array($agent, (string) $row['thirdparty_name'], lmdbsalescommissionsGetSourceTypeLabel($langs, (string) $row['source_type']), (string) $row['source_ref'], dol_print_date($db->jdate($row['date_acquired']), 'day'), price2num($amount, 'MT'), price2num($margin, 'MT'), $amount > 0 ? price2num(($margin / $amount) * 100, 'MT') : '', price2num($row['margin_commission'], 'MT'), price2num($row['tier_commission'], 'MT'), price2num($row['commission_total'], 'MT'), lmdbsalescommissionsGetLineStatusLabel($langs, (int) $row['status'])), ';');
 			}
 		} elseif ($dataset === 'due_aging') {
 			fputcsv($output, array('bucket', 'count', 'amount'), ';');
 			foreach ($dashboardService->getDueCommissionsAging($filters, $user) as $row) {
-				fputcsv($output, array($langs->trans((string) $row['label']), (int) $row['count'], price2num($row['amount'])), ';');
+				fputcsv($output, array($langs->trans((string) $row['label']), (int) $row['count'], price2num($row['amount'], 'MT')), ';');
 			}
 		} elseif ($dataset === 'anomalies') {
 			fputcsv($output, array('severity', 'type', 'element', 'description', 'action'), ';');

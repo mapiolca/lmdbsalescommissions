@@ -159,7 +159,7 @@ class ActionsLmdbSalesCommissions
 
 		$base = max(0, $margin);
 		$rate = (float) ($marginRule['rate'] ?? 0);
-		$amount = $base * $rate / 100;
+		$amount = price2num($base * $rate / 100, 'MT');
 		$salesUserLabel = (string) $salesUserId;
 		if ((int) $user->id !== $salesUserId) {
 			$salesUser = new User($this->db);
@@ -173,9 +173,9 @@ class ActionsLmdbSalesCommissions
 
 		return array(
 			'title' => $title,
-			'amount' => price($amount),
-			'margin' => price($margin),
-			'rate' => price($rate).' %',
+			'amount' => lmdbsalescommissionsFormatTotalAmount($amount),
+			'margin' => lmdbsalescommissionsFormatTotalAmount($margin),
+			'rate' => lmdbsalescommissionsFormatTotalAmount($rate).' %',
 			'rule' => dol_escape_htmltag((string) $marginRule['rule_label']),
 			'source' => dol_escape_htmltag(lmdbsalescommissionsGetRuleSourceLabel($langs, (string) $marginRule['source'])),
 			'status' => $langs->trans('LmdbSalesCommissionsEstimateNotAcquired'),

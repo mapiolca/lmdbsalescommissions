@@ -167,8 +167,8 @@ if ($action === 'addtiergrid' || $action === 'updatetiergrid') {
 	$errors = array();
 
 	for ($i = 0; $i < 10; $i++) {
-		$threshold = price2num(GETPOST('threshold_'.$i, 'alphanohtml'), 'MU');
-		$bonus = price2num(GETPOST('bonus_'.$i, 'alphanohtml'), 'MU');
+		$threshold = price2num(GETPOST('threshold_'.$i, 'alphanohtml'), 'MT');
+		$bonus = price2num(GETPOST('bonus_'.$i, 'alphanohtml'), 'MT');
 		$tierActive = GETPOSTINT('tier_active_'.$i) ? 1 : 0;
 
 		if ($threshold == 0 && $bonus == 0) {
@@ -292,8 +292,8 @@ if ($mode === 'create' || $mode === 'edit') {
 	print '<tr class="liste_titre"><td>'.$langs->trans('LmdbSalesCommissionsThresholdAmount').'</td><td>'.$langs->trans('LmdbSalesCommissionsBonusAmount').'</td><td class="center">'.$langs->trans('Active').'</td></tr>';
 	foreach ($tierValues as $i => $tierData) {
 		print '<tr class="oddeven">';
-		print '<td><input class="width100 right" type="text" name="threshold_'.$i.'" value="'.dol_escape_htmltag((string) $tierData['threshold_amount']).'"></td>';
-		print '<td><input class="width100 right" type="text" name="bonus_'.$i.'" value="'.dol_escape_htmltag((string) $tierData['bonus_amount']).'"></td>';
+		print '<td><input class="width100 right" type="text" name="threshold_'.$i.'" value="'.dol_escape_htmltag(price2num($tierData['threshold_amount'], 'MT')).'"></td>';
+		print '<td><input class="width100 right" type="text" name="bonus_'.$i.'" value="'.dol_escape_htmltag(price2num($tierData['bonus_amount'], 'MT')).'"></td>';
 		print '<td class="center">'.$form->selectyesno('tier_active_'.$i, (int) $tierData['active'], 1).'</td>';
 		print '</tr>';
 	}

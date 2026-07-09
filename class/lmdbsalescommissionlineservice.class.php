@@ -87,7 +87,7 @@ class LmdbSalesCommissionLineService
 
 		$created = 0;
 		$margin = LmdbSalesCommissionProposalService::getEstimatedMargin($proposal);
-		$totalHt = property_exists($proposal, 'total_ht') && is_numeric($proposal->total_ht) ? (float) $proposal->total_ht : 0.0;
+		$totalHt = property_exists($proposal, 'total_ht') && is_numeric($proposal->total_ht) ? (float) price2num($proposal->total_ht, 'MT') : 0.0;
 		$hasCommissionRule = false;
 
 		if (isset($profile['selected']['margin']) && is_array($profile['selected']['margin'])) {
@@ -97,7 +97,7 @@ class LmdbSalesCommissionLineService
 			$rule = $profile['selected']['margin'];
 			$base = max(0, $margin);
 			$rate = (float) ($rule['rate'] ?? 0);
-			$result = $this->createLineIfMissing($proposal, $user, $salesUserId, $entity, self::MODE_MARGIN, $totalHt, $margin, $rate, $base * $rate / 100, $rule, $businessDate);
+			$result = $this->createLineIfMissing($proposal, $user, $salesUserId, $entity, self::MODE_MARGIN, $totalHt, $margin, $rate, (float) price2num($base * $rate / 100, 'MT'), $rule, $businessDate);
 			if ($result < 0) {
 				$this->lastResult['errors']++;
 				return -1;
@@ -197,13 +197,13 @@ class LmdbSalesCommissionLineService
 		$line->fk_source = (int) $proposal->id;
 		$line->source_ref = property_exists($proposal, 'ref') ? (string) $proposal->ref : '';
 		$line->mode = $mode;
-		$line->amount_base = $amountBase;
-		$line->margin_base = $marginBase;
+		$line->amount_base = (float) price2num($amountBase, 'MT');
+		$line->margin_base = $marginBase !== null ? (float) price2num($marginBase, 'MT') : null;
 		$line->rate = $rate;
 		$line->fk_tier = null;
-		$line->commission_total = $amount;
-		$line->payable_total = 0;
-		$line->paid_total = 0;
+		$line->commission_total = (float) price2num($amount, 'MT');
+		$line->payable_total = 0.0;
+		$line->paid_total = 0.0;
 		$line->status = self::STATUS_ACQUIRED;
 		$line->date_acquired = $dateAcquired;
 		$line->fk_rule = (int) $rule['rule_id'];
@@ -219,7 +219,7 @@ class LmdbSalesCommissionLineService
 			return -1;
 		}
 
-		if ($amount > 0) {
+		if ((float) $line->commission_total > 0) {
 			require_once __DIR__.'/lmdbsalescommissiondueservice.class.php';
 			$line->id = $result;
 			$dueService = new LmdbSalesCommissionDueService($this->db);
@@ -265,13 +265,13 @@ class LmdbSalesCommissionLineService
 		$line->fk_source = (int) $proposal->id;
 		$line->source_ref = property_exists($proposal, 'ref') ? (string) $proposal->ref : '';
 		$line->mode = self::MODE_TRACKING;
-		$line->amount_base = $amountBase;
-		$line->margin_base = $marginBase;
+		$line->amount_base = (float) price2num($amountBase, 'MT');
+		$line->margin_base = $marginBase !== null ? (float) price2num($marginBase, 'MT') : null;
 		$line->rate = null;
 		$line->fk_tier = null;
-		$line->commission_total = 0;
-		$line->payable_total = 0;
-		$line->paid_total = 0;
+		$line->commission_total = 0.0;
+		$line->payable_total = 0.0;
+		$line->paid_total = 0.0;
 		$line->status = self::STATUS_ACQUIRED;
 		$line->date_acquired = $dateAcquired;
 		$line->fk_rule = 0;

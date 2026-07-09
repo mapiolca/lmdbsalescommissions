@@ -640,8 +640,8 @@ class LmdbSalesCommissionDashboardWidget extends ModeleBoxes
 			}
 			$this->info_box_contents[] = array(
 				array('text' => dol_print_date(dol_mktime(0, 0, 0, (int) $row['month'], 1, 2000), '%b'), 'asis' => 1),
-				array('td' => 'class="right"', 'text' => price((float) $row['current']), 'asis' => 1),
-				array('td' => 'class="right"', 'text' => price((float) $row['previous']), 'asis' => 1),
+				array('td' => 'class="right"', 'text' => lmdbsalescommissionsFormatTotalAmount($row['current']), 'asis' => 1),
+				array('td' => 'class="right"', 'text' => lmdbsalescommissionsFormatTotalAmount($row['previous']), 'asis' => 1),
 			);
 		}
 		if (!$hasData) {
@@ -668,9 +668,9 @@ class LmdbSalesCommissionDashboardWidget extends ModeleBoxes
 			}
 			$this->info_box_contents[] = array(
 				array('text' => dol_print_date(dol_mktime(0, 0, 0, (int) $row['month'], 1, 2000), '%b'), 'asis' => 1),
-				array('td' => 'class="right"', 'text' => price((float) $row['turnover']), 'asis' => 1),
-				array('td' => 'class="right"', 'text' => price((float) $row['margin']), 'asis' => 1),
-				array('td' => 'class="right"', 'text' => price((float) $row['commission']), 'asis' => 1),
+				array('td' => 'class="right"', 'text' => lmdbsalescommissionsFormatTotalAmount($row['turnover']), 'asis' => 1),
+				array('td' => 'class="right"', 'text' => lmdbsalescommissionsFormatTotalAmount($row['margin']), 'asis' => 1),
+				array('td' => 'class="right"', 'text' => lmdbsalescommissionsFormatTotalAmount($row['commission']), 'asis' => 1),
 			);
 		}
 		if (!$hasData) {
@@ -701,7 +701,7 @@ class LmdbSalesCommissionDashboardWidget extends ModeleBoxes
 			$value = isset($rows[$key]) ? (float) $rows[$key] : 0.0;
 			$this->info_box_contents[] = array(
 				array('text' => $langs->trans($label), 'asis' => 1),
-				array('td' => 'class="right"', 'text' => price($value), 'asis' => 1),
+				array('td' => 'class="right"', 'text' => lmdbsalescommissionsFormatTotalAmount($value), 'asis' => 1),
 				array('td' => 'class="right"', 'text' => $this->progress($max > 0 ? ($value / $max) * 100 : 0), 'asis' => 1),
 			);
 		}
@@ -726,7 +726,7 @@ class LmdbSalesCommissionDashboardWidget extends ModeleBoxes
 		foreach ($rows as $row) {
 			$this->info_box_contents[] = array(
 				array('text' => lmdbsalescommissionsBuildUserNomUrl($this->db, (int) $row['fk_user'], (string) $row['lastname'], (string) $row['firstname'], (string) $row['login']), 'asis' => 1),
-				array('td' => 'class="right"', 'text' => price((float) $row['commission_total']), 'asis' => 1),
+				array('td' => 'class="right"', 'text' => lmdbsalescommissionsFormatTotalAmount($row['commission_total']), 'asis' => 1),
 			);
 		}
 	}
@@ -748,11 +748,11 @@ class LmdbSalesCommissionDashboardWidget extends ModeleBoxes
 		}
 		$this->info_box_contents[] = array(
 			array('text' => $langs->trans($objectiveType === 'monthly' ? 'LmdbSalesCommissionsMonthlyObjective' : 'LmdbSalesCommissionsYearlyObjective')),
-			array('td' => 'class="right"', 'text' => price((float) $progress['objective']), 'asis' => 1),
+			array('td' => 'class="right"', 'text' => lmdbsalescommissionsFormatTotalAmount($progress['objective']), 'asis' => 1),
 		);
 		$this->info_box_contents[] = array(
 			array('text' => $langs->trans('LmdbSalesCommissionsRealizedValue')),
-			array('td' => 'class="right"', 'text' => price((float) $progress['realized']), 'asis' => 1),
+			array('td' => 'class="right"', 'text' => lmdbsalescommissionsFormatTotalAmount($progress['realized']), 'asis' => 1),
 		);
 		$this->info_box_contents[] = array(
 			array('text' => $langs->trans('LmdbSalesCommissionsAchievementRate')),
@@ -780,7 +780,7 @@ class LmdbSalesCommissionDashboardWidget extends ModeleBoxes
 		foreach ($rows as $label => $value) {
 			$this->info_box_contents[] = array(
 				array('text' => $langs->trans($label)),
-				array('td' => 'class="right"', 'text' => $value === null ? '<span class="opacitymedium">'.$langs->trans('None').'</span>' : price((float) $value), 'asis' => 1),
+				array('td' => 'class="right"', 'text' => $value === null ? '<span class="opacitymedium">'.$langs->trans('None').'</span>' : lmdbsalescommissionsFormatTotalAmount($value), 'asis' => 1),
 			);
 		}
 		$this->info_box_contents[] = array(
@@ -811,7 +811,7 @@ class LmdbSalesCommissionDashboardWidget extends ModeleBoxes
 				array('text' => lmdbsalescommissionsBuildUserNomUrl($this->db, (int) $row['user_id'], (string) $row['lastname'], (string) $row['firstname'], (string) $row['login']), 'asis' => 1),
 				array('text' => lmdbsalescommissionsBuildThirdpartyNomUrl($this->db, (int) $row['socid'], (string) $row['thirdparty_name']), 'asis' => 1),
 				array('text' => lmdbsalescommissionsBuildSourceNomUrl($this->db, (string) $row['source_type'], (int) $row['fk_source'], (string) $row['source_ref']), 'asis' => 1),
-				array('td' => 'class="right"', 'text' => price((float) $row['amount']), 'asis' => 1),
+				array('td' => 'class="right"', 'text' => lmdbsalescommissionsFormatTotalAmount($row['amount']), 'asis' => 1),
 				array('td' => 'class="center"', 'text' => dol_print_date($this->db->jdate($row['date_due']), 'day'), 'asis' => 1),
 				array('td' => 'class="center"', 'text' => lmdbsalescommissionsStatusBadge(lmdbsalescommissionsGetDueStatusLabel($langs, (int) $row['status']), 1), 'asis' => 1),
 			);
@@ -838,10 +838,10 @@ class LmdbSalesCommissionDashboardWidget extends ModeleBoxes
 		foreach ($rows as $row) {
 			$this->info_box_contents[] = array(
 				array('text' => lmdbsalescommissionsBuildUserNomUrl($this->db, (int) $row['fk_user'], (string) $row['lastname'], (string) $row['firstname'], (string) $row['login']), 'asis' => 1),
-				array('td' => 'class="right"', 'text' => price((float) $row['turnover']), 'asis' => 1),
-				array('td' => 'class="right"', 'text' => price((float) $row['next_threshold']), 'asis' => 1),
-				array('td' => 'class="right"', 'text' => price((float) $row['remaining']), 'asis' => 1),
-				array('td' => 'class="right"', 'text' => price((float) $row['potential_bonus']), 'asis' => 1),
+				array('td' => 'class="right"', 'text' => lmdbsalescommissionsFormatTotalAmount($row['turnover']), 'asis' => 1),
+				array('td' => 'class="right"', 'text' => lmdbsalescommissionsFormatTotalAmount($row['next_threshold']), 'asis' => 1),
+				array('td' => 'class="right"', 'text' => lmdbsalescommissionsFormatTotalAmount($row['remaining']), 'asis' => 1),
+				array('td' => 'class="right"', 'text' => lmdbsalescommissionsFormatTotalAmount($row['potential_bonus']), 'asis' => 1),
 				array('td' => 'class="right"', 'text' => $this->formatValue($row['rate'], 'percent_nullable').' '.$this->progress((float) $row['rate']), 'asis' => 1),
 			);
 		}
@@ -869,10 +869,10 @@ class LmdbSalesCommissionDashboardWidget extends ModeleBoxes
 				array('text' => lmdbsalescommissionsBuildUserNomUrl($this->db, (int) $row['fk_user'], (string) $row['lastname'], (string) $row['firstname'], (string) $row['login']), 'asis' => 1),
 				array('text' => $langs->trans($row['objective_type'] === 'monthly' ? 'LmdbSalesCommissionsMonthlyObjective' : 'LmdbSalesCommissionsYearlyObjective')),
 				array('td' => 'class="center"', 'text' => (string) $row['period']),
-				array('td' => 'class="right"', 'text' => price((float) $row['objective']), 'asis' => 1),
-				array('td' => 'class="right"', 'text' => price((float) $row['realized']), 'asis' => 1),
+				array('td' => 'class="right"', 'text' => lmdbsalescommissionsFormatTotalAmount($row['objective']), 'asis' => 1),
+				array('td' => 'class="right"', 'text' => lmdbsalescommissionsFormatTotalAmount($row['realized']), 'asis' => 1),
 				array('td' => 'class="right"', 'text' => $this->formatValue($row['rate'], 'percent_nullable'), 'asis' => 1),
-				array('td' => 'class="right"', 'text' => price((float) $row['gap']), 'asis' => 1),
+				array('td' => 'class="right"', 'text' => lmdbsalescommissionsFormatTotalAmount($row['gap']), 'asis' => 1),
 			);
 		}
 	}
@@ -899,9 +899,9 @@ class LmdbSalesCommissionDashboardWidget extends ModeleBoxes
 				array('text' => lmdbsalescommissionsBuildUserNomUrl($this->db, (int) $row['fk_user'], (string) $row['lastname'], (string) $row['firstname'], (string) $row['login']), 'asis' => 1),
 				array('text' => lmdbsalescommissionsBuildThirdpartyNomUrl($this->db, (int) $row['fk_soc'], (string) $row['thirdparty_name']), 'asis' => 1),
 				array('text' => lmdbsalescommissionsBuildSourceNomUrl($this->db, (string) $row['source_type'], (int) $row['fk_source'], (string) $row['source_ref']), 'asis' => 1),
-				array('td' => 'class="right"', 'text' => price((float) $row['amount_base']), 'asis' => 1),
-				array('td' => 'class="right"', 'text' => price((float) $row['margin_base']), 'asis' => 1),
-				array('td' => 'class="right"', 'text' => price((float) $row['commission_total']), 'asis' => 1),
+				array('td' => 'class="right"', 'text' => lmdbsalescommissionsFormatTotalAmount($row['amount_base']), 'asis' => 1),
+				array('td' => 'class="right"', 'text' => lmdbsalescommissionsFormatTotalAmount($row['margin_base']), 'asis' => 1),
+				array('td' => 'class="right"', 'text' => lmdbsalescommissionsFormatTotalAmount($row['commission_total']), 'asis' => 1),
 				array('td' => 'class="center"', 'text' => lmdbsalescommissionsStatusBadge(lmdbsalescommissionsGetLineStatusLabel($langs, (int) $row['status']), (int) $row['status']), 'asis' => 1),
 			);
 		}
@@ -922,7 +922,7 @@ class LmdbSalesCommissionDashboardWidget extends ModeleBoxes
 			$this->info_box_contents[] = array(
 				array('text' => $langs->trans($row['label'])),
 				array('td' => 'class="right"', 'text' => (string) (int) $row['count']),
-				array('td' => 'class="right"', 'text' => price((float) $row['amount']), 'asis' => 1),
+				array('td' => 'class="right"', 'text' => lmdbsalescommissionsFormatTotalAmount($row['amount']), 'asis' => 1),
 			);
 		}
 	}
@@ -972,10 +972,10 @@ class LmdbSalesCommissionDashboardWidget extends ModeleBoxes
 			return '<span class="opacitymedium">'.$langs->trans('LmdbSalesCommissionsNoObjectiveForPeriod').'</span>';
 		}
 		if ($format === 'price' || $format === 'objective') {
-			return price((float) $value);
+			return lmdbsalescommissionsFormatTotalAmount($value);
 		}
 		if ($format === 'percent_nullable' || $format === 'percent_objective') {
-			return $value === null ? '<span class="opacitymedium">-</span>' : price((float) $value, 0, '', 1, 2).' %';
+			return $value === null ? '<span class="opacitymedium">-</span>' : lmdbsalescommissionsFormatTotalAmount($value).' %';
 		}
 
 		return dol_escape_htmltag((string) $value);
@@ -991,7 +991,7 @@ class LmdbSalesCommissionDashboardWidget extends ModeleBoxes
 	{
 		$bounded = max(0, min(100, (float) $value));
 
-		return '<progress max="100" value="'.price2num($bounded).'">'.price($bounded).' %</progress>';
+		return '<progress max="100" value="'.price2num($bounded, 'MT').'">'.lmdbsalescommissionsFormatTotalAmount($bounded).' %</progress>';
 	}
 
 	/**

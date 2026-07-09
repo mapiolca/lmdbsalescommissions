@@ -48,7 +48,7 @@ if ($action === 'archiveobjective') {
 	$objective_type = GETPOST('objective_type', 'aZ09');
 	$year = GETPOSTINT('year');
 	$month = GETPOSTINT('month');
-	$realized_value = price2num(GETPOST('realized_value', 'alphanohtml'), 'MU');
+	$realized_value = price2num(GETPOST('realized_value', 'alphanohtml'), 'MT');
 
 	$errors = array();
 	if ($fk_user <= 0) {
@@ -174,6 +174,8 @@ $head = lmdbsalescommissionsAdminPrepareHead();
 print dol_get_fiche_head($head, 'maintenance', $langs->trans('LmdbSalesCommissionsSetup'), -1, 'fa-percent');
 print load_fiche_titre($langs->trans('LmdbSalesCommissionsMaintenance'), lmdbsalescommissionsBuildModuleListLink(), 'title_setup');
 
+$realizedValueInput = GETPOST('realized_value', 'alphanohtml');
+
 print '<form method="POST" action="'.$_SERVER['PHP_SELF'].'" name="archiveobjectiveform">';
 print '<input type="hidden" name="token" value="'.newToken().'">';
 print '<input type="hidden" name="action" value="archiveobjective">';
@@ -183,7 +185,7 @@ print '<tr><td class="titlefieldcreate fieldrequired">'.$langs->trans('User').'<
 print '<tr><td class="fieldrequired">'.$langs->trans('LmdbSalesCommissionsObjectiveType').'</td><td>'.$form->selectarray('objective_type', $objectiveTypes, GETPOST('objective_type', 'aZ09') ?: 'monthly', 0, 0, 0, '', 0, 0, 0, '', 'minwidth300').'</td></tr>';
 print '<tr><td class="fieldrequired">'.$langs->trans('Year').'</td><td><input class="width75 right" type="text" name="year" value="'.dol_escape_htmltag((string) (GETPOSTINT('year') ?: dol_print_date(dol_now(), '%Y'))).'"></td></tr>';
 print '<tr><td>'.$langs->trans('Month').'</td><td><input class="width75 right" type="text" name="month" value="'.dol_escape_htmltag((string) GETPOSTINT('month')).'"></td></tr>';
-print '<tr><td>'.$langs->trans('LmdbSalesCommissionsRealizedValue').'</td><td><input class="width100 right" type="text" name="realized_value" value="'.dol_escape_htmltag(GETPOST('realized_value', 'alphanohtml')).'"></td></tr>';
+print '<tr><td>'.$langs->trans('LmdbSalesCommissionsRealizedValue').'</td><td><input class="width100 right" type="text" name="realized_value" value="'.dol_escape_htmltag($realizedValueInput !== '' ? price2num($realizedValueInput, 'MT') : '').'"></td></tr>';
 print '</table>';
 print '<div class="center"><input type="submit" class="button button-save" value="'.$langs->trans('LmdbSalesCommissionsArchiveObjective').'"></div>';
 print '</form>';

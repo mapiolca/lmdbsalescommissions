@@ -78,7 +78,7 @@ class LmdbSalesCommissionTierService
 			break;
 		}
 
-		$bonus = is_array($reached) ? (float) $reached['bonus_amount'] : 0.0;
+		$bonus = is_array($reached) ? (float) price2num($reached['bonus_amount'], 'MT') : 0.0;
 		$lineResult = $this->upsertPeriodLine($fkUser, $user, $effectiveEntity, $rule, $period, $turnover, $bonus, $reached, $effectiveDate);
 		if ($lineResult < 0) {
 			return array('status' => 'error', 'error' => $this->error);
@@ -91,7 +91,7 @@ class LmdbSalesCommissionTierService
 			'turnover' => $turnover,
 			'reached_tier' => $reached,
 			'next_tier' => $next,
-			'remaining_to_next' => is_array($next) ? max(0, (float) $next['threshold_amount'] - $turnover) : 0,
+			'remaining_to_next' => is_array($next) ? (float) price2num(max(0, (float) $next['threshold_amount'] - $turnover), 'MT') : 0.0,
 			'bonus' => $bonus,
 			'line_id' => $lineResult,
 		);
@@ -171,7 +171,7 @@ class LmdbSalesCommissionTierService
 		$total = is_object($obj) ? (float) $obj->total : 0.0;
 		$this->db->free($resql);
 
-		return $total;
+		return (float) price2num($total, 'MT');
 	}
 
 	/**
@@ -204,8 +204,8 @@ class LmdbSalesCommissionTierService
 		while (is_object($obj = $this->db->fetch_object($resql))) {
 			$tiers[] = array(
 				'rowid' => (int) $obj->rowid,
-				'threshold_amount' => (float) $obj->threshold_amount,
-				'bonus_amount' => (float) $obj->bonus_amount,
+				'threshold_amount' => (float) price2num($obj->threshold_amount, 'MT'),
+				'bonus_amount' => (float) price2num($obj->bonus_amount, 'MT'),
 			);
 		}
 		$this->db->free($resql);
@@ -243,13 +243,13 @@ class LmdbSalesCommissionTierService
 		$line->fk_source = (int) $period['key'];
 		$line->source_ref = (string) $period['label'];
 		$line->mode = 'tier';
-		$line->amount_base = $turnover;
+		$line->amount_base = (float) price2num($turnover, 'MT');
 		$line->margin_base = null;
 		$line->rate = null;
 		$line->fk_tier = is_array($tier) ? (int) $tier['rowid'] : null;
-		$line->commission_total = $bonus;
-		$line->payable_total = 0;
-		$line->paid_total = 0;
+		$line->commission_total = (float) price2num($bonus, 'MT');
+		$line->payable_total = 0.0;
+		$line->paid_total = 0.0;
 		$line->status = LmdbSalesCommissionLineService::STATUS_ACQUIRED;
 		$line->date_acquired = $dateAcquired;
 		$line->fk_rule = (int) $rule['rule_id'];

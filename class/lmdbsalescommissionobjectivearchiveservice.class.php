@@ -78,7 +78,7 @@ class LmdbSalesCommissionObjectiveArchiveService
 		$archive->date_calculation = dol_now();
 		$archive->date_archive = dol_now();
 		$archive->fk_user_archive = (int) $user->id;
-		$archive->realized_value = $realizedValue !== null ? $realizedValue : 0.0;
+		$archive->realized_value = $realizedValue !== null ? (float) price2num($realizedValue, 'MT') : 0.0;
 
 		if (!empty($errors)) {
 			$archive->target_value = 0;
@@ -87,10 +87,10 @@ class LmdbSalesCommissionObjectiveArchiveService
 			$archive->objective_source = null;
 			$archive->note_private = implode("\n", $errors);
 		} elseif (is_array($selected)) {
-			$target = (float) $selected['target_value'];
+			$target = (float) price2num($selected['target_value'], 'MT');
 			$archive->fk_objective = (int) $selected['rowid'];
 			$archive->target_value = $target;
-			$archive->achievement_rate = $target > 0 ? ($archive->realized_value / $target) * 100 : null;
+			$archive->achievement_rate = $target > 0 ? (float) price2num(($archive->realized_value / $target) * 100, 'MT') : null;
 			$archive->status = $target > 0 && $archive->realized_value >= $target ? self::STATUS_ACHIEVED : self::STATUS_NOT_ACHIEVED;
 			$archive->objective_source = (string) $selected['assignment_type'];
 		} else {

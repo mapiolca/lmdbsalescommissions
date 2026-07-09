@@ -139,13 +139,13 @@ print '<br>';
 print load_fiche_titre($langs->trans('LmdbSalesCommissionsUserTabSummary'), '', 'fa-percent');
 print '<table class="noborder liste centpercent">';
 print '<tr class="liste_titre"><td>'.$langs->trans('LmdbSalesCommissionsIndicator').'</td><td class="right">'.$langs->trans('Amount').'</td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('LmdbSalesCommissionsEstimatedCommission').'</td><td class="right">'.price($summary['margin_estimated']).'</td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('LmdbSalesCommissionsRuleTypeMargin').'</td><td class="right">'.price($summary['margin_acquired']).'</td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('LmdbSalesCommissionsRuleTypeTier').'</td><td class="right">'.price($summary['tier_acquired']).'</td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('LmdbSalesCommissionsCommissionTotal').'</td><td class="right">'.price($summary['acquired_total']).'</td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('LmdbSalesCommissionsPayableTotal').'</td><td class="right">'.price($summary['payable_total']).'</td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('LmdbSalesCommissionsPaidTotal').'</td><td class="right">'.price($summary['paid_total']).'</td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('LmdbSalesCommissionsRemainingToPay').'</td><td class="right">'.price(max(0, $summary['payable_total'] - $summary['paid_total'])).'</td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('LmdbSalesCommissionsEstimatedCommission').'</td><td class="right">'.lmdbsalescommissionsFormatTotalAmount($summary['margin_estimated']).'</td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('LmdbSalesCommissionsRuleTypeMargin').'</td><td class="right">'.lmdbsalescommissionsFormatTotalAmount($summary['margin_acquired']).'</td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('LmdbSalesCommissionsRuleTypeTier').'</td><td class="right">'.lmdbsalescommissionsFormatTotalAmount($summary['tier_acquired']).'</td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('LmdbSalesCommissionsCommissionTotal').'</td><td class="right">'.lmdbsalescommissionsFormatTotalAmount($summary['acquired_total']).'</td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('LmdbSalesCommissionsPayableTotal').'</td><td class="right">'.lmdbsalescommissionsFormatTotalAmount($summary['payable_total']).'</td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('LmdbSalesCommissionsPaidTotal').'</td><td class="right">'.lmdbsalescommissionsFormatTotalAmount($summary['paid_total']).'</td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('LmdbSalesCommissionsRemainingToPay').'</td><td class="right">'.lmdbsalescommissionsFormatTotalAmount(max(0, $summary['payable_total'] - $summary['paid_total'])).'</td></tr>';
 print '</table>';
 
 print '<br>';
@@ -163,7 +163,7 @@ foreach (array(
 	if (is_array($selected)) {
 		$target = (float) $selected['target_value'];
 		$rate = $target > 0 ? ($realized / $target) * 100 : 0;
-		print '<td class="right">'.price($target).'</td><td class="right">'.price($realized).'</td><td class="right">'.price($rate).'%</td>';
+		print '<td class="right">'.lmdbsalescommissionsFormatTotalAmount($target).'</td><td class="right">'.lmdbsalescommissionsFormatTotalAmount($realized).'</td><td class="right">'.lmdbsalescommissionsFormatTotalAmount($rate).'%</td>';
 	} else {
 		print '<td colspan="3"><span class="opacitymedium">'.$langs->trans('LmdbSalesCommissionsNoObjectiveForPeriod').'</span></td>';
 	}
@@ -188,7 +188,7 @@ if ($resmargin) {
 		$marginRows++;
 		print '<tr class="oddeven"><td>'.dol_print_date($db->jdate($obj->date_acquired), 'day').'</td><td>'.lmdbsalescommissionsBuildThirdpartyNomUrl($db, (int) $obj->fk_soc, (string) $obj->thirdparty_name).'</td><td>';
 		print lmdbsalescommissionsBuildSourceNomUrl($db, (string) $obj->source_type, (int) $obj->fk_source, (string) $obj->source_ref);
-		print '</td><td class="right">'.price((float) $obj->margin_base).'</td><td class="right">'.price((float) $obj->rate).'%</td><td class="right">'.price((float) $obj->commission_total).'</td><td class="right">'.price((float) $obj->payable_total).'</td><td class="right">'.price((float) $obj->paid_total).'</td></tr>';
+		print '</td><td class="right">'.lmdbsalescommissionsFormatTotalAmount($obj->margin_base).'</td><td class="right">'.lmdbsalescommissionsFormatTotalAmount($obj->rate).'%</td><td class="right">'.lmdbsalescommissionsFormatTotalAmount($obj->commission_total).'</td><td class="right">'.lmdbsalescommissionsFormatTotalAmount($obj->payable_total).'</td><td class="right">'.lmdbsalescommissionsFormatTotalAmount($obj->paid_total).'</td></tr>';
 	}
 	$db->free($resmargin);
 }
@@ -213,7 +213,7 @@ if ($restier) {
 		$tierRows++;
 		print '<tr class="oddeven"><td>'.dol_print_date($db->jdate($obj->date_acquired), 'day').'</td><td>';
 		print lmdbsalescommissionsBuildSourceNomUrl($db, (string) $obj->source_type, (int) $obj->fk_source, (string) $obj->source_ref);
-		print '</td><td class="right">'.price((float) $obj->amount_base).'</td><td class="right">'.price((float) $obj->commission_total).'</td><td class="right">'.price((float) $obj->payable_total).'</td><td class="right">'.price((float) $obj->paid_total).'</td></tr>';
+		print '</td><td class="right">'.lmdbsalescommissionsFormatTotalAmount($obj->amount_base).'</td><td class="right">'.lmdbsalescommissionsFormatTotalAmount($obj->commission_total).'</td><td class="right">'.lmdbsalescommissionsFormatTotalAmount($obj->payable_total).'</td><td class="right">'.lmdbsalescommissionsFormatTotalAmount($obj->paid_total).'</td></tr>';
 	}
 	$db->free($restier);
 }
@@ -241,7 +241,7 @@ if ($resdue) {
 		$status = (int) $obj->status;
 		print '<tr class="oddeven"><td>'.dol_escape_htmltag(lmdbsalescommissionsGetDueEventLabel($langs, (string) $obj->event_type)).'</td><td>';
 		print lmdbsalescommissionsBuildSourceNomUrl($db, (string) $obj->source_type, (int) $obj->fk_source, (string) $obj->source_ref);
-		print '</td><td class="right">'.price((float) $obj->amount).'</td><td class="center">'.lmdbsalescommissionsStatusBadge(lmdbsalescommissionsGetDueStatusLabel($langs, $status), $status === LmdbSalesCommissionDueService::STATUS_DUE ? 1 : 0).'</td></tr>';
+		print '</td><td class="right">'.lmdbsalescommissionsFormatTotalAmount($obj->amount).'</td><td class="center">'.lmdbsalescommissionsStatusBadge(lmdbsalescommissionsGetDueStatusLabel($langs, $status), $status === LmdbSalesCommissionDueService::STATUS_DUE ? 1 : 0).'</td></tr>';
 	}
 	$db->free($resdue);
 }
@@ -268,7 +268,7 @@ if ($reshistory) {
 		if ((string) $obj->objective_type === 'monthly') {
 			$period .= '-'.sprintf('%02d', (int) $obj->month);
 		}
-		print '<tr class="oddeven"><td>'.dol_escape_htmltag($period).'</td><td class="right">'.price((float) $obj->target_value).'</td><td class="right">'.price((float) $obj->realized_value).'</td><td class="right">'.($obj->achievement_rate !== null ? price((float) $obj->achievement_rate).'%' : '').'</td><td class="center">'.lmdbsalescommissionsStatusBadge(lmdbsalescommissionsGetObjectiveArchiveStatusLabel($langs, (int) $obj->status), (int) $obj->status === 1 ? 1 : 0).'</td></tr>';
+		print '<tr class="oddeven"><td>'.dol_escape_htmltag($period).'</td><td class="right">'.lmdbsalescommissionsFormatTotalAmount($obj->target_value).'</td><td class="right">'.lmdbsalescommissionsFormatTotalAmount($obj->realized_value).'</td><td class="right">'.($obj->achievement_rate !== null ? lmdbsalescommissionsFormatTotalAmount($obj->achievement_rate).'%' : '').'</td><td class="center">'.lmdbsalescommissionsStatusBadge(lmdbsalescommissionsGetObjectiveArchiveStatusLabel($langs, (int) $obj->status), (int) $obj->status === 1 ? 1 : 0).'</td></tr>';
 	}
 	$db->free($reshistory);
 }

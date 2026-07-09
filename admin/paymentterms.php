@@ -264,7 +264,7 @@ if ($mode === 'create' || $mode === 'edit') {
 	print '<tr><td>'.$langs->trans('Default').'</td><td>'.$form->selectyesno('is_default', (int) ($term->is_default !== null ? $term->is_default : 0), 1).'</td></tr>';
 	foreach ($events as $eventType => $eventLabel) {
 		$value = $lineValues[$eventType] ?? 0;
-		print '<tr><td>'.$eventLabel.'</td><td><input class="width75 right" type="text" name="percentage_'.$eventType.'" value="'.dol_escape_htmltag((string) $value).'"> %</td></tr>';
+		print '<tr><td>'.$eventLabel.'</td><td><input class="width75 right" type="text" name="percentage_'.$eventType.'" value="'.dol_escape_htmltag(price2num($value, 'MT')).'"> %</td></tr>';
 	}
 	print '<tr><td>'.$langs->trans('NotePrivate').'</td><td><textarea class="quatrevingtpercent" name="note_private" rows="4">'.dol_escape_htmltag((string) $term->note_private).'</textarea></td></tr>';
 	print '</table>';
@@ -306,7 +306,7 @@ if (!$resql) {
 		$lineValues = lmdbsalescommissions_fetch_payment_term_lines($db, (int) $obj->rowid);
 		$parts = array();
 		foreach ($events as $eventType => $eventLabel) {
-			$parts[] = $eventLabel.' '.price($lineValues[$eventType] ?? 0).' %';
+			$parts[] = $eventLabel.' '.lmdbsalescommissionsFormatTotalAmount($lineValues[$eventType] ?? 0).' %';
 		}
 
 		print '<tr class="oddeven">';

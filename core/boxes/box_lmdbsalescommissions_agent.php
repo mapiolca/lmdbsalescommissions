@@ -2,6 +2,7 @@
 /* Copyright (C) 2026		Pierre Ardoin <developpeur@lesmetiersdubatiment.fr> */
 
 include_once DOL_DOCUMENT_ROOT.'/core/boxes/modules_boxes.php';
+require_once dol_buildpath('/lmdbsalescommissions/lib/lmdbsalescommissions.lib.php', 0);
 
 /**
  * Agent commission dashboard widget.
@@ -75,7 +76,7 @@ class box_lmdbsalescommissions_agent extends ModeleBoxes
 		$i = 0;
 		foreach ($values as $label => $value) {
 			$this->info_box_contents[$i][0] = array('td' => 'class="tdoverflowmax200"', 'text' => $langs->trans($label), 'asis' => 0);
-			$this->info_box_contents[$i][1] = array('td' => 'class="right"', 'text' => price($value), 'asis' => 0);
+			$this->info_box_contents[$i][1] = array('td' => 'class="right"', 'text' => lmdbsalescommissionsFormatTotalAmount($value), 'asis' => 0);
 			$i++;
 		}
 	}

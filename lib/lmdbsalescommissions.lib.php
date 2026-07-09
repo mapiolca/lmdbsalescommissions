@@ -548,6 +548,19 @@ function lmdbsalescommissionsStatusBadge($label, $type)
 }
 
 /**
+ * Format a numeric total amount with Dolibarr total amount precision.
+ *
+ * @param int|float|string|null $amount Numeric amount
+ * @return string
+ */
+function lmdbsalescommissionsFormatTotalAmount($amount)
+{
+	$value = is_numeric($amount) ? $amount : 0;
+
+	return price(price2num($value, 'MT'));
+}
+
+/**
  * Return native Dolibarr user link.
  *
  * @param DoliDB $db        Database handler
