@@ -2,8 +2,11 @@
 /* Copyright (C) 2026		Pierre Ardoin <developpeur@lesmetiersdubatiment.fr> */
 
 require_once dol_buildpath('/lmdbsalescommissions/lib/lmdbsalescommissions.lib.php', 0);
+require_once DOL_DOCUMENT_ROOT.'/comm/propal/class/propal.class.php';
 require_once dol_buildpath('/lmdbsalescommissions/class/lmdbsalescommissiondueservice.class.php', 0);
 require_once dol_buildpath('/lmdbsalescommissions/class/lmdbsalescommissionobjectiveresolver.class.php', 0);
+require_once dol_buildpath('/lmdbsalescommissions/class/lmdbsalescommissionproposalservice.class.php', 0);
+require_once dol_buildpath('/lmdbsalescommissions/class/lmdbsalescommissionruleresolver.class.php', 0);
 
 /**
  * @phpstan-type DashboardFilters array{
@@ -39,6 +42,9 @@ class LmdbSalesCommissionDashboardService
 
 	/** @var string Permission scope mode: read or export */
 	private $scopeMode = 'read';
+
+	/** @var array<string, bool> User group membership cache */
+	private $userGroupMembershipCache = array();
 
 	/**
 	 * Constructor.
@@ -209,13 +215,14 @@ class LmdbSalesCommissionDashboardService
 		$sql .= ' WHERE 1 = 1'.$where;
 		$row = $this->fetchSingleRow($sql);
 		if (!empty($row)) {
-			$kpis['commission_estimated'] = (float) $row['commission_estimated'];
 			$kpis['commission_acquired'] = (float) $row['commission_acquired'];
 			$kpis['tier_bonus'] = (float) $row['tier_bonus'];
 			$kpis['commission_total'] = (float) $row['commission_total'];
 			$kpis['commission_paid'] = (float) $row['paid_total'];
 			$kpis['remaining_due'] = max(0, (float) $row['payable_total'] - (float) $row['paid_total']);
 		}
+		$kpis['commission_estimated'] = $this->getValidatedProposalEstimatedCommission($filters, $user);
+		$kpis['commission_total'] = (float) $kpis['commission_total'] + (float) $kpis['commission_estimated'];
 
 		$base = $this->getSignedBaseTotals($filters, $user);
 		$kpis['turnover_signed'] = $base['turnover'];
@@ -317,6 +324,181 @@ class LmdbSalesCommissionDashboardService
 	}
 
 	/**
+	 * Return estimated margin commission for validated proposals not yet signed.
+	 *
+	 * @param DashboardFilters $filters Normalized filters
+	 * @param User             $user    Current user
+	 * @return float
+	 */
+	private function getValidatedProposalEstimatedCommission(array $filters, $user)
+	{
+		if ($filters['source'] !== 'all' && $filters['source'] !== 'proposal') {
+			return 0.0;
+		}
+		if ($filters['status'] !== 'all' && $filters['status'] !== 'estimated') {
+			return 0.0;
+		}
+		if ($filters['commission_type'] !== 'all' && $filters['commission_type'] !== 'margin') {
+			return 0.0;
+		}
+
+		$sql = 'SELECT p.rowid';
+		$sql .= ' FROM '.MAIN_DB_PREFIX.'propal AS p';
+		$sql .= ' WHERE p.entity IN ('.$this->db->sanitize(getEntity('propal')).')';
+		$sql .= ' AND p.fk_statut = '.Propal::STATUS_VALIDATED;
+		$sql .= ' AND p.date_signature IS NULL';
+		$sql .= $this->buildValidatedProposalDateWhere('p', $filters);
+		$sql .= ' ORDER BY p.date_valid ASC, p.rowid ASC';
+
+		$resql = $this->db->query($sql);
+		if (!$resql) {
+			$this->error = $this->db->lasterror();
+			$this->errors[] = $this->error;
+			dol_syslog(__METHOD__.': '.$this->error, LOG_ERR);
+			return 0.0;
+		}
+
+		$total = 0.0;
+		$resolver = new LmdbSalesCommissionRuleResolver($this->db);
+		while (is_object($obj = $this->db->fetch_object($resql))) {
+			$proposal = new Propal($this->db);
+			if ($proposal->fetch((int) $obj->rowid) <= 0) {
+				continue;
+			}
+			if (method_exists($proposal, 'fetch_lines')) {
+				$proposal->fetch_lines();
+			}
+
+			$salesUserId = LmdbSalesCommissionProposalService::resolveSalesUserId($this->db, $proposal);
+			if (!$this->canIncludeEstimatedProposalForUser($salesUserId, $filters, $user)) {
+				continue;
+			}
+
+			$margin = LmdbSalesCommissionProposalService::getEstimatedMargin($proposal);
+			if ($margin === null) {
+				continue;
+			}
+
+			$effectiveDate = $this->getProposalValidationDate($proposal);
+			$entity = !empty($proposal->entity) ? (int) $proposal->entity : (int) $filters['entity'];
+			$profile = $resolver->resolveForUser($salesUserId, $effectiveDate, $entity, 'proposal');
+			if (!empty($profile['errors']) || !isset($profile['selected']['margin']) || !is_array($profile['selected']['margin'])) {
+				continue;
+			}
+
+			$rate = (float) ($profile['selected']['margin']['rate'] ?? 0);
+			$total += (float) price2num(max(0, (float) $margin) * $rate / 100, 'MT');
+		}
+		$this->db->free($resql);
+
+		return (float) price2num($total, 'MT');
+	}
+
+	/**
+	 * Build date conditions for validated proposal estimates.
+	 *
+	 * @param string           $alias   Proposal table alias
+	 * @param DashboardFilters $filters Normalized filters
+	 * @return string
+	 */
+	private function buildValidatedProposalDateWhere($alias, array $filters)
+	{
+		$sql = '';
+		if ($filters['year'] > 0) {
+			$sql .= ' AND YEAR('.$alias.'.date_valid) = '.((int) $filters['year']);
+		}
+		if ($filters['month'] > 0) {
+			$sql .= ' AND MONTH('.$alias.'.date_valid) = '.((int) $filters['month']);
+		}
+		if ($filters['date_start'] > 0) {
+			$sql .= ' AND '.$alias.'.date_valid >= \''.$this->db->idate($filters['date_start']).'\'';
+		}
+		if ($filters['date_end'] > 0) {
+			$sql .= ' AND '.$alias.'.date_valid <= \''.$this->db->idate($filters['date_end']).'\'';
+		}
+
+		return $sql;
+	}
+
+	/**
+	 * Check dashboard user and group scope for an estimated proposal.
+	 *
+	 * @param int              $salesUserId Sales user id
+	 * @param DashboardFilters $filters     Normalized filters
+	 * @param User             $user        Current user
+	 * @return bool
+	 */
+	private function canIncludeEstimatedProposalForUser($salesUserId, array $filters, $user)
+	{
+		if ($salesUserId <= 0) {
+			return false;
+		}
+		if ($filters['fk_user'] > 0 && $salesUserId !== (int) $filters['fk_user']) {
+			return false;
+		}
+		if ($filters['fk_usergroup'] > 0 && !$this->isUserInGroup($salesUserId, (int) $filters['fk_usergroup'])) {
+			return false;
+		}
+		if ($this->scopeMode === 'export') {
+			return lmdbsalescommissionsCanExportUserScope($user, $salesUserId);
+		}
+
+		return lmdbsalescommissionsCanReadUserScope($user, $salesUserId);
+	}
+
+	/**
+	 * Check if a user belongs to a group in the current accessible entity scope.
+	 *
+	 * @param int $salesUserId User id
+	 * @param int $groupId     Group id
+	 * @return bool
+	 */
+	private function isUserInGroup($salesUserId, $groupId)
+	{
+		$cacheKey = ((int) $salesUserId).':'.((int) $groupId);
+		if (array_key_exists($cacheKey, $this->userGroupMembershipCache)) {
+			return $this->userGroupMembershipCache[$cacheKey];
+		}
+
+		$sql = 'SELECT rowid';
+		$sql .= ' FROM '.MAIN_DB_PREFIX.'usergroup_user';
+		$sql .= ' WHERE fk_user = '.((int) $salesUserId);
+		$sql .= ' AND fk_usergroup = '.((int) $groupId);
+		$sql .= ' AND entity IN ('.$this->db->sanitize(getEntity('usergroup')).')';
+		$sql .= ' LIMIT 1';
+
+		$resql = $this->db->query($sql);
+		if (!$resql) {
+			$this->userGroupMembershipCache[$cacheKey] = false;
+			dol_syslog(__METHOD__.': '.$this->db->lasterror(), LOG_ERR);
+			return false;
+		}
+
+		$found = $this->db->num_rows($resql) > 0;
+		$this->db->free($resql);
+		$this->userGroupMembershipCache[$cacheKey] = $found;
+
+		return $found;
+	}
+
+	/**
+	 * Return proposal validation date.
+	 *
+	 * @param object $proposal Proposal object
+	 * @return int
+	 */
+	private function getProposalValidationDate($proposal)
+	{
+		foreach (array('date_validation', 'date_valid', 'date') as $property) {
+			if (property_exists($proposal, $property) && (int) $proposal->{$property} > 0) {
+				return (int) $proposal->{$property};
+			}
+		}
+
+		return dol_now();
+	}
+
+	/**
 	 * Return commissions by agent.
 	 *
 	 * @param DashboardFilters $filters Normalized filters
@@ -407,7 +589,8 @@ class LmdbSalesCommissionDashboardService
 	{
 		$where = $this->buildLineWhere('l', $filters, $user, 'date_acquired');
 		$sql = 'SELECT d.rowid, d.event_type, d.amount, d.status, d.date_due, l.source_type, l.fk_source, l.source_ref, l.mode,';
-		$sql .= ' u.rowid AS user_id, u.lastname, u.firstname, u.login, s.rowid AS socid, s.nom AS thirdparty_name';
+		$sql .= ' u.rowid AS user_id, u.lastname, u.firstname, u.login, u.statut AS user_status, u.photo AS user_photo, u.email AS user_email,';
+		$sql .= ' s.rowid AS socid, s.nom AS thirdparty_name';
 		$sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_due AS d';
 		$sql .= ' INNER JOIN '.MAIN_DB_PREFIX.'lmdbsalescommissions_line AS l ON l.rowid = d.fk_commission_line AND l.entity = d.entity';
 		$sql .= ' LEFT JOIN '.MAIN_DB_PREFIX.'user AS u ON u.rowid = l.fk_user';
@@ -508,12 +691,12 @@ class LmdbSalesCommissionDashboardService
 		$sql .= " SUM(CASE WHEN l.mode = 'margin' THEN l.commission_total ELSE 0 END) AS margin_commission,";
 		$sql .= " SUM(CASE WHEN l.mode = 'tier' THEN l.commission_total ELSE 0 END) AS tier_commission,";
 		$sql .= ' SUM(l.commission_total) AS commission_total, MAX(l.status) AS status,';
-		$sql .= ' u.lastname, u.firstname, u.login, s.nom AS thirdparty_name';
+		$sql .= ' u.lastname, u.firstname, u.login, u.statut AS user_status, u.photo AS user_photo, u.email AS user_email, s.nom AS thirdparty_name';
 		$sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_line AS l';
 		$sql .= ' LEFT JOIN '.MAIN_DB_PREFIX.'user AS u ON u.rowid = l.fk_user';
 		$sql .= ' LEFT JOIN '.MAIN_DB_PREFIX.'societe AS s ON s.rowid = l.fk_soc';
 		$sql .= ' WHERE l.status IN (0,1)'.$where;
-		$sql .= ' GROUP BY l.entity, l.fk_user, l.fk_soc, l.source_type, l.fk_source, l.source_ref, u.lastname, u.firstname, u.login, s.nom';
+		$sql .= ' GROUP BY l.entity, l.fk_user, l.fk_soc, l.source_type, l.fk_source, l.source_ref, u.lastname, u.firstname, u.login, u.statut, u.photo, u.email, s.nom';
 		$sql .= ' ORDER BY commission_total DESC';
 		$sql .= $this->db->plimit($limit);
 
@@ -751,18 +934,18 @@ class LmdbSalesCommissionDashboardService
 	private function getObjectiveUsers(array $filters, $user, $limit)
 	{
 		if ($filters['fk_user'] > 0) {
-			$sql = 'SELECT u.rowid AS fk_user, u.lastname, u.firstname, u.login, "" AS group_name';
+			$sql = 'SELECT u.rowid AS fk_user, u.lastname, u.firstname, u.login, u.statut AS user_status, u.photo AS user_photo, u.email AS user_email, "" AS group_name';
 			$sql .= ' FROM '.MAIN_DB_PREFIX.'user AS u';
 			$sql .= ' WHERE u.rowid = '.((int) $filters['fk_user']);
 			return $this->fetchRows($sql);
 		}
 
 		$where = $this->buildLineWhere('l', $filters, $user, 'date_acquired');
-		$sql = 'SELECT l.fk_user, u.lastname, u.firstname, u.login, "" AS group_name';
+		$sql = 'SELECT l.fk_user, u.lastname, u.firstname, u.login, u.statut AS user_status, u.photo AS user_photo, u.email AS user_email, "" AS group_name';
 		$sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_line AS l';
 		$sql .= ' LEFT JOIN '.MAIN_DB_PREFIX.'user AS u ON u.rowid = l.fk_user';
 		$sql .= ' WHERE 1 = 1'.$where;
-		$sql .= ' GROUP BY l.fk_user, u.lastname, u.firstname, u.login';
+		$sql .= ' GROUP BY l.fk_user, u.lastname, u.firstname, u.login, u.statut, u.photo, u.email';
 		$sql .= ' ORDER BY u.lastname ASC, u.firstname ASC, u.login ASC';
 		$sql .= $this->db->plimit($limit);
 

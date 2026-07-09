@@ -33,6 +33,7 @@ Il ne contient pas le préfixe `htdocs/custom/`, car ce chemin est géré par Do
 - Résolution du profil effectif utilisateur > groupe > défaut.
 - Objectifs mensuels et annuels facultatifs, avec archivage.
 - Estimation de commission sur la fiche devis.
+- Commission estimée du tunnel calculée depuis les devis validés non signés.
 - Figeage des commissions lors de la signature d’un devis.
 - Génération d’échéances de versement et passage en versé.
 - Détection des échéances à verser depuis les factures d’acompte et factures finales liées au devis ou aux commandes issues du devis.

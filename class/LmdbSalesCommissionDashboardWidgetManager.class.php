@@ -808,7 +808,7 @@ class LmdbSalesCommissionDashboardWidget extends ModeleBoxes
 		}
 		foreach ($rows as $row) {
 			$this->info_box_contents[] = array(
-				array('text' => lmdbsalescommissionsBuildUserNomUrl($this->db, (int) $row['user_id'], (string) $row['lastname'], (string) $row['firstname'], (string) $row['login']), 'asis' => 1),
+				array('text' => lmdbsalescommissionsBuildUserNomUrl($this->db, (int) $row['user_id'], (string) $row['lastname'], (string) $row['firstname'], (string) $row['login'], (int) $row['user_status'], (string) $row['user_photo'], (string) $row['user_email']), 'asis' => 1),
 				array('text' => lmdbsalescommissionsBuildThirdpartyNomUrl($this->db, (int) $row['socid'], (string) $row['thirdparty_name']), 'asis' => 1),
 				array('text' => lmdbsalescommissionsBuildSourceNomUrl($this->db, (string) $row['source_type'], (int) $row['fk_source'], (string) $row['source_ref']), 'asis' => 1),
 				array('td' => 'class="right"', 'text' => lmdbsalescommissionsFormatTotalAmount($row['amount']), 'asis' => 1),
@@ -837,7 +837,7 @@ class LmdbSalesCommissionDashboardWidget extends ModeleBoxes
 		}
 		foreach ($rows as $row) {
 			$this->info_box_contents[] = array(
-				array('text' => lmdbsalescommissionsBuildUserNomUrl($this->db, (int) $row['fk_user'], (string) $row['lastname'], (string) $row['firstname'], (string) $row['login']), 'asis' => 1),
+				array('text' => lmdbsalescommissionsBuildUserNomUrl($this->db, (int) $row['fk_user'], (string) $row['lastname'], (string) $row['firstname'], (string) $row['login'], (int) $row['user_status'], (string) $row['user_photo'], (string) $row['user_email']), 'asis' => 1),
 				array('td' => 'class="right"', 'text' => lmdbsalescommissionsFormatTotalAmount($row['turnover']), 'asis' => 1),
 				array('td' => 'class="right"', 'text' => lmdbsalescommissionsFormatTotalAmount($row['next_threshold']), 'asis' => 1),
 				array('td' => 'class="right"', 'text' => lmdbsalescommissionsFormatTotalAmount($row['remaining']), 'asis' => 1),
@@ -866,7 +866,7 @@ class LmdbSalesCommissionDashboardWidget extends ModeleBoxes
 		}
 		foreach ($rows as $row) {
 			$this->info_box_contents[] = array(
-				array('text' => lmdbsalescommissionsBuildUserNomUrl($this->db, (int) $row['fk_user'], (string) $row['lastname'], (string) $row['firstname'], (string) $row['login']), 'asis' => 1),
+				array('text' => lmdbsalescommissionsBuildUserNomUrl($this->db, (int) $row['fk_user'], (string) $row['lastname'], (string) $row['firstname'], (string) $row['login'], (int) $row['user_status'], (string) $row['user_photo'], (string) $row['user_email']), 'asis' => 1),
 				array('text' => $langs->trans($row['objective_type'] === 'monthly' ? 'LmdbSalesCommissionsMonthlyObjective' : 'LmdbSalesCommissionsYearlyObjective')),
 				array('td' => 'class="center"', 'text' => (string) $row['period']),
 				array('td' => 'class="right"', 'text' => lmdbsalescommissionsFormatTotalAmount($row['objective']), 'asis' => 1),
@@ -896,7 +896,7 @@ class LmdbSalesCommissionDashboardWidget extends ModeleBoxes
 		}
 		foreach ($rows as $row) {
 			$this->info_box_contents[] = array(
-				array('text' => lmdbsalescommissionsBuildUserNomUrl($this->db, (int) $row['fk_user'], (string) $row['lastname'], (string) $row['firstname'], (string) $row['login']), 'asis' => 1),
+				array('text' => lmdbsalescommissionsBuildUserNomUrl($this->db, (int) $row['fk_user'], (string) $row['lastname'], (string) $row['firstname'], (string) $row['login'], (int) $row['user_status'], (string) $row['user_photo'], (string) $row['user_email']), 'asis' => 1),
 				array('text' => lmdbsalescommissionsBuildThirdpartyNomUrl($this->db, (int) $row['fk_soc'], (string) $row['thirdparty_name']), 'asis' => 1),
 				array('text' => lmdbsalescommissionsBuildSourceNomUrl($this->db, (string) $row['source_type'], (int) $row['fk_source'], (string) $row['source_ref']), 'asis' => 1),
 				array('td' => 'class="right"', 'text' => lmdbsalescommissionsFormatTotalAmount($row['amount_base']), 'asis' => 1),
