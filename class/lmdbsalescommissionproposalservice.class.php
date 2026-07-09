@@ -138,6 +138,27 @@ class LmdbSalesCommissionProposalService
 	}
 
 	/**
+	 * Return proposal validation date.
+	 *
+	 * @param object $proposal Proposal object
+	 * @return int Timestamp, 0 if unavailable
+	 */
+	public static function getValidationDate($proposal)
+	{
+		if (!is_object($proposal)) {
+			return 0;
+		}
+
+		foreach (array('date_validation', 'date_valid', 'datev') as $property) {
+			if (property_exists($proposal, $property) && (int) $proposal->{$property} > 0) {
+				return (int) $proposal->{$property};
+			}
+		}
+
+		return 0;
+	}
+
+	/**
 	 * Return proposal author id.
 	 *
 	 * @param object $proposal Proposal object

@@ -33,8 +33,8 @@ class LmdbSalesCommissionLineService
 	/** @var array<int, string> Error list */
 	public $errors = array();
 
-	/** @var array{created:int, existing:int, tracking:int, errors:int} Last acquisition result counters */
-	public $lastResult = array('created' => 0, 'existing' => 0, 'tracking' => 0, 'errors' => 0);
+	/** @var array{created:int, updated:int, existing:int, tracking:int, errors:int} Last acquisition result counters */
+	public $lastResult = array('created' => 0, 'updated' => 0, 'existing' => 0, 'tracking' => 0, 'errors' => 0);
 
 	/**
 	 * Constructor.
@@ -47,6 +47,57 @@ class LmdbSalesCommissionLineService
 	}
 
 	/**
+	 * Store estimated commission lines from a validated proposal.
+	 *
+	 * @param object $proposal Proposal object
+	 * @param User   $user     Triggering user
+	 * @return int Number of created lines, -1 on error
+	 */
+	public function estimateFromProposal($proposal, $user)
+	{
+		$this->resetLastResult();
+
+		if (!is_object($proposal) || empty($proposal->id)) {
+			$this->error = 'LmdbSalesCommissionsInvalidProposal';
+			$this->lastResult['errors']++;
+			return -1;
+		}
+		$this->fetchProposalLinesIfNeeded($proposal);
+
+		$salesUserId = LmdbSalesCommissionProposalService::resolveSalesUserId($this->db, $proposal);
+		if ($salesUserId <= 0) {
+			$this->error = 'LmdbSalesCommissionsProposalWithoutSalesUser';
+			return 0;
+		}
+
+		$entity = !empty($proposal->entity) ? (int) $proposal->entity : 1;
+		$businessDate = LmdbSalesCommissionProposalService::getValidationDate($proposal);
+		if ($businessDate <= 0) {
+			$businessDate = dol_now();
+		}
+
+		$resolver = new LmdbSalesCommissionRuleResolver($this->db);
+		$profile = $resolver->resolveForUser($salesUserId, $businessDate, $entity, 'proposal');
+		if (!empty($profile['errors'])) {
+			$this->errors = $profile['errors'];
+			$this->lastResult['errors']++;
+			return -1;
+		}
+
+		$margin = LmdbSalesCommissionProposalService::getEstimatedMargin($proposal);
+		if (!isset($profile['selected']['margin']) || !is_array($profile['selected']['margin']) || $margin === null) {
+			return 0;
+		}
+
+		$rule = $profile['selected']['margin'];
+		$totalHt = property_exists($proposal, 'total_ht') && is_numeric($proposal->total_ht) ? (float) price2num($proposal->total_ht, 'MT') : 0.0;
+		$base = max(0, $margin);
+		$rate = (float) ($rule['rate'] ?? 0);
+
+		return $this->upsertProposalLine($proposal, $user, $salesUserId, $entity, self::MODE_MARGIN, $totalHt, $margin, $rate, (float) price2num($base * $rate / 100, 'MT'), $rule, $businessDate, self::STATUS_ESTIMATED, false);
+	}
+
+	/**
 	 * Acquire commission lines from a signed proposal.
 	 *
 	 * @param object $proposal Proposal object
@@ -55,15 +106,14 @@ class LmdbSalesCommissionLineService
 	 */
 	public function acquireFromProposal($proposal, $user)
 	{
-		$this->error = '';
-		$this->errors = array();
-		$this->lastResult = array('created' => 0, 'existing' => 0, 'tracking' => 0, 'errors' => 0);
+		$this->resetLastResult();
 
 		if (!is_object($proposal) || empty($proposal->id)) {
 			$this->error = 'LmdbSalesCommissionsInvalidProposal';
 			$this->lastResult['errors']++;
 			return -1;
 		}
+		$this->fetchProposalLinesIfNeeded($proposal);
 
 		$salesUserId = LmdbSalesCommissionProposalService::resolveSalesUserId($this->db, $proposal);
 		if ($salesUserId <= 0) {
@@ -97,7 +147,7 @@ class LmdbSalesCommissionLineService
 			$rule = $profile['selected']['margin'];
 			$base = max(0, $margin);
 			$rate = (float) ($rule['rate'] ?? 0);
-			$result = $this->createLineIfMissing($proposal, $user, $salesUserId, $entity, self::MODE_MARGIN, $totalHt, $margin, $rate, (float) price2num($base * $rate / 100, 'MT'), $rule, $businessDate);
+			$result = $this->upsertProposalLine($proposal, $user, $salesUserId, $entity, self::MODE_MARGIN, $totalHt, $margin, $rate, (float) price2num($base * $rate / 100, 'MT'), $rule, $businessDate, self::STATUS_ACQUIRED, true);
 			if ($result < 0) {
 				$this->lastResult['errors']++;
 				return -1;
@@ -108,7 +158,7 @@ class LmdbSalesCommissionLineService
 		if (isset($profile['selected']['tier']) && is_array($profile['selected']['tier'])) {
 			$hasCommissionRule = true;
 			$rule = $profile['selected']['tier'];
-			$result = $this->createLineIfMissing($proposal, $user, $salesUserId, $entity, self::MODE_TIER, $totalHt, null, null, 0.0, $rule, $businessDate);
+			$result = $this->upsertProposalLine($proposal, $user, $salesUserId, $entity, self::MODE_TIER, $totalHt, null, null, 0.0, $rule, $businessDate, self::STATUS_ACQUIRED, true);
 			if ($result < 0) {
 				$this->lastResult['errors']++;
 				return -1;
@@ -132,6 +182,11 @@ class LmdbSalesCommissionLineService
 				return -1;
 			}
 			$created += $result;
+		}
+
+		if ($this->cancelRemainingEstimatedProposalLines($proposal, $user) < 0) {
+			$this->lastResult['errors']++;
+			return -1;
 		}
 
 		return $created;
@@ -167,7 +222,7 @@ class LmdbSalesCommissionLineService
 	}
 
 	/**
-	 * Create line if the unique business key does not exist yet.
+	 * Create or update a proposal commission line.
 	 *
 	 * @param object               $proposal    Proposal object
 	 * @param User                 $user        Triggering user
@@ -179,17 +234,28 @@ class LmdbSalesCommissionLineService
 	 * @param float|null           $rate        Rate
 	 * @param float                $amount      Commission amount
 	 * @param array<string, mixed> $rule        Resolved rule
-	 * @param int                  $dateAcquired Acquisition date
+	 * @param int                  $dateAcquired Acquisition or estimation date
+	 * @param int                  $status       Target line status
+	 * @param bool                 $generateDues Generate due dates when acquired
 	 * @return int
 	 */
-	private function createLineIfMissing($proposal, $user, $salesUserId, $entity, $mode, $amountBase, $marginBase, $rate, $amount, array $rule, $dateAcquired)
+	private function upsertProposalLine($proposal, $user, $salesUserId, $entity, $mode, $amountBase, $marginBase, $rate, $amount, array $rule, $dateAcquired, $status, $generateDues)
 	{
-		if ($this->lineExists($entity, $salesUserId, (int) $proposal->id, $mode, (int) $rule['rule_id'])) {
+		$existingId = $this->fetchLineId($entity, $salesUserId, (int) $proposal->id, $mode, (int) $rule['rule_id']);
+		if ($existingId < 0) {
+			return -1;
+		}
+		$line = new LmdbSalesCommissionLine($this->db);
+		if ($existingId > 0 && $line->fetch($existingId) <= 0) {
+			$this->error = $line->error;
+			$this->errors = $line->errors;
+			return -1;
+		}
+		if ($existingId > 0 && (int) $line->status !== self::STATUS_ESTIMATED) {
 			$this->lastResult['existing']++;
 			return 0;
 		}
 
-		$line = new LmdbSalesCommissionLine($this->db);
 		$line->entity = $entity;
 		$line->fk_user = $salesUserId;
 		$line->fk_soc = property_exists($proposal, 'socid') ? (int) $proposal->socid : null;
@@ -204,7 +270,7 @@ class LmdbSalesCommissionLineService
 		$line->commission_total = (float) price2num($amount, 'MT');
 		$line->payable_total = 0.0;
 		$line->paid_total = 0.0;
-		$line->status = self::STATUS_ACQUIRED;
+		$line->status = (int) $status;
 		$line->date_acquired = $dateAcquired;
 		$line->fk_rule = (int) $rule['rule_id'];
 		$line->fk_payment_term = isset($rule['fk_payment_term']) ? (int) $rule['fk_payment_term'] : null;
@@ -212,16 +278,25 @@ class LmdbSalesCommissionLineService
 		$line->snapshot_rule_label = (string) $rule['rule_label'];
 		$line->snapshot_rule_rate = $rate;
 
-		$result = $line->create($user);
+		$result = $existingId > 0 ? $line->update($user) : $line->create($user);
 		if ($result <= 0) {
 			$this->error = $line->error;
 			$this->errors = $line->errors;
 			return -1;
 		}
 
-		if ((float) $line->commission_total > 0) {
-			require_once __DIR__.'/lmdbsalescommissiondueservice.class.php';
+		if ($existingId > 0) {
+			$line->id = $existingId;
+			$line->rowid = $existingId;
+			$this->lastResult['updated']++;
+		} else {
 			$line->id = $result;
+			$line->rowid = $result;
+			$this->lastResult['created']++;
+		}
+
+		if ($generateDues && (int) $line->status === self::STATUS_ACQUIRED && (float) $line->commission_total > 0) {
+			require_once __DIR__.'/lmdbsalescommissiondueservice.class.php';
 			$dueService = new LmdbSalesCommissionDueService($this->db);
 			if ($dueService->generateForLine($line, $user) < 0) {
 				$this->error = $dueService->error;
@@ -230,11 +305,10 @@ class LmdbSalesCommissionLineService
 			}
 		}
 
-		dol_syslog(__METHOD__.': acquired '.$mode.' commission line '.$result.' for proposal '.$proposal->id, LOG_INFO);
+		$actionLabel = (int) $status === self::STATUS_ESTIMATED ? 'estimated' : 'acquired';
+		dol_syslog(__METHOD__.': '.$actionLabel.' '.$mode.' commission line '.(int) $line->id.' for proposal '.$proposal->id, LOG_INFO);
 
-		$this->lastResult['created']++;
-
-		return 1;
+		return $existingId > 0 ? 0 : 1;
 	}
 
 	/**
@@ -251,7 +325,11 @@ class LmdbSalesCommissionLineService
 	 */
 	private function createTrackingLineIfMissing($proposal, $user, $salesUserId, $entity, $amountBase, $marginBase, $dateAcquired)
 	{
-		if ($this->lineExists($entity, $salesUserId, (int) $proposal->id, self::MODE_TRACKING, 0)) {
+		$existingId = $this->fetchLineId($entity, $salesUserId, (int) $proposal->id, self::MODE_TRACKING, 0);
+		if ($existingId !== 0) {
+			if ($existingId < 0) {
+				return -1;
+			}
 			$this->lastResult['existing']++;
 			$this->lastResult['tracking']++;
 			return 0;
@@ -296,16 +374,70 @@ class LmdbSalesCommissionLineService
 	}
 
 	/**
-	 * Check if a line already exists.
+	 * Reset last service counters.
+	 *
+	 * @return void
+	 */
+	private function resetLastResult()
+	{
+		$this->error = '';
+		$this->errors = array();
+		$this->lastResult = array('created' => 0, 'updated' => 0, 'existing' => 0, 'tracking' => 0, 'errors' => 0);
+	}
+
+	/**
+	 * Load proposal lines when the trigger object does not already carry them.
+	 *
+	 * @param object $proposal Proposal object
+	 * @return void
+	 */
+	private function fetchProposalLinesIfNeeded($proposal)
+	{
+		if (method_exists($proposal, 'fetch_lines') && (!property_exists($proposal, 'lines') || !is_array($proposal->lines) || empty($proposal->lines))) {
+			$proposal->fetch_lines();
+		}
+	}
+
+	/**
+	 * Cancel proposal estimate lines that were not converted to acquired lines.
+	 *
+	 * @param object $proposal Proposal object
+	 * @param User   $user     Triggering user
+	 * @return int
+	 */
+	private function cancelRemainingEstimatedProposalLines($proposal, $user)
+	{
+		if (!is_object($proposal) || empty($proposal->id)) {
+			return 0;
+		}
+
+		$entity = !empty($proposal->entity) ? (int) $proposal->entity : 1;
+		$sql = 'UPDATE '.MAIN_DB_PREFIX.'lmdbsalescommissions_line';
+		$sql .= ' SET status = '.self::STATUS_CANCELLED.', fk_user_modif = '.((int) $user->id);
+		$sql .= ' WHERE entity = '.$entity;
+		$sql .= " AND source_type = 'proposal'";
+		$sql .= ' AND fk_source = '.((int) $proposal->id);
+		$sql .= ' AND status = '.self::STATUS_ESTIMATED;
+
+		if (!$this->db->query($sql)) {
+			$this->error = $this->db->lasterror();
+			return -1;
+		}
+
+		return 1;
+	}
+
+	/**
+	 * Fetch an existing proposal commission line id.
 	 *
 	 * @param int    $entity      Entity id
 	 * @param int    $salesUserId User id
 	 * @param int    $proposalId  Proposal id
 	 * @param string $mode        Commission mode
 	 * @param int    $ruleId      Rule id
-	 * @return bool
+	 * @return int Positive rowid if found, 0 if not found, -1 on error
 	 */
-	private function lineExists($entity, $salesUserId, $proposalId, $mode, $ruleId)
+	private function fetchLineId($entity, $salesUserId, $proposalId, $mode, $ruleId)
 	{
 		$sql = 'SELECT rowid';
 		$sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_line';
@@ -320,12 +452,13 @@ class LmdbSalesCommissionLineService
 		$resql = $this->db->query($sql);
 		if (!$resql) {
 			$this->error = $this->db->lasterror();
-			return true;
+			return -1;
 		}
 
-		$exists = $this->db->num_rows($resql) > 0;
+		$obj = $this->db->fetch_object($resql);
+		$rowid = is_object($obj) ? (int) $obj->rowid : 0;
 		$this->db->free($resql);
 
-		return $exists;
+		return $rowid;
 	}
 }

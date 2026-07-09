@@ -61,14 +61,21 @@ class InterfaceLmdbSalesCommissionsTriggers
 			return 0;
 		}
 
-		if ($action !== 'PROPAL_CLOSE_SIGNED' && $action !== 'PROPAL_CLOSE_REFUSED' && $action !== 'PROPAL_DELETE') {
+		if ($action !== 'PROPAL_VALIDATE' && $action !== 'PROPAL_CLOSE_SIGNED' && $action !== 'PROPAL_CLOSE_REFUSED' && $action !== 'PROPAL_DELETE') {
 			return 0;
 		}
 
 		require_once dol_buildpath('/lmdbsalescommissions/class/lmdbsalescommissionlineservice.class.php', 0);
 
 		$service = new LmdbSalesCommissionLineService($this->db);
-		if ($action === 'PROPAL_CLOSE_SIGNED') {
+		if ($action === 'PROPAL_VALIDATE') {
+			$result = $service->estimateFromProposal($object, $user);
+			if ($result < 0) {
+				$this->error = $service->error;
+				$this->errors = $service->errors;
+				return -1;
+			}
+		} elseif ($action === 'PROPAL_CLOSE_SIGNED') {
 			$result = $service->acquireFromProposal($object, $user);
 			if ($result < 0) {
 				$this->error = $service->error;

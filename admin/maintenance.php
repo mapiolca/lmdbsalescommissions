@@ -150,8 +150,10 @@ if ($action === 'archiveobjective') {
 		$message = sprintf(
 			$messageTemplate,
 			$stats['analysed'],
+			$stats['estimated_processed'],
 			$stats['processed'],
 			$stats['created'],
+			$stats['updated'],
 			$stats['existing'],
 			$stats['tracking'],
 			$stats['skipped_no_user'],

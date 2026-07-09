@@ -37,14 +37,14 @@ class LmdbSalesCommissionRetroactiveService
 	}
 
 	/**
-	 * Backfill acquired commission tracking for signed proposals.
+	 * Backfill estimated and acquired commission tracking for proposals.
 	 *
 	 * @param int  $dateStart Start timestamp
 	 * @param int  $dateEnd   End timestamp
 	 * @param User $user      Triggering user
 	 * @param int  $fkUser    Optional sales user filter
 	 * @param int  $entity    Optional strict entity filter
-	 * @return array{analysed:int, processed:int, created:int, existing:int, tracking:int, payable_detected:int, skipped_no_user:int, errors:int}
+	 * @return array{analysed:int, estimated_processed:int, processed:int, created:int, updated:int, existing:int, tracking:int, payable_detected:int, skipped_no_user:int, errors:int}
 	 */
 	public function backfillSignedProposals($dateStart, $dateEnd, $user, $fkUser = 0, $entity = 0)
 	{
@@ -53,8 +53,10 @@ class LmdbSalesCommissionRetroactiveService
 
 		$stats = array(
 			'analysed' => 0,
+			'estimated_processed' => 0,
 			'processed' => 0,
 			'created' => 0,
+			'updated' => 0,
 			'existing' => 0,
 			'tracking' => 0,
 			'payable_detected' => 0,
@@ -68,9 +70,67 @@ class LmdbSalesCommissionRetroactiveService
 			return $stats;
 		}
 
+		$lineService = new LmdbSalesCommissionLineService($this->db);
+		$proposalEntitySql = $this->getProposalEntitySql($entity);
+
 		$sql = 'SELECT p.rowid';
 		$sql .= ' FROM '.MAIN_DB_PREFIX.'propal AS p';
-		$sql .= ' WHERE p.entity IN ('.$this->getProposalEntitySql($entity).')';
+		$sql .= ' WHERE p.entity IN ('.$proposalEntitySql.')';
+		$sql .= ' AND p.fk_statut = '.Propal::STATUS_VALIDATED;
+		$sql .= ' AND p.date_signature IS NULL';
+		$sql .= " AND p.date_valid >= '".$this->db->idate($dateStart)."'";
+		$sql .= " AND p.date_valid <= '".$this->db->idate($dateEnd)."'";
+		$sql .= ' ORDER BY p.date_valid ASC, p.rowid ASC';
+
+		$resql = $this->db->query($sql);
+		if (!$resql) {
+			$this->error = $this->db->lasterror();
+			$stats['errors']++;
+			return $stats;
+		}
+
+		while (is_object($obj = $this->db->fetch_object($resql))) {
+			$stats['analysed']++;
+
+			$proposal = new Propal($this->db);
+			if ($proposal->fetch((int) $obj->rowid) <= 0) {
+				$stats['errors']++;
+				$this->errors[] = $proposal->error ?: 'ErrorRecordNotFound';
+				continue;
+			}
+			if (method_exists($proposal, 'fetch_lines')) {
+				$proposal->fetch_lines();
+			}
+
+			$salesUserId = LmdbSalesCommissionProposalService::resolveSalesUserId($this->db, $proposal);
+			if ($salesUserId <= 0) {
+				$stats['skipped_no_user']++;
+				continue;
+			}
+			if ($fkUser > 0 && $salesUserId !== (int) $fkUser) {
+				continue;
+			}
+
+			$stats['estimated_processed']++;
+			$result = $lineService->estimateFromProposal($proposal, $user);
+			if ($result < 0) {
+				$stats['errors']++;
+				$this->error = $lineService->error;
+				$this->errors = array_merge($this->errors, $lineService->errors);
+				dol_syslog(__METHOD__.': '.$lineService->error.' while estimating proposal '.$proposal->id, LOG_ERR);
+				continue;
+			}
+
+			$stats['created'] += (int) $lineService->lastResult['created'];
+			$stats['updated'] += (int) $lineService->lastResult['updated'];
+			$stats['existing'] += (int) $lineService->lastResult['existing'];
+			$stats['errors'] += (int) $lineService->lastResult['errors'];
+		}
+		$this->db->free($resql);
+
+		$sql = 'SELECT p.rowid';
+		$sql .= ' FROM '.MAIN_DB_PREFIX.'propal AS p';
+		$sql .= ' WHERE p.entity IN ('.$proposalEntitySql.')';
 		$sql .= ' AND p.fk_statut IN ('.Propal::STATUS_SIGNED.','.Propal::STATUS_BILLED.')';
 		$sql .= ' AND p.date_signature IS NOT NULL';
 		$sql .= " AND p.date_signature >= '".$this->db->idate($dateStart)."'";
@@ -84,7 +144,6 @@ class LmdbSalesCommissionRetroactiveService
 			return $stats;
 		}
 
-		$lineService = new LmdbSalesCommissionLineService($this->db);
 		$processedProposalIds = array();
 		while (is_object($obj = $this->db->fetch_object($resql))) {
 			$stats['analysed']++;
@@ -119,6 +178,7 @@ class LmdbSalesCommissionRetroactiveService
 			}
 
 			$stats['created'] += (int) $lineService->lastResult['created'];
+			$stats['updated'] += (int) $lineService->lastResult['updated'];
 			$stats['existing'] += (int) $lineService->lastResult['existing'];
 			$stats['tracking'] += (int) $lineService->lastResult['tracking'];
 			$stats['errors'] += (int) $lineService->lastResult['errors'];
@@ -139,7 +199,7 @@ class LmdbSalesCommissionRetroactiveService
 			}
 		}
 
-		dol_syslog(__METHOD__.': analysed '.$stats['analysed'].' signed proposals, created '.$stats['created'].' lines, detected '.$stats['payable_detected'].' payable due dates', LOG_INFO);
+		dol_syslog(__METHOD__.': analysed '.$stats['analysed'].' proposals, estimated '.$stats['estimated_processed'].' proposals, processed '.$stats['processed'].' signed proposals, created '.$stats['created'].' lines, updated '.$stats['updated'].' lines, detected '.$stats['payable_detected'].' payable due dates', LOG_INFO);
 
 		return $stats;
 	}
