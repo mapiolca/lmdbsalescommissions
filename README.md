@@ -36,6 +36,7 @@ Il ne contient pas le préfixe `htdocs/custom/`, car ce chemin est géré par Do
 - Figeage des commissions lors de la signature d’un devis.
 - Génération d’échéances de versement et passage en versé.
 - Détection des échéances à verser depuis les factures d’acompte et factures finales liées au devis ou aux commandes issues du devis.
+- Rattrapage des devis signés avec détection des échéances déjà payables dans le même traitement.
 - Pages métier : tableau de bord par widgets, à verser, suivi, versées, exports.
 - Onglet **Commissions** sur la fiche utilisateur.
 - Widgets Dolibarr agent et manager, ainsi que widgets d’accueil ciblés pour commissions à verser, objectif, palier, anomalies et synthèses manager.

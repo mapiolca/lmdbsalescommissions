@@ -180,10 +180,11 @@ class LmdbSalesCommissionDueService
 	/**
 	 * Detect waiting due dates that became payable from native Dolibarr links.
 	 *
-	 * @param User $user User used to update due dates
+	 * @param User       $user        User used to update due dates
+	 * @param array<int> $proposalIds Optional proposal ids to restrict detection
 	 * @return int Number of due dates marked as payable, -1 on error
 	 */
-	public function detectPayableDueDates($user)
+	public function detectPayableDueDates($user, array $proposalIds = array())
 	{
 		$this->error = '';
 		$this->errors = array();
@@ -194,6 +195,8 @@ class LmdbSalesCommissionDueService
 			return -1;
 		}
 
+		$proposalIds = $this->normalizePositiveIds($proposalIds);
+
 		$sql = 'SELECT d.rowid AS due_id, d.entity, d.event_type, l.rowid AS line_id, l.fk_source AS proposal_id, l.date_acquired';
 		$sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_due AS d';
 		$sql .= ' INNER JOIN '.MAIN_DB_PREFIX.'lmdbsalescommissions_line AS l ON l.rowid = d.fk_commission_line AND l.entity = d.entity';
@@ -201,6 +204,9 @@ class LmdbSalesCommissionDueService
 		$sql .= ' AND d.status = '.self::STATUS_WAITING;
 		$sql .= ' AND l.status = 1';
 		$sql .= " AND l.source_type = 'proposal'";
+		if (!empty($proposalIds)) {
+			$sql .= ' AND l.fk_source IN ('.implode(',', $proposalIds).')';
+		}
 		$sql .= " AND d.event_type IN ('".self::EVENT_PROPOSAL_SIGNED."', '".self::EVENT_DEPOSIT_PAID."', '".self::EVENT_FINAL_INVOICE_PAID."')";
 		$sql .= ' ORDER BY d.rowid ASC';
 
@@ -236,6 +242,25 @@ class LmdbSalesCommissionDueService
 		dol_syslog(__METHOD__.': marked '.$marked.' due dates as payable from native invoice links', LOG_INFO);
 
 		return $marked;
+	}
+
+	/**
+	 * Normalize a list of positive technical ids.
+	 *
+	 * @param array<int> $ids Raw ids
+	 * @return array<int>
+	 */
+	private function normalizePositiveIds(array $ids)
+	{
+		$normalized = array();
+		foreach ($ids as $id) {
+			$id = (int) $id;
+			if ($id > 0) {
+				$normalized[$id] = $id;
+			}
+		}
+
+		return array_values($normalized);
 	}
 
 	/**

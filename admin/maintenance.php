@@ -155,6 +155,7 @@ if ($action === 'archiveobjective') {
 			$stats['existing'],
 			$stats['tracking'],
 			$stats['skipped_no_user'],
+			$stats['payable_detected'],
 			$stats['errors']
 		);
 		if ($stats['errors'] > 0) {

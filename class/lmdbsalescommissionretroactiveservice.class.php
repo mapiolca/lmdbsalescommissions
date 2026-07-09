@@ -9,6 +9,7 @@
 
 require_once DOL_DOCUMENT_ROOT.'/comm/propal/class/propal.class.php';
 require_once __DIR__.'/lmdbsalescommissionlineservice.class.php';
+require_once __DIR__.'/lmdbsalescommissiondueservice.class.php';
 require_once __DIR__.'/lmdbsalescommissionproposalservice.class.php';
 
 /**
@@ -43,7 +44,7 @@ class LmdbSalesCommissionRetroactiveService
 	 * @param User $user      Triggering user
 	 * @param int  $fkUser    Optional sales user filter
 	 * @param int  $entity    Optional strict entity filter
-	 * @return array{analysed:int, processed:int, created:int, existing:int, tracking:int, skipped_no_user:int, errors:int}
+	 * @return array{analysed:int, processed:int, created:int, existing:int, tracking:int, payable_detected:int, skipped_no_user:int, errors:int}
 	 */
 	public function backfillSignedProposals($dateStart, $dateEnd, $user, $fkUser = 0, $entity = 0)
 	{
@@ -56,6 +57,7 @@ class LmdbSalesCommissionRetroactiveService
 			'created' => 0,
 			'existing' => 0,
 			'tracking' => 0,
+			'payable_detected' => 0,
 			'skipped_no_user' => 0,
 			'errors' => 0,
 		);
@@ -83,6 +85,7 @@ class LmdbSalesCommissionRetroactiveService
 		}
 
 		$lineService = new LmdbSalesCommissionLineService($this->db);
+		$processedProposalIds = array();
 		while (is_object($obj = $this->db->fetch_object($resql))) {
 			$stats['analysed']++;
 
@@ -119,10 +122,24 @@ class LmdbSalesCommissionRetroactiveService
 			$stats['existing'] += (int) $lineService->lastResult['existing'];
 			$stats['tracking'] += (int) $lineService->lastResult['tracking'];
 			$stats['errors'] += (int) $lineService->lastResult['errors'];
+			$processedProposalIds[] = (int) $proposal->id;
 		}
 		$this->db->free($resql);
 
-		dol_syslog(__METHOD__.': analysed '.$stats['analysed'].' signed proposals, created '.$stats['created'].' lines', LOG_INFO);
+		if (!empty($processedProposalIds)) {
+			$dueService = new LmdbSalesCommissionDueService($this->db);
+			$payableDetected = $dueService->detectPayableDueDates($user, $processedProposalIds);
+			if ($payableDetected < 0) {
+				$stats['errors']++;
+				$this->error = $dueService->error;
+				$this->errors = array_merge($this->errors, $dueService->errors);
+				dol_syslog(__METHOD__.': '.$dueService->error.' while detecting payable due dates after backfill', LOG_ERR);
+			} else {
+				$stats['payable_detected'] = $payableDetected;
+			}
+		}
+
+		dol_syslog(__METHOD__.': analysed '.$stats['analysed'].' signed proposals, created '.$stats['created'].' lines, detected '.$stats['payable_detected'].' payable due dates', LOG_INFO);
 
 		return $stats;
 	}
