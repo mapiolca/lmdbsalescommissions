@@ -13,7 +13,7 @@ if (!$res) {
 }
 
 require_once DOL_DOCUMENT_ROOT.'/comm/propal/class/propal.class.php';
-require_once DOL_DOCUMENT_ROOT.'/comm/propal/lib/propal.lib.php';
+require_once DOL_DOCUMENT_ROOT.'/core/lib/propal.lib.php';
 require_once DOL_DOCUMENT_ROOT.'/core/class/html.form.class.php';
 require_once DOL_DOCUMENT_ROOT.'/user/class/user.class.php';
 require_once dol_buildpath('/lmdbsalescommissions/lib/lmdbsalescommissions.lib.php', 0);
