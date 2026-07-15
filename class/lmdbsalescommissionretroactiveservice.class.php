@@ -11,6 +11,7 @@ require_once DOL_DOCUMENT_ROOT.'/comm/propal/class/propal.class.php';
 require_once __DIR__.'/lmdbsalescommissionlineservice.class.php';
 require_once __DIR__.'/lmdbsalescommissiondueservice.class.php';
 require_once __DIR__.'/lmdbsalescommissionproposalservice.class.php';
+require_once __DIR__.'/lmdbsalescommissionproposaldispatchservice.class.php';
 
 /**
  * Retroactive signed proposal backfill service.
@@ -71,6 +72,7 @@ class LmdbSalesCommissionRetroactiveService
 		}
 
 		$lineService = new LmdbSalesCommissionLineService($this->db);
+		$dispatchService = new LmdbSalesCommissionProposalDispatchService($this->db);
 		$proposalEntitySql = $this->getProposalEntitySql($entity);
 
 		$sql = 'SELECT p.rowid';
@@ -102,12 +104,19 @@ class LmdbSalesCommissionRetroactiveService
 				$proposal->fetch_lines();
 			}
 
+			$dispatches = $dispatchService->fetchForProposal((int) $proposal->id, (int) $proposal->entity);
+			if ($dispatchService->error !== '') {
+				$stats['errors']++;
+				$this->error = $dispatchService->error;
+				$this->errors = array_merge($this->errors, $dispatchService->errors);
+				continue;
+			}
 			$salesUserId = LmdbSalesCommissionProposalService::resolveSalesUserId($this->db, $proposal);
-			if ($salesUserId <= 0) {
+			if (empty($dispatches) && $salesUserId <= 0) {
 				$stats['skipped_no_user']++;
 				continue;
 			}
-			if ($fkUser > 0 && $salesUserId !== (int) $fkUser) {
+			if ($fkUser > 0 && !$this->proposalMatchesUserFilter($dispatches, $salesUserId, $fkUser)) {
 				continue;
 			}
 
@@ -158,12 +167,19 @@ class LmdbSalesCommissionRetroactiveService
 				$proposal->fetch_lines();
 			}
 
+			$dispatches = $dispatchService->fetchForProposal((int) $proposal->id, (int) $proposal->entity);
+			if ($dispatchService->error !== '') {
+				$stats['errors']++;
+				$this->error = $dispatchService->error;
+				$this->errors = array_merge($this->errors, $dispatchService->errors);
+				continue;
+			}
 			$salesUserId = LmdbSalesCommissionProposalService::resolveSalesUserId($this->db, $proposal);
-			if ($salesUserId <= 0) {
+			if (empty($dispatches) && $salesUserId <= 0) {
 				$stats['skipped_no_user']++;
 				continue;
 			}
-			if ($fkUser > 0 && $salesUserId !== (int) $fkUser) {
+			if ($fkUser > 0 && !$this->proposalMatchesUserFilter($dispatches, $salesUserId, $fkUser)) {
 				continue;
 			}
 
@@ -202,6 +218,31 @@ class LmdbSalesCommissionRetroactiveService
 		dol_syslog(__METHOD__.': analysed '.$stats['analysed'].' proposals, estimated '.$stats['estimated_processed'].' proposals, processed '.$stats['processed'].' signed proposals, created '.$stats['created'].' lines, updated '.$stats['updated'].' lines, detected '.$stats['payable_detected'].' payable due dates', LOG_INFO);
 
 		return $stats;
+	}
+
+	/**
+	 * Check the optional backfill user filter against dispatch beneficiaries or legacy owner.
+	 *
+	 * @param array<int, LmdbSalesCommissionProposalDispatch> $dispatches Dispatches
+	 * @param int                                             $salesUserId Legacy sales user
+	 * @param int                                             $filterUserId Requested user
+	 * @return bool
+	 */
+	private function proposalMatchesUserFilter(array $dispatches, $salesUserId, $filterUserId)
+	{
+		if ($filterUserId <= 0) {
+			return true;
+		}
+		if (empty($dispatches)) {
+			return $salesUserId === $filterUserId;
+		}
+		foreach ($dispatches as $dispatch) {
+			if ((int) $dispatch->fk_user === $filterUserId) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	/**

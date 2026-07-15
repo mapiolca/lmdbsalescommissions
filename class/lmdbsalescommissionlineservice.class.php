@@ -10,6 +10,7 @@
 require_once __DIR__.'/lmdbsalescommissionline.class.php';
 require_once __DIR__.'/lmdbsalescommissionproposalservice.class.php';
 require_once __DIR__.'/lmdbsalescommissionruleresolver.class.php';
+require_once __DIR__.'/lmdbsalescommissionproposaldispatchservice.class.php';
 
 /**
  * Commission line service.
@@ -23,6 +24,7 @@ class LmdbSalesCommissionLineService
 	public const MODE_MARGIN = 'margin';
 	public const MODE_TIER = 'tier';
 	public const MODE_TRACKING = 'tracking';
+	public const MODE_DISPATCH = 'dispatch';
 
 	/** @var DoliDB Database handler */
 	private $db;
@@ -64,16 +66,31 @@ class LmdbSalesCommissionLineService
 		}
 		$this->fetchProposalLinesIfNeeded($proposal);
 
-		$salesUserId = LmdbSalesCommissionProposalService::resolveSalesUserId($this->db, $proposal);
-		if ($salesUserId <= 0) {
-			$this->error = 'LmdbSalesCommissionsProposalWithoutSalesUser';
-			return 0;
-		}
-
 		$entity = !empty($proposal->entity) ? (int) $proposal->entity : 1;
 		$businessDate = LmdbSalesCommissionProposalService::getValidationDate($proposal);
 		if ($businessDate <= 0) {
 			$businessDate = dol_now();
+		}
+		$dispatchService = new LmdbSalesCommissionProposalDispatchService($this->db);
+		$dispatches = $dispatchService->fetchForProposal((int) $proposal->id, $entity);
+		if ($dispatchService->error !== '') {
+			$this->error = $dispatchService->error;
+			$this->lastResult['errors']++;
+			return -1;
+		}
+		if (!empty($dispatches)) {
+			return $this->processDispatches($proposal, $user, $dispatches, $businessDate, self::STATUS_ESTIMATED, false);
+		}
+
+		if ($this->cancelDispatchEstimatedProposalLines($proposal, $user) < 0) {
+			$this->lastResult['errors']++;
+			return -1;
+		}
+
+		$salesUserId = LmdbSalesCommissionProposalService::resolveSalesUserId($this->db, $proposal);
+		if ($salesUserId <= 0) {
+			$this->error = 'LmdbSalesCommissionsProposalWithoutSalesUser';
+			return 0;
 		}
 
 		$resolver = new LmdbSalesCommissionRuleResolver($this->db);
@@ -115,16 +132,26 @@ class LmdbSalesCommissionLineService
 		}
 		$this->fetchProposalLinesIfNeeded($proposal);
 
-		$salesUserId = LmdbSalesCommissionProposalService::resolveSalesUserId($this->db, $proposal);
-		if ($salesUserId <= 0) {
-			$this->error = 'LmdbSalesCommissionsProposalWithoutSalesUser';
-			return 0;
-		}
-
 		$entity = !empty($proposal->entity) ? (int) $proposal->entity : 1;
 		$businessDate = LmdbSalesCommissionProposalService::getSignatureDate($proposal);
 		if ($businessDate <= 0) {
 			$businessDate = dol_now();
+		}
+		$dispatchService = new LmdbSalesCommissionProposalDispatchService($this->db);
+		$dispatches = $dispatchService->fetchForProposal((int) $proposal->id, $entity);
+		if ($dispatchService->error !== '') {
+			$this->error = $dispatchService->error;
+			$this->lastResult['errors']++;
+			return -1;
+		}
+		if (!empty($dispatches)) {
+			return $this->processDispatches($proposal, $user, $dispatches, $businessDate, self::STATUS_ACQUIRED, true);
+		}
+
+		$salesUserId = LmdbSalesCommissionProposalService::resolveSalesUserId($this->db, $proposal);
+		if ($salesUserId <= 0) {
+			$this->error = 'LmdbSalesCommissionsProposalWithoutSalesUser';
+			return 0;
 		}
 
 		$resolver = new LmdbSalesCommissionRuleResolver($this->db);
@@ -222,6 +249,142 @@ class LmdbSalesCommissionLineService
 	}
 
 	/**
+	 * Calculate and persist manual dispatch commission lines.
+	 *
+	 * @param object                                             $proposal     Proposal
+	 * @param User                                               $user         Triggering user
+	 * @param array<int, LmdbSalesCommissionProposalDispatch>    $dispatches   Dispatch rows
+	 * @param int                                                $businessDate Business date
+	 * @param int                                                $status       Estimated or acquired status
+	 * @param bool                                               $generateDues Generate payment due dates
+	 * @return int Number of created lines, -1 on error
+	 */
+	private function processDispatches($proposal, $user, array $dispatches, $businessDate, $status, $generateDues)
+	{
+		$dispatchService = new LmdbSalesCommissionProposalDispatchService($this->db);
+		$created = 0;
+		$keptUsers = array();
+		foreach ($dispatches as $dispatch) {
+			$calculation = $dispatchService->calculate($dispatch, $proposal, $businessDate);
+			if (!is_array($calculation)) {
+				$this->error = $dispatchService->error;
+				$this->errors = $dispatchService->errors;
+				$this->lastResult['errors']++;
+				return -1;
+			}
+
+			$result = $this->upsertDispatchLine($proposal, $user, $dispatch, $calculation, $businessDate, $status, $generateDues);
+			if ($result < 0) {
+				$this->lastResult['errors']++;
+				return -1;
+			}
+			$created += $result;
+			$keptUsers[] = (int) $dispatch->fk_user;
+		}
+
+		if ((int) $status === self::STATUS_ESTIMATED) {
+			if ($this->cancelStaleEstimatedProposalLines($proposal, $user, $keptUsers) < 0) {
+				$this->lastResult['errors']++;
+				return -1;
+			}
+		} elseif ($this->cancelRemainingEstimatedProposalLines($proposal, $user) < 0) {
+			$this->lastResult['errors']++;
+			return -1;
+		}
+
+		return $created;
+	}
+
+	/**
+	 * Create or update one manual dispatch commission line.
+	 *
+	 * @param object                                          $proposal     Proposal
+	 * @param User                                            $user         Triggering user
+	 * @param LmdbSalesCommissionProposalDispatch             $dispatch     Dispatch row
+	 * @param array{turnover:float,margin:float|null,base:float,commission:float,rate:float|null,payment_term_id:int,payment_term_label:string} $calculation Calculated values
+	 * @param int                                             $businessDate Business date
+	 * @param int                                             $status       Target status
+	 * @param bool                                            $generateDues Generate due dates
+	 * @return int
+	 */
+	private function upsertDispatchLine($proposal, $user, $dispatch, array $calculation, $businessDate, $status, $generateDues)
+	{
+		$entity = (int) $dispatch->entity;
+		$beneficiaryId = (int) $dispatch->fk_user;
+		$existingId = $this->fetchLineId($entity, $beneficiaryId, (int) $proposal->id, self::MODE_DISPATCH, 0);
+		if ($existingId < 0) {
+			return -1;
+		}
+
+		$line = new LmdbSalesCommissionLine($this->db);
+		if ($existingId > 0 && $line->fetch($existingId) <= 0) {
+			$this->error = $line->error;
+			$this->errors = $line->errors;
+			return -1;
+		}
+		if ($existingId > 0 && !in_array((int) $line->status, array(self::STATUS_ESTIMATED, self::STATUS_CANCELLED), true)) {
+			$this->lastResult['existing']++;
+			return 0;
+		}
+
+		$line->entity = $entity;
+		$line->fk_user = $beneficiaryId;
+		$line->fk_soc = property_exists($proposal, 'socid') ? (int) $proposal->socid : null;
+		$line->source_type = 'proposal';
+		$line->fk_source = (int) $proposal->id;
+		$line->source_ref = property_exists($proposal, 'ref') ? (string) $proposal->ref : '';
+		$line->mode = self::MODE_DISPATCH;
+		$line->amount_base = (float) price2num($calculation['turnover'], 'MT');
+		$line->margin_base = $calculation['margin'] !== null ? (float) price2num($calculation['margin'], 'MT') : null;
+		$line->rate = $calculation['rate'];
+		$line->fk_tier = null;
+		$line->commission_total = (float) price2num($calculation['commission'], 'MT');
+		$line->payable_total = 0.0;
+		$line->paid_total = 0.0;
+		$line->status = (int) $status;
+		$line->date_acquired = $businessDate;
+		$line->fk_rule = 0;
+		$line->fk_payment_term = $calculation['payment_term_id'] > 0 ? (int) $calculation['payment_term_id'] : null;
+		$line->fk_proposal_dispatch = !empty($dispatch->id) ? (int) $dispatch->id : (int) $dispatch->rowid;
+		$line->rule_source = self::MODE_DISPATCH;
+		$line->snapshot_rule_label = 'LmdbSalesCommissionsManualDispatch';
+		$line->snapshot_rule_rate = $calculation['rate'];
+		$line->snapshot_base_type = (string) $dispatch->base_type;
+		$line->snapshot_value_type = (string) $dispatch->value_type;
+		$line->snapshot_value = (float) $dispatch->value;
+
+		$result = $existingId > 0 ? $line->update($user) : $line->create($user);
+		if ($result <= 0) {
+			$this->error = $line->error;
+			$this->errors = $line->errors;
+			return -1;
+		}
+		if ($existingId > 0) {
+			$line->id = $existingId;
+			$line->rowid = $existingId;
+			$this->lastResult['updated']++;
+		} else {
+			$line->id = $result;
+			$line->rowid = $result;
+			$this->lastResult['created']++;
+		}
+
+		if ($generateDues && (int) $line->status === self::STATUS_ACQUIRED && (float) $line->commission_total > 0) {
+			require_once __DIR__.'/lmdbsalescommissiondueservice.class.php';
+			$dueService = new LmdbSalesCommissionDueService($this->db);
+			if ($dueService->generateForLine($line, $user) < 0) {
+				$this->error = $dueService->error;
+				$this->errors = $dueService->errors;
+				return -1;
+			}
+		}
+
+		dol_syslog(__METHOD__.': dispatch commission line '.((int) $line->id).' for proposal '.((int) $proposal->id).' and user '.$beneficiaryId, LOG_INFO);
+
+		return $existingId > 0 ? 0 : 1;
+	}
+
+	/**
 	 * Create or update a proposal commission line.
 	 *
 	 * @param object               $proposal    Proposal object
@@ -251,7 +414,7 @@ class LmdbSalesCommissionLineService
 			$this->errors = $line->errors;
 			return -1;
 		}
-		if ($existingId > 0 && (int) $line->status !== self::STATUS_ESTIMATED) {
+		if ($existingId > 0 && !in_array((int) $line->status, array(self::STATUS_ESTIMATED, self::STATUS_CANCELLED), true)) {
 			$this->lastResult['existing']++;
 			return 0;
 		}
@@ -274,9 +437,13 @@ class LmdbSalesCommissionLineService
 		$line->date_acquired = $dateAcquired;
 		$line->fk_rule = (int) $rule['rule_id'];
 		$line->fk_payment_term = isset($rule['fk_payment_term']) ? (int) $rule['fk_payment_term'] : null;
+		$line->fk_proposal_dispatch = null;
 		$line->rule_source = (string) $rule['source'];
 		$line->snapshot_rule_label = (string) $rule['rule_label'];
 		$line->snapshot_rule_rate = $rate;
+		$line->snapshot_base_type = null;
+		$line->snapshot_value_type = null;
+		$line->snapshot_value = null;
 
 		$result = $existingId > 0 ? $line->update($user) : $line->create($user);
 		if ($result <= 0) {
@@ -354,9 +521,13 @@ class LmdbSalesCommissionLineService
 		$line->date_acquired = $dateAcquired;
 		$line->fk_rule = 0;
 		$line->fk_payment_term = null;
+		$line->fk_proposal_dispatch = null;
 		$line->rule_source = 'none';
 		$line->snapshot_rule_label = 'LmdbSalesCommissionsTrackingWithoutRule';
 		$line->snapshot_rule_rate = null;
+		$line->snapshot_base_type = null;
+		$line->snapshot_value_type = null;
+		$line->snapshot_value = null;
 
 		$result = $line->create($user);
 		if ($result <= 0) {
@@ -419,6 +590,65 @@ class LmdbSalesCommissionLineService
 		$sql .= ' AND fk_source = '.((int) $proposal->id);
 		$sql .= ' AND status = '.self::STATUS_ESTIMATED;
 
+		if (!$this->db->query($sql)) {
+			$this->error = $this->db->lasterror();
+			return -1;
+		}
+
+		return 1;
+	}
+
+	/**
+	 * Cancel dispatch estimates when the proposal has returned to automatic calculation.
+	 *
+	 * @param object $proposal Proposal
+	 * @param User   $user     User
+	 * @return int
+	 */
+	private function cancelDispatchEstimatedProposalLines($proposal, $user)
+	{
+		if (!is_object($proposal) || empty($proposal->id)) {
+			return 0;
+		}
+		$entity = !empty($proposal->entity) ? (int) $proposal->entity : 1;
+		$sql = 'UPDATE '.MAIN_DB_PREFIX.'lmdbsalescommissions_line';
+		$sql .= ' SET status = '.self::STATUS_CANCELLED.', fk_user_modif = '.((int) $user->id);
+		$sql .= ' WHERE entity = '.$entity;
+		$sql .= " AND source_type = 'proposal'";
+		$sql .= ' AND fk_source = '.((int) $proposal->id);
+		$sql .= " AND mode = '".self::MODE_DISPATCH."'";
+		$sql .= ' AND status = '.self::STATUS_ESTIMATED;
+		if (!$this->db->query($sql)) {
+			$this->error = $this->db->lasterror();
+			return -1;
+		}
+
+		return 1;
+	}
+
+	/**
+	 * Cancel automatic and removed-beneficiary estimates after manual synchronization.
+	 *
+	 * @param object     $proposal Proposal
+	 * @param User       $user     User
+	 * @param array<int> $keptUsers Current beneficiary ids
+	 * @return int
+	 */
+	private function cancelStaleEstimatedProposalLines($proposal, $user, array $keptUsers)
+	{
+		$entity = !empty($proposal->entity) ? (int) $proposal->entity : 1;
+		$keptUsers = array_values(array_unique(array_filter(array_map('intval', $keptUsers))));
+		$sql = 'UPDATE '.MAIN_DB_PREFIX.'lmdbsalescommissions_line';
+		$sql .= ' SET status = '.self::STATUS_CANCELLED.', fk_user_modif = '.((int) $user->id);
+		$sql .= ' WHERE entity = '.$entity;
+		$sql .= " AND source_type = 'proposal'";
+		$sql .= ' AND fk_source = '.((int) $proposal->id);
+		$sql .= ' AND status = '.self::STATUS_ESTIMATED;
+		$sql .= " AND (mode <> '".self::MODE_DISPATCH."'";
+		if (!empty($keptUsers)) {
+			$sql .= ' OR fk_user NOT IN ('.implode(',', $keptUsers).')';
+		}
+		$sql .= ')';
 		if (!$this->db->query($sql)) {
 			$this->error = $this->db->lasterror();
 			return -1;

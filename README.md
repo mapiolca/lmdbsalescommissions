@@ -14,6 +14,7 @@ Module Dolibarr externe `lmdbsalescommissions` pour gérer les commissions, prim
 - Tableau de bord par widgets déplaçables/masquables avec disposition par utilisateur.
 - Exports CSV centralisés dans le menu **Exports**.
 - Compatibilité Multicompany.
+- Répartition manuelle d’une commission de devis entre plusieurs commerciaux, sur montant ou pourcentage de marge ou de CA.
 
 ## Structure du module
 
@@ -33,6 +34,8 @@ Il ne contient pas le préfixe `htdocs/custom/`, car ce chemin est géré par Do
 - Résolution du profil effectif utilisateur > groupe > défaut.
 - Objectifs mensuels et annuels facultatifs, avec archivage.
 - Estimation de commission sur la fiche devis.
+- Onglet devis de répartition multi-commerciaux avec une formule et une modalité de versement par bénéficiaire.
+- Héritage automatique des modalités configurées : règle de marge, puis règle de palier, puis paiement intégral à la signature.
 - Commission estimée du tunnel enregistrée à la validation des devis, puis lue depuis les lignes estimées.
 - Figeage des commissions lors de la signature d’un devis.
 - Génération d’échéances de versement et passage en versé.
@@ -68,6 +71,8 @@ Tous les exports restent centralisés dans **Facturation | Paiement > Commission
 8. Choisir la règle de libération de l’échéance de facture finale dans les paramètres généraux du module.
 9. Vérifier les contrôles de cohérence dans l’onglet **Aide / contrôles**.
 
+Une répartition manuelle peut être créée depuis l’onglet **Répartition des commissions** d’un devis en brouillon ou validé non signé. Dès qu’au moins une ligne existe, elle remplace les règles, paliers et objectifs automatiques pour ce devis. La suppression de la dernière ligne avant signature rétablit le calcul automatique.
+
 ## Scénarios de validation
 
 - Agent avec commission sur marge seule.
@@ -80,6 +85,9 @@ Tous les exports restent centralisés dans **Facturation | Paiement > Commission
 - Règle de groupe prioritaire sur une règle par défaut.
 - Conflit de règles détecté.
 - Commission figée à la signature du devis.
+- Plusieurs commerciaux sur un même devis avec montant fixe ou pourcentage de marge ou de CA.
+- Modalité de versement explicitement sélectionnée ou héritée des réglages du commercial.
+- Répartition verrouillée après signature et visible selon le périmètre de droits propre, groupe ou global.
 - Échéance d’acompte rendue payable par une facture d’acompte payée liée directement au devis ou à une commande du devis.
 - Échéance de facture finale rendue payable selon le mode configuré pour les factures finales liées.
 - Échéance marquée comme versée par un utilisateur autorisé.
@@ -97,7 +105,6 @@ Tous les exports restent centralisés dans **Facturation | Paiement > Commission
 
 - Pas de génération automatique de facture fournisseur ou note de frais.
 - Pas de commissionnement par ligne produit/service.
-- Pas de gestion de plusieurs commerciaux sur un même devis.
 - La détection des paiements acompte/facture finale repose sur les liens natifs Dolibarr entre devis, commandes et factures client.
 - Aucun modèle PDF/ODT n’est fourni dans cette V1.
 

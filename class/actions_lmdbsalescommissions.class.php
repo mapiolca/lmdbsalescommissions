@@ -80,6 +80,34 @@ class ActionsLmdbSalesCommissions
 		if (isset($commissionData['message'])) {
 			$this->resprints .= '<tr class="liste_titre"><td>'.$langs->trans('LmdbSalesCommissionsEstimatedCommission').'</td></tr>';
 			$this->resprints .= '<tr class="oddeven"><td>'.$commissionData['message'].'</td></tr>';
+		} elseif (isset($commissionData['rows']) && is_array($commissionData['rows'])) {
+			$headers = array(
+				$langs->trans('SalesRepresentative'),
+				$langs->trans('LmdbSalesCommissionsDispatchFormula'),
+				$langs->trans('LmdbSalesCommissionsPaymentTerms'),
+				$langs->trans('LmdbSalesCommissionsProposalEstimateTableCommission'),
+				$langs->trans('Status'),
+			);
+			$this->resprints .= '<tr class="liste_titre">';
+			foreach ($headers as $headerIndex => $header) {
+				$this->resprints .= '<td class="liste_titre'.($headerIndex === 3 ? ' right' : '').'">'.dol_escape_htmltag($header).'</td>';
+			}
+			$this->resprints .= '</tr>';
+			foreach ($commissionData['rows'] as $row) {
+				if (!is_array($row)) {
+					continue;
+				}
+				$this->resprints .= '<tr class="oddeven">';
+				$this->resprints .= '<td>'.($row['beneficiary'] ?? '').'</td>';
+				$this->resprints .= '<td>'.dol_escape_htmltag((string) ($row['formula'] ?? '')).'</td>';
+				$this->resprints .= '<td>'.dol_escape_htmltag((string) ($row['payment_term'] ?? '')).'</td>';
+				$this->resprints .= '<td class="right">'.($row['amount'] ?? '').'</td>';
+				$this->resprints .= '<td>'.($row['status'] ?? '').'</td>';
+				$this->resprints .= '</tr>';
+			}
+			if (isset($commissionData['total'])) {
+				$this->resprints .= '<tr class="liste_total"><td colspan="3" class="right">'.$langs->trans('Total').'</td><td class="right">'.$commissionData['total'].'</td><td></td></tr>';
+			}
 		} else {
 			$headers = array(
 				$langs->trans('LmdbSalesCommissionsProposalEstimateTableCommission'),
@@ -121,7 +149,7 @@ class ActionsLmdbSalesCommissions
 	 *
 	 * @param object               $object     Current proposal
 	 * @param array<string, mixed> $marginInfo Native margin information
-	 * @return array<string, string>
+	 * @return array<string, mixed>
 	 */
 	private function buildProposalEstimatedCommissionData($object, array $marginInfo)
 	{
@@ -130,8 +158,58 @@ class ActionsLmdbSalesCommissions
 		require_once dol_buildpath('/lmdbsalescommissions/lib/lmdbsalescommissions.lib.php', 0);
 		require_once dol_buildpath('/lmdbsalescommissions/class/lmdbsalescommissionproposalservice.class.php', 0);
 		require_once dol_buildpath('/lmdbsalescommissions/class/lmdbsalescommissionruleresolver.class.php', 0);
+		require_once dol_buildpath('/lmdbsalescommissions/class/lmdbsalescommissionproposaldispatchservice.class.php', 0);
+		require_once DOL_DOCUMENT_ROOT.'/user/class/user.class.php';
 
 		$langs->loadLangs(array('lmdbsalescommissions@lmdbsalescommissions'));
+
+		$entity = !empty($object->entity) ? (int) $object->entity : 0;
+		$dispatchService = new LmdbSalesCommissionProposalDispatchService($this->db);
+		$dispatches = $dispatchService->fetchForProposal((int) ($object->id ?? 0), $entity);
+		if (!empty($dispatches)) {
+			$rows = array();
+			$total = 0.0;
+			$canSeeAll = lmdbsalescommissionsCanManageDispatch($user) || !empty($user->admin) || $user->hasRight('lmdbsalescommissions', 'commission', 'readall');
+			foreach ($dispatches as $dispatch) {
+				if (!$canSeeAll && !lmdbsalescommissionsCanReadUserScope($user, (int) $dispatch->fk_user)) {
+					continue;
+				}
+				$calculation = $dispatchService->getCalculationForDisplay($dispatch, $object, dol_now());
+				if (!is_array($calculation)) {
+					$rows[] = array(
+						'beneficiary' => dol_escape_htmltag((string) $dispatch->fk_user),
+						'formula' => lmdbsalescommissionsFormatDispatchFormula($langs, (string) $dispatch->base_type, (string) $dispatch->value_type, $dispatch->value),
+						'payment_term' => '',
+						'amount' => img_warning($langs->trans($dispatchService->error)),
+						'status' => lmdbsalescommissionsStatusBadge($langs->trans('LmdbSalesCommissionsLineStatusBlocked'), -1),
+					);
+					continue;
+				}
+				$beneficiary = new User($this->db);
+				$beneficiaryLabel = dol_escape_htmltag((string) $dispatch->fk_user);
+				if ($beneficiary->fetch((int) $dispatch->fk_user) > 0) {
+					$beneficiaryLabel = $beneficiary->getNomUrl(1);
+				}
+				$paymentLabel = $calculation['payment_term_label'] === 'LmdbSalesCommissionsPaymentImmediateAtSignature' ? $langs->trans($calculation['payment_term_label']) : $calculation['payment_term_label'];
+				$total += (float) $calculation['commission'];
+				$rows[] = array(
+					'beneficiary' => $beneficiaryLabel,
+					'formula' => lmdbsalescommissionsFormatDispatchFormula($langs, (string) $dispatch->base_type, (string) $dispatch->value_type, $dispatch->value),
+					'payment_term' => $paymentLabel,
+					'amount' => lmdbsalescommissionsFormatTotalAmount($calculation['commission']),
+					'status' => $langs->trans('LmdbSalesCommissionsEstimateNotAcquired'),
+				);
+			}
+			if (empty($rows)) {
+				return array();
+			}
+
+			$result = array('rows' => $rows);
+			if ($canSeeAll) {
+				$result['total'] = lmdbsalescommissionsFormatTotalAmount($total);
+			}
+			return $result;
+		}
 
 		$salesUserId = LmdbSalesCommissionProposalService::getSalesUserId($object);
 		if ($salesUserId <= 0) {
@@ -145,7 +223,7 @@ class ActionsLmdbSalesCommissions
 			? (float) $marginInfo['total_margin']
 			: LmdbSalesCommissionProposalService::getEstimatedMargin($object);
 		$resolver = new LmdbSalesCommissionRuleResolver($this->db);
-		$profile = $resolver->resolveForUser($salesUserId, dol_now(), !empty($object->entity) ? (int) $object->entity : 0, 'proposal');
+		$profile = $resolver->resolveForUser($salesUserId, dol_now(), $entity, 'proposal');
 		$marginRule = $profile['selected']['margin'] ?? null;
 
 		if (!empty($profile['errors'])) {

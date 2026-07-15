@@ -54,6 +54,7 @@ $entityTierGrid = $db->sanitize(getEntity('lmdbsalescommissions_tier_grid'));
 $entityLine = $db->sanitize(getEntity('lmdbsalescommissions_line'));
 $entityObjective = $db->sanitize(getEntity('lmdbsalescommissions_objective'));
 $entityArchive = $db->sanitize(getEntity('lmdbsalescommissions_objective_archive'));
+$entityDispatch = $db->sanitize(getEntity('lmdbsalescommissions_proposal_dispatch'));
 $currentYear = (int) date('Y', dol_now());
 
 $checks = array();
@@ -71,6 +72,11 @@ $checks[] = array(
 	'label' => 'LmdbSalesCommissionsCheckInvalidTierGrids',
 	'level' => 'error',
 	'count' => lmdbsalescommissions_check_count($db, 'SELECT COUNT(*) AS nb FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_tier_grid AS tg WHERE tg.entity IN ('.$entityTierGrid.') AND tg.active = 1 AND NOT EXISTS (SELECT t.rowid FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_tier AS t WHERE t.fk_tier_grid = tg.rowid AND t.entity = tg.entity AND t.active = 1 AND t.threshold_amount > 0 AND t.bonus_amount >= 0)'),
+);
+$checks[] = array(
+	'label' => 'LmdbSalesCommissionsCheckInvalidDispatches',
+	'level' => 'error',
+	'count' => lmdbsalescommissions_check_count($db, "SELECT COUNT(*) AS nb FROM ".MAIN_DB_PREFIX."lmdbsalescommissions_proposal_dispatch AS d LEFT JOIN ".MAIN_DB_PREFIX."propal AS p ON p.rowid = d.fk_propal AND p.entity = d.entity LEFT JOIN ".MAIN_DB_PREFIX."user AS u ON u.rowid = d.fk_user LEFT JOIN ".MAIN_DB_PREFIX."lmdbsalescommissions_payment_term AS pt ON pt.rowid = d.fk_payment_term AND pt.entity = d.entity WHERE d.entity IN (".$entityDispatch.") AND (p.rowid IS NULL OR u.rowid IS NULL OR u.statut <> 1 OR u.entity NOT IN (0, d.entity) OR d.base_type NOT IN ('margin','turnover') OR d.value_type NOT IN ('amount','percentage') OR d.value <= 0 OR (d.value_type = 'percentage' AND d.value > 100) OR d.payment_term_mode NOT IN ('automatic','explicit') OR (d.payment_term_mode = 'automatic' AND d.fk_payment_term IS NOT NULL) OR (d.payment_term_mode = 'explicit' AND (pt.rowid IS NULL OR pt.active <> 1 OR ABS((SELECT COALESCE(SUM(ptl.percentage), 0) FROM ".MAIN_DB_PREFIX."lmdbsalescommissions_payment_term_line AS ptl WHERE ptl.entity = d.entity AND ptl.fk_payment_term = d.fk_payment_term AND ptl.active = 1) - 100) > 0.0001)) OR (d.base_type = 'turnover' AND d.value_type = 'amount' AND d.value > GREATEST(p.total_ht, 0)) OR (d.base_type = 'margin' AND NOT EXISTS (SELECT pd.rowid FROM ".MAIN_DB_PREFIX."propaldet AS pd WHERE pd.fk_propal = d.fk_propal AND pd.pa_ht IS NOT NULL)) OR (d.base_type = 'margin' AND d.value_type = 'amount' AND d.value > GREATEST(COALESCE((SELECT SUM(pd.total_ht - (pd.pa_ht * pd.qty)) FROM ".MAIN_DB_PREFIX."propaldet AS pd WHERE pd.fk_propal = d.fk_propal AND pd.pa_ht IS NOT NULL), 0), 0)))"),
 );
 $checks[] = array(
 	'label' => 'LmdbSalesCommissionsCheckOrphanLines',

@@ -70,7 +70,7 @@ if ($action === 'export') {
 	if (in_array($source, array('proposal', 'order', 'contract'), true)) {
 		$lineExtraFilter .= " AND l.source_type = '".$db->escape($source)."'";
 	}
-	if (in_array($commission_type, array('margin', 'tier'), true)) {
+	if (in_array($commission_type, array('margin', 'tier', 'dispatch'), true)) {
 		$lineExtraFilter .= " AND l.mode = '".$db->escape($commission_type)."'";
 	}
 	$statusMap = array(
@@ -104,8 +104,8 @@ if ($action === 'export') {
 	}
 
 	if ($dataset === 'lines') {
-		fputcsv($output, array('date', 'agent', 'client', 'source_type', 'source_ref', 'mode', 'amount_base', 'margin_base', 'rate', 'commission_total', 'payable_total', 'paid_total', 'status'), ';');
-		$sql = 'SELECT l.date_acquired, l.source_type, l.source_ref, l.mode, l.amount_base, l.margin_base, l.rate, l.commission_total, l.payable_total, l.paid_total, l.status,';
+		fputcsv($output, array('date', 'agent', 'client', 'source_type', 'source_ref', 'mode', 'dispatch_base_type', 'dispatch_value_type', 'dispatch_value', 'amount_base', 'margin_base', 'rate', 'commission_total', 'payable_total', 'paid_total', 'status'), ';');
+		$sql = 'SELECT l.date_acquired, l.source_type, l.source_ref, l.mode, l.snapshot_base_type, l.snapshot_value_type, l.snapshot_value, l.amount_base, l.margin_base, l.rate, l.commission_total, l.payable_total, l.paid_total, l.status,';
 		$sql .= ' u.lastname, u.firstname, u.login, s.nom AS thirdparty_name';
 		$sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_line AS l';
 		$sql .= ' LEFT JOIN '.MAIN_DB_PREFIX.'user AS u ON u.rowid = l.fk_user';
@@ -119,7 +119,7 @@ if ($action === 'export') {
 				if ($agent === '') {
 					$agent = (string) $obj->login;
 				}
-				fputcsv($output, array(dol_print_date($db->jdate($obj->date_acquired), 'day'), $agent, (string) $obj->thirdparty_name, lmdbsalescommissionsGetSourceTypeLabel($langs, (string) $obj->source_type), (string) $obj->source_ref, lmdbsalescommissionsGetModeLabel($langs, (string) $obj->mode), price2num($obj->amount_base, 'MT'), price2num($obj->margin_base, 'MT'), price2num($obj->rate, 'MT'), price2num($obj->commission_total, 'MT'), price2num($obj->payable_total, 'MT'), price2num($obj->paid_total, 'MT'), lmdbsalescommissionsGetLineStatusLabel($langs, (int) $obj->status)), ';');
+				fputcsv($output, array(dol_print_date($db->jdate($obj->date_acquired), 'day'), $agent, (string) $obj->thirdparty_name, lmdbsalescommissionsGetSourceTypeLabel($langs, (string) $obj->source_type), (string) $obj->source_ref, lmdbsalescommissionsGetModeLabel($langs, (string) $obj->mode), (string) $obj->snapshot_base_type, (string) $obj->snapshot_value_type, $obj->snapshot_value !== null ? (float) $obj->snapshot_value : '', price2num($obj->amount_base, 'MT'), price2num($obj->margin_base, 'MT'), price2num($obj->rate, 'MT'), price2num($obj->commission_total, 'MT'), price2num($obj->payable_total, 'MT'), price2num($obj->paid_total, 'MT'), lmdbsalescommissionsGetLineStatusLabel($langs, (int) $obj->status)), ';');
 			}
 			$db->free($resql);
 		}
@@ -297,7 +297,7 @@ print '<tr class="oddeven"><td>'.$langs->trans('Group').'</td><td>'.$form->selec
 print '<tr class="oddeven"><td>'.$langs->trans('Year').'</td><td><input type="text" class="flat width75 right" name="year" value="'.($year > 0 ? (int) $year : '').'"></td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('Month').'</td><td><input type="text" class="flat width75 right" name="month" value="'.($month > 0 ? (int) $month : '').'"></td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('Source').'</td><td>'.$form->selectarray('source', array('all' => $langs->trans('All'), 'proposal' => $langs->trans('Propal'), 'order' => $langs->trans('Order'), 'contract' => $langs->trans('Contract')), $source ?: 'all', 0, 0, 0, '', 0, 0, 0, '', 'minwidth200', 1).'</td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('LmdbSalesCommissionsCommissionType').'</td><td>'.$form->selectarray('commission_type', array('all' => $langs->trans('All'), 'margin' => $langs->trans('LmdbSalesCommissionsRuleTypeMargin'), 'tier' => $langs->trans('LmdbSalesCommissionsRuleTypeTier')), $commission_type ?: 'all', 0, 0, 0, '', 0, 0, 0, '', 'minwidth200', 1).'</td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('LmdbSalesCommissionsCommissionType').'</td><td>'.$form->selectarray('commission_type', array('all' => $langs->trans('All'), 'margin' => $langs->trans('LmdbSalesCommissionsRuleTypeMargin'), 'tier' => $langs->trans('LmdbSalesCommissionsRuleTypeTier'), 'dispatch' => $langs->trans('LmdbSalesCommissionsModeDispatch')), $commission_type ?: 'all', 0, 0, 0, '', 0, 0, 0, '', 'minwidth200', 1).'</td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('Status').'</td><td>'.$form->selectarray('status', array('all' => $langs->trans('All'), 'estimated' => $langs->trans('LmdbSalesCommissionsLineStatusEstimated'), 'acquired' => $langs->trans('LmdbSalesCommissionsLineStatusAcquired'), 'payable' => $langs->trans('LmdbSalesCommissionsDueStatusDue'), 'paid' => $langs->trans('LmdbSalesCommissionsDueStatusPaid'), 'cancelled' => $langs->trans('LmdbSalesCommissionsLineStatusCancelled'), 'blocked' => $langs->trans('LmdbSalesCommissionsLineStatusBlocked')), $status ?: 'all', 0, 0, 0, '', 0, 0, 0, '', 'minwidth200', 1).'</td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('LmdbSalesCommissionsObjectiveType').'</td><td>'.$form->selectarray('objective_type', array('all' => $langs->trans('All'), 'monthly' => $langs->trans('LmdbSalesCommissionsMonthlyObjective'), 'yearly' => $langs->trans('LmdbSalesCommissionsYearlyObjective')), $objective_type ?: 'all', 0, 0, 0, '', 0, 0, 0, '', 'minwidth200', 1).'</td></tr>';
 print '<tr class="oddeven"><td></td><td><button type="submit" class="button small">'.$langs->trans('Apply').'</button></td></tr>';

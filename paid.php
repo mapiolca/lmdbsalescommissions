@@ -228,7 +228,7 @@ if (!empty($arrayfields['salesrep']['checked'])) {
 	print '</td>';
 }
 if (!empty($arrayfields['thirdparty']['checked'])) print '<td></td>';
-if (!empty($arrayfields['mode']['checked'])) print '<td>'.$form->selectarray('search_mode', array('margin' => $langs->trans('LmdbSalesCommissionsRuleTypeMargin'), 'tier' => $langs->trans('LmdbSalesCommissionsRuleTypeTier'), 'tracking' => $langs->trans('LmdbSalesCommissionsModeTracking')), $search_mode, 1, 0, 0, '', 0, 0, 0, '', 'minwidth125 maxwidth200', 1).'</td>';
+if (!empty($arrayfields['mode']['checked'])) print '<td>'.$form->selectarray('search_mode', array('margin' => $langs->trans('LmdbSalesCommissionsRuleTypeMargin'), 'tier' => $langs->trans('LmdbSalesCommissionsRuleTypeTier'), 'tracking' => $langs->trans('LmdbSalesCommissionsModeTracking'), 'dispatch' => $langs->trans('LmdbSalesCommissionsModeDispatch')), $search_mode, 1, 0, 0, '', 0, 0, 0, '', 'minwidth125 maxwidth200', 1).'</td>';
 if (!empty($arrayfields['event']['checked'])) print '<td>'.$form->selectarray('search_event_type', array('proposal_signed' => $langs->trans('LmdbSalesCommissionsEventProposalSigned'), 'deposit_paid' => $langs->trans('LmdbSalesCommissionsEventDepositPaid'), 'final_invoice_paid' => $langs->trans('LmdbSalesCommissionsEventFinalInvoicePaid')), $search_event_type, 1, 0, 0, '', 0, 0, 0, '', 'minwidth150 maxwidth200', 1).'</td>';
 if (!empty($arrayfields['amount']['checked'])) print '<td></td>';
 if (!empty($arrayfields['paid_by']['checked'])) print '<td></td>';

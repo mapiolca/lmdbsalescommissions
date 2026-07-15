@@ -212,6 +212,7 @@ class LmdbSalesCommissionCron
 		$sql .= ' AND fk_user = '.((int) $fkUser);
 		$sql .= " AND source_type = 'proposal'";
 		$sql .= ' AND status = 1';
+		$sql .= " AND mode <> 'dispatch'";
 		$sql .= " AND date_acquired >= '".$this->db->idate($dateStart)."'";
 		$sql .= " AND date_acquired <= '".$this->db->idate($dateEnd)."'";
 		$sql .= ' GROUP BY entity, fk_user, source_type, fk_source';

@@ -48,6 +48,7 @@ function lmdbsalescommissions_user_sum_realized($db, $fkUser, $type, $year, $mon
 	$sql .= ' AND fk_user = '.((int) $fkUser);
 	$sql .= " AND source_type = 'proposal'";
 	$sql .= ' AND status = 1';
+	$sql .= " AND mode <> 'dispatch'";
 	$sql .= " AND date_acquired >= '".$db->idate($dateStart)."'";
 	$sql .= " AND date_acquired <= '".$db->idate($dateEnd)."'";
 	$sql .= ' GROUP BY entity, fk_user, source_type, fk_source';
@@ -84,7 +85,9 @@ $entitySql = $db->sanitize(getEntity('lmdbsalescommissions_line'));
 
 $sql = 'SELECT';
 $sql .= " SUM(CASE WHEN mode = 'margin' AND status = 0 THEN commission_total ELSE 0 END) AS margin_estimated,";
+$sql .= " SUM(CASE WHEN mode = 'dispatch' AND status = 0 THEN commission_total ELSE 0 END) AS dispatch_estimated,";
 $sql .= " SUM(CASE WHEN mode = 'margin' AND status = 1 THEN commission_total ELSE 0 END) AS margin_acquired,";
+$sql .= " SUM(CASE WHEN mode = 'dispatch' AND status = 1 THEN commission_total ELSE 0 END) AS dispatch_acquired,";
 $sql .= " SUM(CASE WHEN mode = 'tier' AND status = 1 THEN commission_total ELSE 0 END) AS tier_acquired,";
 $sql .= ' SUM(CASE WHEN status = 1 THEN commission_total ELSE 0 END) AS acquired_total,';
 $sql .= ' SUM(payable_total) AS payable_total,';
@@ -95,7 +98,9 @@ $sql .= ' AND fk_user = '.((int) $id);
 $resql = $db->query($sql);
 $summary = array(
 	'margin_estimated' => 0.0,
+	'dispatch_estimated' => 0.0,
 	'margin_acquired' => 0.0,
+	'dispatch_acquired' => 0.0,
 	'tier_acquired' => 0.0,
 	'acquired_total' => 0.0,
 	'payable_total' => 0.0,
@@ -139,8 +144,9 @@ print '<br>';
 print load_fiche_titre($langs->trans('LmdbSalesCommissionsUserTabSummary'), '', 'fa-percent');
 print '<table class="noborder liste centpercent">';
 print '<tr class="liste_titre"><td>'.$langs->trans('LmdbSalesCommissionsIndicator').'</td><td class="right">'.$langs->trans('Amount').'</td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('LmdbSalesCommissionsEstimatedCommission').'</td><td class="right">'.lmdbsalescommissionsFormatTotalAmount($summary['margin_estimated']).'</td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('LmdbSalesCommissionsEstimatedCommission').'</td><td class="right">'.lmdbsalescommissionsFormatTotalAmount($summary['margin_estimated'] + $summary['dispatch_estimated']).'</td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('LmdbSalesCommissionsRuleTypeMargin').'</td><td class="right">'.lmdbsalescommissionsFormatTotalAmount($summary['margin_acquired']).'</td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('LmdbSalesCommissionsModeDispatch').'</td><td class="right">'.lmdbsalescommissionsFormatTotalAmount($summary['dispatch_acquired']).'</td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('LmdbSalesCommissionsRuleTypeTier').'</td><td class="right">'.lmdbsalescommissionsFormatTotalAmount($summary['tier_acquired']).'</td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('LmdbSalesCommissionsCommissionTotal').'</td><td class="right">'.lmdbsalescommissionsFormatTotalAmount($summary['acquired_total']).'</td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('LmdbSalesCommissionsPayableTotal').'</td><td class="right">'.lmdbsalescommissionsFormatTotalAmount($summary['payable_total']).'</td></tr>';
@@ -193,6 +199,34 @@ if ($resmargin) {
 	$db->free($resmargin);
 }
 if ($marginRows === 0) {
+	lmdbsalescommissionsPrintNoRecordRow($langs, 8);
+}
+print '</table>';
+
+print '<br>';
+print load_fiche_titre($langs->trans('LmdbSalesCommissionsModeDispatch'), '', 'fa-users');
+print '<table class="noborder liste centpercent">';
+print '<tr class="liste_titre"><td>'.$langs->trans('Date').'</td><td>'.$langs->trans('ThirdParty').'</td><td>'.$langs->trans('Source').'</td><td>'.$langs->trans('LmdbSalesCommissionsDispatchFormula').'</td><td class="right">'.$langs->trans('LmdbSalesCommissionsDispatchBase').'</td><td class="right">'.$langs->trans('LmdbSalesCommissionsCommissionTotal').'</td><td class="right">'.$langs->trans('LmdbSalesCommissionsPayableTotal').'</td><td class="right">'.$langs->trans('LmdbSalesCommissionsPaidTotal').'</td></tr>';
+$sql = 'SELECT l.date_acquired, l.fk_soc, l.source_type, l.fk_source, l.source_ref, l.amount_base, l.margin_base, l.snapshot_base_type, l.snapshot_value_type, l.snapshot_value, l.commission_total, l.payable_total, l.paid_total, s.nom AS thirdparty_name';
+$sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_line AS l';
+$sql .= ' LEFT JOIN '.MAIN_DB_PREFIX.'societe AS s ON s.rowid = l.fk_soc';
+$sql .= ' WHERE l.entity IN ('.$entitySql.') AND l.fk_user = '.((int) $id)." AND l.mode = 'dispatch'";
+$sql .= ' ORDER BY l.date_acquired DESC, l.rowid DESC';
+$sql .= $db->plimit(10, 0);
+$resdispatch = $db->query($sql);
+$dispatchRows = 0;
+if ($resdispatch) {
+	while (is_object($obj = $db->fetch_object($resdispatch))) {
+		$dispatchRows++;
+		$baseAmount = (string) $obj->snapshot_base_type === 'margin' ? $obj->margin_base : $obj->amount_base;
+		$formula = lmdbsalescommissionsFormatDispatchFormula($langs, (string) $obj->snapshot_base_type, (string) $obj->snapshot_value_type, $obj->snapshot_value);
+		print '<tr class="oddeven"><td>'.dol_print_date($db->jdate($obj->date_acquired), 'day').'</td><td>'.lmdbsalescommissionsBuildThirdpartyNomUrl($db, (int) $obj->fk_soc, (string) $obj->thirdparty_name).'</td><td>';
+		print lmdbsalescommissionsBuildSourceNomUrl($db, (string) $obj->source_type, (int) $obj->fk_source, (string) $obj->source_ref);
+		print '</td><td>'.dol_escape_htmltag($formula).'</td><td class="right">'.lmdbsalescommissionsFormatTotalAmount($baseAmount).'</td><td class="right">'.lmdbsalescommissionsFormatTotalAmount($obj->commission_total).'</td><td class="right">'.lmdbsalescommissionsFormatTotalAmount($obj->payable_total).'</td><td class="right">'.lmdbsalescommissionsFormatTotalAmount($obj->paid_total).'</td></tr>';
+	}
+	$db->free($resdispatch);
+}
+if ($dispatchRows === 0) {
 	lmdbsalescommissionsPrintNoRecordRow($langs, 8);
 }
 print '</table>';

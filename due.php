@@ -92,6 +92,7 @@ $mode_options = array(
 	'margin' => $langs->trans('LmdbSalesCommissionsRuleTypeMargin'),
 	'tier' => $langs->trans('LmdbSalesCommissionsRuleTypeTier'),
 	'tracking' => $langs->trans('LmdbSalesCommissionsModeTracking'),
+	'dispatch' => $langs->trans('LmdbSalesCommissionsModeDispatch'),
 );
 
 $contextpage = 'lmdbsalescommissions_due_list';

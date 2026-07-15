@@ -122,12 +122,14 @@ $mode_options = array(
 	'margin' => $langs->trans('LmdbSalesCommissionsRuleTypeMargin'),
 	'tier' => $langs->trans('LmdbSalesCommissionsRuleTypeTier'),
 	'tracking' => $langs->trans('LmdbSalesCommissionsModeTracking'),
+	'dispatch' => $langs->trans('LmdbSalesCommissionsModeDispatch'),
 );
 $rule_source_options = array(
 	'user' => $langs->trans('User'),
 	'group' => $langs->trans('Group'),
 	'default' => $langs->trans('Default'),
 	'none' => $langs->trans('None'),
+	'dispatch' => $langs->trans('LmdbSalesCommissionsManualDispatch'),
 );
 $status_options = array(
 	'0' => $langs->trans('LmdbSalesCommissionsLineStatusEstimated'),
