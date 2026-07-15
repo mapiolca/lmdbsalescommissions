@@ -212,7 +212,15 @@ foreach ($dispatches as $dispatch) {
 if ($visibleCount === 0) {
 	lmdbsalescommissionsPrintNoRecordRow($langs, $editable ? 5 : 4);
 } elseif ($canSeeAll) {
-	print '<tr class="liste_total"><td colspan="3">'.$langs->trans('Total').'</td><td class="right">'.lmdbsalescommissionsFormatTotalAmount($visibleTotal).'</td>'.($editable ? '<td></td>' : '').'</tr>';
+	print '<tr class="liste_total">';
+	print '<td class="liste_total">'.$langs->trans('Total').'</td>';
+	print '<td class="liste_total"></td>';
+	print '<td class="liste_total"></td>';
+	print '<td class="liste_total right">'.lmdbsalescommissionsFormatTotalAmount($visibleTotal).'</td>';
+	if ($editable) {
+		print '<td class="liste_total"></td>';
+	}
+	print '</tr>';
 }
 print '</table>';
 
