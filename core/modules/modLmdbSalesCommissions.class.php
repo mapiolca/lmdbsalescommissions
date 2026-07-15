@@ -19,6 +19,12 @@ include_once DOL_DOCUMENT_ROOT.'/core/modules/DolibarrModules.class.php';
  */
 class modLmdbSalesCommissions extends DolibarrModules
 {
+	/** @var string Translation key for the main features summary */
+	public $about_main_features = 'LmdbSalesCommissionsMainFeaturesSummary';
+
+	/** @var string Module license identifier */
+	public $module_license = 'AGPL-3.0-or-later';
+
 	/**
 	 * Constructor.
 	 *
