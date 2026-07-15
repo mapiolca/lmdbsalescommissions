@@ -36,7 +36,7 @@ print load_fiche_titre($langs->trans('About'), lmdbsalescommissionsBuildModuleLi
 print '<table class="noborder liste centpercent">';
 print '<tr class="liste_titre"><td>'.$langs->trans('Parameter').'</td><td>'.$langs->trans('Value').'</td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('Module').'</td><td>'.$langs->trans('LmdbSalesCommissions').'</td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('Version').'</td><td>1.0</td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('Version').'</td><td>1.1.0</td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('Author').'</td><td>Pierre Ardoin &lt;developpeur@lesmetiersdubatiment.fr&gt;</td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('Description').'</td><td>'.$langs->trans('LmdbSalesCommissionsDescLong').'</td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('LmdbSalesCommissionsCompatibility').'</td><td>'.$langs->trans('LmdbSalesCommissionsCompatibilitySummary').'</td></tr>';

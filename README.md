@@ -2,7 +2,9 @@
 
 Module Dolibarr externe `lmdbsalescommissions` pour gérer les commissions, primes par paliers et objectifs commerciaux des agents.
 
-## Périmètre V1
+Version actuelle : **1.1.0**.
+
+## Périmètre de la version 1.1.0
 
 - Commission constante sur marge.
 - Primes par paliers de chiffre d’affaires.
@@ -34,8 +36,10 @@ Il ne contient pas le préfixe `htdocs/custom/`, car ce chemin est géré par Do
 - Résolution du profil effectif utilisateur > groupe > défaut.
 - Objectifs mensuels et annuels facultatifs, avec archivage.
 - Estimation de commission sur la fiche devis.
-- Onglet devis de répartition multi-commerciaux avec une formule et une modalité de versement par bénéficiaire.
+- Onglet devis de répartition multi-commerciaux avec une formule et une modalité de versement par bénéficiaire : montant fixe ou pourcentage, calculé sur la marge ou le chiffre d’affaires HT.
 - Héritage automatique des modalités configurées : règle de marge, puis règle de palier, puis paiement intégral à la signature.
+- Sélection explicite d’une modalité de versement existante configurée dans le module.
+- Remplacement des commissions, paliers et objectifs automatiques du devis dès qu’une répartition manuelle existe.
 - Commission estimée du tunnel enregistrée à la validation des devis, puis lue depuis les lignes estimées.
 - Figeage des commissions lors de la signature d’un devis.
 - Génération d’échéances de versement et passage en versé.
@@ -71,7 +75,9 @@ Tous les exports restent centralisés dans **Facturation | Paiement > Commission
 8. Choisir la règle de libération de l’échéance de facture finale dans les paramètres généraux du module.
 9. Vérifier les contrôles de cohérence dans l’onglet **Aide / contrôles**.
 
-Une répartition manuelle peut être créée depuis l’onglet **Répartition des commissions** d’un devis en brouillon ou validé non signé. Dès qu’au moins une ligne existe, elle remplace les règles, paliers et objectifs automatiques pour ce devis. La suppression de la dernière ligne avant signature rétablit le calcul automatique.
+Une répartition manuelle peut être créée depuis l’onglet **Répartition des commissions** d’un devis en brouillon ou validé non signé. Chaque commercial ne peut apparaître qu’une fois par devis. Les montants fixes doivent être strictement positifs et ne peuvent pas dépasser la base choisie ; les pourcentages doivent être compris entre 0 % exclu et 100 % inclus.
+
+Dès qu’au moins une ligne existe, la répartition remplace les règles, paliers et objectifs automatiques pour ce devis. La suppression de la dernière ligne avant signature rétablit le calcul automatique. À la signature, les bases et modalités sont revalidées, puis la commission et la modalité effectivement appliquée sont figées pour chaque bénéficiaire. La répartition reste ensuite consultable mais ne peut plus être modifiée.
 
 ## Scénarios de validation
 
@@ -96,17 +102,18 @@ Une répartition manuelle peut être créée depuis l’onglet **Répartition de
 
 ## Compatibilité
 
+- Version du module : 1.1.0
 - Dolibarr : v20+
 - PHP : 8.0+
 - Base de données : MySQL/MariaDB via l’abstraction Dolibarr
 - Module installé sous `htdocs/custom/lmdbsalescommissions/`.
 
-## Limites V1
+## Limites de la version 1.1.0
 
 - Pas de génération automatique de facture fournisseur ou note de frais.
 - Pas de commissionnement par ligne produit/service.
 - La détection des paiements acompte/facture finale repose sur les liens natifs Dolibarr entre devis, commandes et factures client.
-- Aucun modèle PDF/ODT n’est fourni dans cette V1.
+- Aucun modèle PDF/ODT n’est fourni dans cette version.
 
 ## Licence
 
