@@ -178,7 +178,7 @@ if ($editable && ($mode === 'create' || $mode === 'edit')) {
 }
 
 print '<br><table class="noborder liste centpercent">';
-print '<tr class="liste_titre"><td>'.$langs->trans('SalesRepresentative').'</td><td>'.$langs->trans('LmdbSalesCommissionsDispatchFormula').'</td><td>'.$langs->trans('LmdbSalesCommissionsPaymentTerms').'</td><td class="right">'.$langs->trans('LmdbSalesCommissionsCommissionTotal').'</td>'.($editable ? '<td class="right">'.$langs->trans('Action').'</td>' : '').'</tr>';
+print '<tr class="liste_titre"><td>'.$langs->trans('SalesRepresentative').'</td><td>'.$langs->trans('LmdbSalesCommissionsDispatchFormula').'</td><td>'.$langs->trans('LmdbSalesCommissionsPaymentTerms').'</td><td class="right">'.$langs->trans('LmdbSalesCommissionsCommissionTotal').'</td>'.($editable ? '<td class="center">'.$langs->trans('Action').'</td>' : '').'</tr>';
 $visibleCount = 0;
 $visibleTotal = 0.0;
 foreach ($dispatches as $dispatch) {
@@ -202,15 +202,17 @@ foreach ($dispatches as $dispatch) {
 	}
 	print '<tr class="oddeven"><td>'.$beneficiaryLabel.'</td><td>'.dol_escape_htmltag($formula).'</td><td>'.dol_escape_htmltag($paymentLabel).'</td><td class="right">'.($commission !== null ? lmdbsalescommissionsFormatTotalAmount($commission) : img_warning($langs->trans($service->error))).'</td>';
 	if ($editable) {
-		print '<td class="right"><a href="'.$_SERVER['PHP_SELF'].'?id='.((int) $object->id).'&mode=edit&dispatchid='.((int) $dispatch->id).'">'.img_edit().'</a> ';
-		print '<form class="inline-block" method="POST" action="'.$_SERVER['PHP_SELF'].'"><input type="hidden" name="token" value="'.newToken().'"><input type="hidden" name="action" value="deletedispatch"><input type="hidden" name="id" value="'.((int) $object->id).'"><input type="hidden" name="dispatchid" value="'.((int) $dispatch->id).'"><button class="button button-delete small" type="submit" title="'.$langs->trans('Delete').'">'.img_delete().'</button></form></td>';
+		$editUrl = $_SERVER['PHP_SELF'].'?id='.((int) $object->id).'&mode=edit&dispatchid='.((int) $dispatch->id);
+		$deleteUrl = $_SERVER['PHP_SELF'].'?id='.((int) $object->id).'&action=deletedispatch&dispatchid='.((int) $dispatch->id).'&token='.newToken();
+		print '<td class="center nowraponall"><a class="reposition" href="'.dol_escape_htmltag($editUrl).'">'.img_edit($langs->trans('Edit')).'</a> ';
+		print '<a class="reposition" href="'.dol_escape_htmltag($deleteUrl).'">'.img_delete($langs->trans('Delete')).'</a></td>';
 	}
 	print '</tr>';
 }
 if ($visibleCount === 0) {
 	lmdbsalescommissionsPrintNoRecordRow($langs, $editable ? 5 : 4);
 } elseif ($canSeeAll) {
-	print '<tr class="liste_total"><td colspan="3" class="right">'.$langs->trans('Total').'</td><td class="right">'.lmdbsalescommissionsFormatTotalAmount($visibleTotal).'</td>'.($editable ? '<td></td>' : '').'</tr>';
+	print '<tr class="liste_total"><td colspan="3">'.$langs->trans('Total').'</td><td class="right">'.lmdbsalescommissionsFormatTotalAmount($visibleTotal).'</td>'.($editable ? '<td></td>' : '').'</tr>';
 }
 print '</table>';
 
