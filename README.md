@@ -56,6 +56,7 @@ Il ne contient pas le préfixe `htdocs/custom/`, car ce chemin est géré par Do
 - Héritage automatique des modalités configurées : règle de marge, puis règle de palier, puis paiement intégral à la signature.
 - Sélection explicite d’une modalité de versement existante configurée dans le module.
 - Calcul des commissions à partir de leur propre répartition, tandis que les paliers et objectifs utilisent exclusivement le CA attribué.
+- Lorsqu’un même commercial reçoit une part du CA et une commission en pourcentage de la marge, cette part réduit proportionnellement sa marge commissionnable : 10 % du CA attribué signifie 10 % de la marge totale comme base de commission.
 - Commission estimée du tunnel enregistrée à la validation des devis, puis lue depuis les lignes estimées.
 - Figeage des commissions lors de la signature d’un devis.
 - Génération d’échéances de versement et passage en versé.

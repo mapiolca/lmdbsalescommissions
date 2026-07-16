@@ -159,6 +159,7 @@ class ActionsLmdbSalesCommissions
 		require_once dol_buildpath('/lmdbsalescommissions/class/lmdbsalescommissionproposalservice.class.php', 0);
 		require_once dol_buildpath('/lmdbsalescommissions/class/lmdbsalescommissionruleresolver.class.php', 0);
 		require_once dol_buildpath('/lmdbsalescommissions/class/lmdbsalescommissionproposaldispatchservice.class.php', 0);
+		require_once dol_buildpath('/lmdbsalescommissions/class/lmdbsalescommissionproposalturnoverdispatchservice.class.php', 0);
 		require_once DOL_DOCUMENT_ROOT.'/user/class/user.class.php';
 
 		$langs->loadLangs(array('lmdbsalescommissions@lmdbsalescommissions'));
@@ -234,13 +235,18 @@ class ActionsLmdbSalesCommissions
 			return array('message' => '<span class="opacitymedium">'.$langs->trans('LmdbSalesCommissionsMarginNotComputable').'</span>');
 		}
 
-		$base = max(0, $margin);
+		$turnoverDispatchService = new LmdbSalesCommissionProposalTurnoverDispatchService($this->db);
+		$commissionableMargin = $turnoverDispatchService->calculateCommissionableMarginForUser($object, $salesUserId, $margin);
+		if ($commissionableMargin === null) {
+			return array('message' => '<span class="warning">'.$langs->trans($turnoverDispatchService->error).'</span>');
+		}
+		$base = max(0, $commissionableMargin);
 		$rate = (float) ($marginRule['rate'] ?? 0);
 		$amount = price2num($base * $rate / 100, 'MT');
 
 		return array(
 			'amount' => lmdbsalescommissionsFormatTotalAmount($amount),
-			'margin' => lmdbsalescommissionsFormatTotalAmount($margin),
+			'margin' => lmdbsalescommissionsFormatTotalAmount($commissionableMargin),
 			'rate' => lmdbsalescommissionsFormatTotalAmount($rate).' %',
 			'rule' => dol_escape_htmltag((string) $marginRule['rule_label']),
 			'source' => dol_escape_htmltag(lmdbsalescommissionsGetRuleSourceLabel($langs, (string) $marginRule['source'])),

@@ -329,3 +329,4 @@ LmdbSalesCommissionsTurnoverDispatch=Attribution manuelle de CA
 LmdbSalesCommissionsTurnoverDispatchAutomaticSource=Attribution automatique au commercial principal
 LmdbSalesCommissionsCheckInvalidTurnoverDispatches=Attributions de chiffre d’affaires invalides
 LmdbSalesCommissionsCheckInvalidTurnoverDispatchesDesc=Attributions orphelines, bénéficiaires invalides, valeurs incohérentes ou répartition incomplète sur un devis signé.
+ChooseBoxToAdd=Choisir une box à ajouter

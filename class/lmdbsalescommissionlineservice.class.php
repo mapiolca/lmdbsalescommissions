@@ -107,9 +107,14 @@ class LmdbSalesCommissionLineService
 				if (isset($profile['selected']['margin']) && is_array($profile['selected']['margin']) && $margin !== null) {
 					$rule = $profile['selected']['margin'];
 					$totalHt = property_exists($proposal, 'total_ht') && is_numeric($proposal->total_ht) ? (float) price2num($proposal->total_ht, 'MT') : 0.0;
-					$base = max(0, $margin);
+					$commissionableMargin = $this->calculateCommissionableMargin($proposal, $salesUserId, $margin);
+					if ($commissionableMargin === null) {
+						$this->lastResult['errors']++;
+						return -1;
+					}
+					$base = max(0, $commissionableMargin);
 					$rate = (float) ($rule['rate'] ?? 0);
-					$result = $this->upsertProposalLine($proposal, $user, $salesUserId, $entity, self::MODE_MARGIN, $totalHt, $margin, $rate, (float) price2num($base * $rate / 100, 'MT'), $rule, $businessDate, self::STATUS_ESTIMATED, false);
+					$result = $this->upsertProposalLine($proposal, $user, $salesUserId, $entity, self::MODE_MARGIN, $totalHt, $commissionableMargin, $rate, (float) price2num($base * $rate / 100, 'MT'), $rule, $businessDate, self::STATUS_ESTIMATED, false);
 					if ($result < 0) {
 						return -1;
 					}
@@ -183,9 +188,14 @@ class LmdbSalesCommissionLineService
 				}
 				if (isset($profile['selected']['margin']) && is_array($profile['selected']['margin']) && $margin !== null) {
 					$rule = $profile['selected']['margin'];
-					$base = max(0, $margin);
+					$commissionableMargin = $this->calculateCommissionableMargin($proposal, $salesUserId, $margin);
+					if ($commissionableMargin === null) {
+						$this->lastResult['errors']++;
+						return -1;
+					}
+					$base = max(0, $commissionableMargin);
 					$rate = (float) ($rule['rate'] ?? 0);
-					$result = $this->upsertProposalLine($proposal, $user, $salesUserId, $entity, self::MODE_MARGIN, $totalHt, $margin, $rate, (float) price2num($base * $rate / 100, 'MT'), $rule, $businessDate, self::STATUS_ACQUIRED, true);
+					$result = $this->upsertProposalLine($proposal, $user, $salesUserId, $entity, self::MODE_MARGIN, $totalHt, $commissionableMargin, $rate, (float) price2num($base * $rate / 100, 'MT'), $rule, $businessDate, self::STATUS_ACQUIRED, true);
 					if ($result < 0) {
 						$this->lastResult['errors']++;
 						return -1;
@@ -799,6 +809,27 @@ class LmdbSalesCommissionLineService
 		$this->lastResult['tracking']++;
 
 		return 1;
+	}
+
+	/**
+	 * Resolve the margin attributable to a commission beneficiary.
+	 *
+	 * @param object $proposal Proposal
+	 * @param int    $userId   Beneficiary user id
+	 * @param float  $margin   Full proposal margin
+	 * @return float|null Commissionable margin, or null on error
+	 */
+	private function calculateCommissionableMargin($proposal, $userId, $margin)
+	{
+		$service = new LmdbSalesCommissionProposalTurnoverDispatchService($this->db);
+		$result = $service->calculateCommissionableMarginForUser($proposal, $userId, $margin);
+		if ($result === null) {
+			$this->error = $service->error;
+			$this->errors = $service->errors;
+			return null;
+		}
+
+		return $result;
 	}
 
 	/**

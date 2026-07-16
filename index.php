@@ -140,7 +140,8 @@ if ($action === 'addwidget') {
 		}
 	}
 	$definitions = $widgetManager->getAllowedWidgetDefinitions($user);
-	if (isset($definitions[$widgetCode])) {
+	$widgetIsAlreadyVisible = isset($states[$widgetCode]) && (int) $states[$widgetCode]['visible'] === 1;
+	if (isset($definitions[$widgetCode]) && !$widgetIsAlreadyVisible) {
 		if (count($leftWidgets) <= count($rightWidgets)) {
 			$leftWidgets[] = $widgetCode;
 		} else {

@@ -227,7 +227,8 @@ class LmdbSalesCommissionDashboardWidgetManager
 		$definitions = $this->getAllowedWidgetDefinitions($user);
 		$options = array();
 		foreach ($definitions as $code => $definition) {
-			if (isset($states[$code]) && !empty($states[$code]['visible'])) {
+			// A visible widget is already on the dashboard and must not be proposed again.
+			if (isset($states[$code]) && (int) $states[$code]['visible'] === 1) {
 				continue;
 			}
 			$options[$code] = $langs->trans($definition['label']);

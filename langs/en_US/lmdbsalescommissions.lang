@@ -329,3 +329,4 @@ LmdbSalesCommissionsTurnoverDispatch=Manual turnover allocation
 LmdbSalesCommissionsTurnoverDispatchAutomaticSource=Automatic allocation to main sales representative
 LmdbSalesCommissionsCheckInvalidTurnoverDispatches=Invalid turnover allocations
 LmdbSalesCommissionsCheckInvalidTurnoverDispatchesDesc=Orphan allocations, invalid beneficiaries, inconsistent values, or incomplete allocation on a signed proposal.
+ChooseBoxToAdd=Choose a box to add

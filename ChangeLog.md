@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Ajout de la traduction du sélecteur de box et exclusion des boxes déjà présentes sur le tableau de bord.
+- Application de la quote-part de chiffre d’affaires à la marge servant de base aux commissions sur marge.
+
 ## 1.1.0 - 2026-07-16
 
 ### Nouveautés depuis la version 1.0

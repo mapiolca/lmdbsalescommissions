@@ -259,6 +259,56 @@ class LmdbSalesCommissionProposalTurnoverDispatchService
 	}
 
 	/**
+	 * Apply a user's explicit turnover share to the proposal margin.
+	 *
+	 * A percentage allocation applies the same percentage to the total margin.
+	 * An amount allocation applies its ratio over the proposal turnover. When the
+	 * user has no explicit turnover allocation, the full margin is preserved so a
+	 * commission-only beneficiary remains supported.
+	 *
+	 * @param object $proposal Proposal
+	 * @param int    $userId   Commission beneficiary
+	 * @param float  $margin   Full proposal margin
+	 * @return float|null Commissionable margin, or null on error
+	 */
+	public function calculateCommissionableMarginForUser($proposal, $userId, $margin)
+	{
+		$this->resetErrors();
+		if (!is_object($proposal) || empty($proposal->id) || empty($proposal->entity) || $userId <= 0) {
+			$this->error = 'ErrorBadParameter';
+			return null;
+		}
+
+		$fullMargin = (float) price2num(max(0, $margin), 'MT');
+		$rows = $this->fetchForProposal((int) $proposal->id, (int) $proposal->entity);
+		if ($this->error !== '') {
+			return null;
+		}
+		foreach ($rows as $dispatch) {
+			if ((int) $dispatch->fk_user !== $userId) {
+				continue;
+			}
+			if (!$this->validate($dispatch, $proposal)) {
+				return null;
+			}
+
+			if ((string) $dispatch->value_type === self::VALUE_PERCENTAGE) {
+				$share = (float) $dispatch->value / 100;
+				return (float) price2num($fullMargin * $share, 'MT');
+			}
+
+			$total = $this->getProposalTurnover($proposal);
+			if ($total <= 0) {
+				return 0.0;
+			}
+			$allocatedAmount = $this->calculateAmount($dispatch, $total);
+			return (float) price2num($fullMargin * $allocatedAmount / $total, 'MT');
+		}
+
+		return $fullMargin;
+	}
+
+	/**
 	 * Validate one allocation.
 	 *
 	 * @param LmdbSalesCommissionProposalTurnoverDispatch $dispatch Allocation

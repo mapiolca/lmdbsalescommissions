@@ -3,6 +3,7 @@
 
 require_once __DIR__.'/lmdbsalescommissionproposaldispatch.class.php';
 require_once __DIR__.'/lmdbsalescommissionproposalservice.class.php';
+require_once __DIR__.'/lmdbsalescommissionproposalturnoverdispatchservice.class.php';
 require_once __DIR__.'/lmdbsalescommissionruleresolver.class.php';
 
 /**
@@ -239,6 +240,16 @@ class LmdbSalesCommissionProposalDispatchService
 		$turnover = property_exists($proposal, 'total_ht') && is_numeric($proposal->total_ht) ? (float) price2num($proposal->total_ht, 'MT') : 0.0;
 		$marginValue = LmdbSalesCommissionProposalService::getEstimatedMargin($proposal);
 		$margin = $marginValue !== null ? (float) price2num(max(0, $marginValue), 'MT') : null;
+		if ((string) $dispatch->base_type === self::BASE_MARGIN && $margin !== null) {
+			$turnoverDispatchService = new LmdbSalesCommissionProposalTurnoverDispatchService($this->db);
+			$commissionableMargin = $turnoverDispatchService->calculateCommissionableMarginForUser($proposal, (int) $dispatch->fk_user, $margin);
+			if ($commissionableMargin === null) {
+				$this->error = $turnoverDispatchService->error;
+				$this->errors = $turnoverDispatchService->errors;
+				return null;
+			}
+			$margin = $commissionableMargin;
+		}
 		$base = (string) $dispatch->base_type === self::BASE_MARGIN ? (float) $margin : max(0, $turnover);
 		$value = (float) $dispatch->value;
 		$commission = (string) $dispatch->value_type === self::VALUE_PERCENTAGE ? (float) price2num($base * $value / 100, 'MT') : (float) price2num($value, 'MT');
