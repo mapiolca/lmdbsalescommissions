@@ -2,22 +2,24 @@
 
 ## Unreleased
 
-## 1.1.0 - 2026-07-15
+## 1.1.0 - 2026-07-16
 
-### Nouveautés
+### Nouveautés depuis la version 1.0
 
-- Répartition manuelle d’une commission de devis entre plusieurs bénéficiaires, par montant fixe ou pourcentage de marge ou de chiffre d’affaires HT.
-- Modalité de versement explicite ou héritée automatiquement des règles configurées.
-- Enregistrement des commissions estimées dès la validation des devis.
-- Détection des échéances payables depuis les factures client liées directement au devis ou via les commandes issues du devis.
-- Nouveau réglage par entité pour choisir la règle de libération de l’échéance de facture finale.
+- Répartition manuelle des commissions d’un devis entre plusieurs commerciaux, par montant fixe ou pourcentage calculé sur la marge ou le chiffre d’affaires HT.
+- Nouvel onglet **Répartition des commissions** sur les devis, modifiable avant signature puis verrouillé afin de conserver les montants et modalités appliqués.
+- Sélection explicite d’une modalité de versement par bénéficiaire ou héritage automatique depuis ses règles de commission.
+- Enregistrement des commissions estimées dès la validation du devis, afin de fiabiliser le suivi du tunnel commercial.
+- Détection des échéances payables à partir des factures client liées directement au devis ou rattachées aux commandes issues du devis.
+- Nouveau réglage par entité pour déterminer la condition de libération de l’échéance associée à la facture finale.
 
-### Améliorations
+### Évolutions et corrections
 
-- Adaptation du rattrapage, des contrôles, des exports et des indicateurs aux répartitions multi-commerciaux.
+- Adaptation du rattrapage, des contrôles de cohérence, des exports, des listes et des indicateurs aux répartitions multi-commerciaux.
+- Création des estimations manquantes pour les devis validés et détection des échéances déjà payables pour les devis signés lors du rattrapage.
 - Déduplication du chiffre d’affaires et de la marge par devis dans les indicateurs globaux.
-- Normalisation des montants selon la précision Dolibarr et amélioration du rendu natif des tableaux, actions et totaux.
-- Affichage des photos utilisateurs dans les widgets du tableau de bord.
+- Normalisation des montants selon la précision configurée dans Dolibarr.
+- Amélioration du rendu natif des tableaux, actions, lignes de total et photos utilisateurs dans les widgets.
 
 ## 1.0
 

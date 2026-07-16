@@ -4,6 +4,17 @@ Module Dolibarr externe `lmdbsalescommissions` pour gérer les commissions, prim
 
 Version actuelle : **1.1.0**.
 
+## Nouveautés de la version 1.1.0
+
+Par rapport à la version 1.0, cette version apporte principalement :
+
+- la répartition d’une commission de devis entre plusieurs commerciaux, avec un montant fixe ou un pourcentage de marge ou de chiffre d’affaires HT ;
+- une modalité de versement choisie par bénéficiaire ou héritée automatiquement de ses règles ;
+- l’enregistrement des commissions estimées dès la validation du devis ;
+- la détection des factures payées liées directement au devis ou par l’intermédiaire de ses commandes ;
+- un réglage par entité pour choisir la condition de libération de l’échéance de facture finale ;
+- l’adaptation du rattrapage, des exports et des indicateurs au nouveau fonctionnement multi-commerciaux.
+
 ## Périmètre de la version 1.1.0
 
 - Commission constante sur marge.
@@ -78,6 +89,16 @@ Tous les exports restent centralisés dans **Facturation | Paiement > Commission
 Une répartition manuelle peut être créée depuis l’onglet **Répartition des commissions** d’un devis en brouillon ou validé non signé. Chaque commercial ne peut apparaître qu’une fois par devis. Les montants fixes doivent être strictement positifs et ne peuvent pas dépasser la base choisie ; les pourcentages doivent être compris entre 0 % exclu et 100 % inclus.
 
 Dès qu’au moins une ligne existe, la répartition remplace les règles, paliers et objectifs automatiques pour ce devis. La suppression de la dernière ligne avant signature rétablit le calcul automatique. À la signature, les bases et modalités sont revalidées, puis la commission et la modalité effectivement appliquée sont figées pour chaque bénéficiaire. La répartition reste ensuite consultable mais ne peut plus être modifiée.
+
+## Mise à niveau depuis la version 1.0
+
+1. Sauvegarder la base de données et les fichiers du module.
+2. Remplacer le contenu du module par la version 1.1.0.
+3. Désactiver puis réactiver le module afin d’exécuter la migration idempotente des tables et index nécessaires aux répartitions.
+4. Vérifier le réglage de libération de l’échéance de facture finale dans les paramètres généraux.
+5. Exécuter les contrôles de cohérence et, si nécessaire, le rattrapage des devis existants depuis les pages de maintenance du module.
+
+La désactivation temporaire conserve les réglages métier du module. La migration ajoute les données de répartition sans remettre en cause les commissions déjà enregistrées.
 
 ## Scénarios de validation
 
