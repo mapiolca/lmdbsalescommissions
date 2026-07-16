@@ -403,6 +403,7 @@ class modLmdbSalesCommissions extends DolibarrModules
 
 		$columns = array(
 			'fk_proposal_dispatch' => 'integer DEFAULT NULL',
+			'fk_proposal_turnover_dispatch' => 'integer DEFAULT NULL',
 			'snapshot_base_type' => 'varchar(16) DEFAULT NULL',
 			'snapshot_value_type' => 'varchar(16) DEFAULT NULL',
 			'snapshot_value' => 'double(24,8) DEFAULT NULL',
@@ -427,6 +428,17 @@ class modLmdbSalesCommissions extends DolibarrModules
 		$indexExists = $this->db->num_rows($resql) > 0;
 		$this->db->free($resql);
 		if (!$indexExists && !$this->db->query('ALTER TABLE '.$table.' ADD INDEX '.$indexName.' (fk_proposal_dispatch)')) {
+			return -1;
+		}
+
+		$turnoverIndexName = 'idx_lmdbsalescommissions_line_turnover_dispatch';
+		$resql = $this->db->query("SHOW INDEX FROM ".$table." WHERE Key_name = '".$this->db->escape($turnoverIndexName)."'");
+		if (!$resql) {
+			return -1;
+		}
+		$turnoverIndexExists = $this->db->num_rows($resql) > 0;
+		$this->db->free($resql);
+		if (!$turnoverIndexExists && !$this->db->query('ALTER TABLE '.$table.' ADD INDEX '.$turnoverIndexName.' (fk_proposal_turnover_dispatch)')) {
 			return -1;
 		}
 

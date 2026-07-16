@@ -20,6 +20,7 @@ CREATE TABLE llx_lmdbsalescommissions_line
 	fk_rule integer DEFAULT NULL,
 	fk_payment_term integer DEFAULT NULL,
 	fk_proposal_dispatch integer DEFAULT NULL,
+	fk_proposal_turnover_dispatch integer DEFAULT NULL,
 	rule_source varchar(32) DEFAULT NULL,
 	snapshot_rule_label varchar(255) DEFAULT NULL,
 	snapshot_rule_rate double(10,4) DEFAULT NULL,

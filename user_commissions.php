@@ -23,6 +23,7 @@ require_once DOL_DOCUMENT_ROOT.'/core/lib/usergroups.lib.php';
 require_once dol_buildpath('/lmdbsalescommissions/lib/lmdbsalescommissions.lib.php', 0);
 require_once dol_buildpath('/lmdbsalescommissions/class/lmdbsalescommissiondueservice.class.php', 0);
 require_once dol_buildpath('/lmdbsalescommissions/class/lmdbsalescommissionobjectiveresolver.class.php', 0);
+require_once dol_buildpath('/lmdbsalescommissions/class/lmdbsalescommissionturnoverservice.class.php', 0);
 
 /**
  * Sum signed amount for objective period.
@@ -42,8 +43,9 @@ function lmdbsalescommissions_user_sum_realized($db, $fkUser, $type, $year, $mon
 
 	$sql = 'SELECT SUM(src.amount_base) AS realized';
 	$sql .= ' FROM (';
-	$sql .= ' SELECT entity, fk_user, source_type, fk_source, MAX(amount_base) AS amount_base';
-	$sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_line';
+	$sql .= ' SELECT entity, fk_user, source_type, fk_source,';
+	$sql .= ' '.LmdbSalesCommissionTurnoverService::buildAttributedAmountExpression('l', false).' AS amount_base';
+	$sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_line AS l';
 	$sql .= ' WHERE entity IN ('.$entitySql.')';
 	$sql .= ' AND fk_user = '.((int) $fkUser);
 	$sql .= " AND source_type = 'proposal'";

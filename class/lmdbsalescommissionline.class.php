@@ -29,6 +29,7 @@ class LmdbSalesCommissionLine extends LmdbSalesCommissionCommon
 	public $fk_rule;
 	public $fk_payment_term;
 	public $fk_proposal_dispatch;
+	public $fk_proposal_turnover_dispatch;
 	public $rule_source;
 	public $snapshot_rule_label;
 	public $snapshot_rule_rate;
@@ -60,6 +61,7 @@ class LmdbSalesCommissionLine extends LmdbSalesCommissionCommon
 		'fk_rule' => array('type' => 'integer', 'label' => 'LmdbSalesCommissionsRule', 'enabled' => '1', 'visible' => 1, 'position' => 160),
 		'fk_payment_term' => array('type' => 'integer', 'label' => 'LmdbSalesCommissionsPaymentTerms', 'enabled' => '1', 'visible' => 1, 'position' => 165),
 		'fk_proposal_dispatch' => array('type' => 'integer', 'label' => 'LmdbSalesCommissionsProposalDispatch', 'enabled' => '1', 'visible' => 0, 'position' => 166),
+		'fk_proposal_turnover_dispatch' => array('type' => 'integer', 'label' => 'LmdbSalesCommissionsProposalTurnoverDispatch', 'enabled' => '1', 'visible' => 0, 'position' => 167),
 		'rule_source' => array('type' => 'varchar(32)', 'label' => 'LmdbSalesCommissionsRuleSource', 'enabled' => '1', 'visible' => 1, 'position' => 170),
 		'snapshot_rule_label' => array('type' => 'varchar(255)', 'label' => 'LmdbSalesCommissionsSnapshotRuleLabel', 'enabled' => '1', 'visible' => 0, 'position' => 180),
 		'snapshot_rule_rate' => array('type' => 'double(10,4)', 'label' => 'LmdbSalesCommissionsSnapshotRuleRate', 'enabled' => '1', 'visible' => 0, 'position' => 190),

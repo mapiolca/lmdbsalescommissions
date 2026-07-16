@@ -120,10 +120,17 @@ class InterfaceLmdbSalesCommissionsTriggers
 			}
 			if ($action === 'PROPAL_DELETE') {
 				require_once dol_buildpath('/lmdbsalescommissions/class/lmdbsalescommissionproposaldispatchservice.class.php', 0);
+				require_once dol_buildpath('/lmdbsalescommissions/class/lmdbsalescommissionproposalturnoverdispatchservice.class.php', 0);
 				$dispatchService = new LmdbSalesCommissionProposalDispatchService($this->db);
 				if ($dispatchService->deleteForProposal($object, $user) < 0) {
 					$this->error = $dispatchService->error;
 					$this->errors = $dispatchService->errors;
+					return -1;
+				}
+				$turnoverDispatchService = new LmdbSalesCommissionProposalTurnoverDispatchService($this->db);
+				if ($turnoverDispatchService->deleteForProposal($object, $user) < 0) {
+					$this->error = $turnoverDispatchService->error;
+					$this->errors = $turnoverDispatchService->errors;
 					return -1;
 				}
 			}

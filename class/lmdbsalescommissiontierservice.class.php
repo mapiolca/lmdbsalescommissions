@@ -10,6 +10,7 @@
 require_once __DIR__.'/lmdbsalescommissionline.class.php';
 require_once __DIR__.'/lmdbsalescommissionlineservice.class.php';
 require_once __DIR__.'/lmdbsalescommissionruleresolver.class.php';
+require_once __DIR__.'/lmdbsalescommissionturnoverservice.class.php';
 
 /**
  * Tier bonus calculation service.
@@ -150,16 +151,20 @@ class LmdbSalesCommissionTierService
 	 */
 	private function sumTurnover($fkUser, $ruleId, $start, $end, $entity)
 	{
-		$sql = 'SELECT SUM(amount_base) AS total';
-		$sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_line';
-		$sql .= ' WHERE entity = '.((int) $entity);
-		$sql .= ' AND fk_user = '.((int) $fkUser);
-		$sql .= " AND source_type = 'proposal'";
-		$sql .= " AND mode = 'tier'";
-		$sql .= ' AND fk_rule = '.((int) $ruleId);
-		$sql .= ' AND status = '.LmdbSalesCommissionLineService::STATUS_ACQUIRED;
-		$sql .= " AND date_acquired >= '".$this->db->idate($start)."'";
-		$sql .= " AND date_acquired <= '".$this->db->idate($end)."'";
+		$sql = 'SELECT SUM(src.amount_base) AS total FROM (';
+		$sql .= ' SELECT l.entity, l.fk_user, l.fk_source,';
+		$sql .= ' '.LmdbSalesCommissionTurnoverService::buildAttributedAmountExpression('l', false).' AS amount_base';
+		$sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_line AS l';
+		$sql .= ' WHERE l.entity = '.((int) $entity);
+		$sql .= ' AND l.fk_user = '.((int) $fkUser);
+		$sql .= " AND l.source_type = 'proposal'";
+		$sql .= " AND l.mode IN ('turnover','tier')";
+		$sql .= ' AND l.fk_rule = '.((int) $ruleId);
+		$sql .= ' AND l.status = '.LmdbSalesCommissionLineService::STATUS_ACQUIRED;
+		$sql .= " AND l.date_acquired >= '".$this->db->idate($start)."'";
+		$sql .= " AND l.date_acquired <= '".$this->db->idate($end)."'";
+		$sql .= ' GROUP BY l.entity, l.fk_user, l.fk_source';
+		$sql .= ') AS src';
 
 		$resql = $this->db->query($sql);
 		if (!$resql) {
@@ -263,7 +268,9 @@ class LmdbSalesCommissionTierService
 			if ($result <= 0) {
 				return -1;
 			}
-			$this->generateDuesIfNeeded($line, $user);
+			if ($this->rebuildUnpaidDues($line, $user) < 0) {
+				return -1;
+			}
 			return $existingId;
 		}
 
@@ -292,6 +299,27 @@ class LmdbSalesCommissionTierService
 		require_once __DIR__.'/lmdbsalescommissiondueservice.class.php';
 		$dueService = new LmdbSalesCommissionDueService($this->db);
 		$dueService->generateForLine($line, $user);
+	}
+
+	/**
+	 * Rebuild only unpaid tier bonus dues and preserve paid historical rows.
+	 *
+	 * @param LmdbSalesCommissionLine $line Tier period line
+	 * @param User                    $user User
+	 * @return int
+	 */
+	private function rebuildUnpaidDues($line, $user)
+	{
+		require_once __DIR__.'/lmdbsalescommissiondueservice.class.php';
+		$dueService = new LmdbSalesCommissionDueService($this->db);
+		$result = $dueService->rebuildForLine((int) $line->id, $user);
+		if ($result < 0) {
+			$this->error = $dueService->error;
+			$this->errors = $dueService->errors;
+			return -1;
+		}
+
+		return $result;
 	}
 
 	/**

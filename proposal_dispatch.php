@@ -19,6 +19,8 @@ require_once DOL_DOCUMENT_ROOT.'/user/class/user.class.php';
 require_once dol_buildpath('/lmdbsalescommissions/lib/lmdbsalescommissions.lib.php', 0);
 require_once dol_buildpath('/lmdbsalescommissions/class/lmdbsalescommissionproposaldispatch.class.php', 0);
 require_once dol_buildpath('/lmdbsalescommissions/class/lmdbsalescommissionproposaldispatchservice.class.php', 0);
+require_once dol_buildpath('/lmdbsalescommissions/class/lmdbsalescommissionproposalturnoverdispatch.class.php', 0);
+require_once dol_buildpath('/lmdbsalescommissions/class/lmdbsalescommissionproposalturnoverdispatchservice.class.php', 0);
 
 $langs->loadLangs(array('propal', 'users', 'lmdbsalescommissions@lmdbsalescommissions'));
 
@@ -26,6 +28,7 @@ $id = GETPOSTINT('id');
 $mode = GETPOST('mode', 'aZ09');
 $action = GETPOST('action', 'aZ09');
 $dispatchId = GETPOSTINT('dispatchid');
+$turnoverDispatchId = GETPOSTINT('turnoverdispatchid');
 
 if (!isModEnabled('lmdbsalescommissions')) {
 	accessforbidden();
@@ -53,6 +56,7 @@ if (method_exists($object, 'fetch_thirdparty')) {
 }
 
 $service = new LmdbSalesCommissionProposalDispatchService($db);
+$turnoverService = new LmdbSalesCommissionProposalTurnoverDispatchService($db);
 $canManage = lmdbsalescommissionsCanManageDispatch($user);
 $canReadAny = lmdbsalescommissionsCanReadCommissions($user) || $canManage;
 if (!$canReadAny) {
@@ -71,7 +75,19 @@ if ($dispatchId > 0) {
 	}
 }
 
-if (in_array($action, array('savedispatch', 'deletedispatch'), true)) {
+/** @var LmdbSalesCommissionProposalTurnoverDispatch|null $editedTurnoverDispatch */
+$editedTurnoverDispatch = null;
+if ($turnoverDispatchId > 0) {
+	$turnoverCandidate = new LmdbSalesCommissionProposalTurnoverDispatch($db);
+	if ($turnoverCandidate->fetch($turnoverDispatchId) > 0 && (int) $turnoverCandidate->entity === (int) $object->entity && (int) $turnoverCandidate->fk_propal === (int) $object->id) {
+		$editedTurnoverDispatch = $turnoverCandidate;
+	}
+	if (!is_object($editedTurnoverDispatch)) {
+		accessforbidden($langs->trans('ErrorRecordNotFound'));
+	}
+}
+
+if (in_array($action, array('savedispatch', 'deletedispatch', 'saveturnoverdispatch', 'deleteturnoverdispatch'), true)) {
 	if (!$canManage) {
 		accessforbidden();
 	}
@@ -112,9 +128,39 @@ if ($action === 'savedispatch') {
 		exit;
 	}
 	setEventMessages($langs->trans($service->error), array_map(array($langs, 'trans'), $service->errors), 'errors');
+} elseif ($action === 'saveturnoverdispatch') {
+	$turnoverDispatch = is_object($editedTurnoverDispatch) ? $editedTurnoverDispatch : new LmdbSalesCommissionProposalTurnoverDispatch($db);
+	$turnoverDispatch->entity = (int) $object->entity;
+	$turnoverDispatch->fk_propal = (int) $object->id;
+	$turnoverDispatch->fk_user = GETPOSTINT('turnover_fk_user');
+	$turnoverDispatch->value_type = GETPOST('turnover_value_type', 'aZ09');
+	$turnoverDispatch->value = price2num(GETPOST('turnover_value', 'alphanohtml'), $turnoverDispatch->value_type === LmdbSalesCommissionProposalTurnoverDispatchService::VALUE_AMOUNT ? 'MT' : '');
+	$turnoverDispatch->note_private = GETPOST('turnover_note_private', 'restricthtml');
+
+	$result = $turnoverService->save($turnoverDispatch, $object, $user);
+	if ($result > 0) {
+		setEventMessages($langs->trans(is_object($editedTurnoverDispatch) ? 'RecordModifiedSuccessfully' : 'RecordCreatedSuccessfully'), null, 'mesgs');
+		header('Location: '.$_SERVER['PHP_SELF'].'?id='.((int) $object->id));
+		exit;
+	}
+	setEventMessages($langs->trans($turnoverService->error), array_map(array($langs, 'trans'), $turnoverService->errors), 'errors');
+	$editedTurnoverDispatch = $turnoverDispatch;
+	$mode = is_object($editedTurnoverDispatch) && !empty($editedTurnoverDispatch->id) ? 'editturnover' : 'createturnover';
+} elseif ($action === 'deleteturnoverdispatch') {
+	if (!is_object($editedTurnoverDispatch)) {
+		accessforbidden($langs->trans('ErrorRecordNotFound'));
+	}
+	$result = $turnoverService->delete($editedTurnoverDispatch, $object, $user);
+	if ($result > 0) {
+		setEventMessages($langs->trans('RecordDeleted'), null, 'mesgs');
+		header('Location: '.$_SERVER['PHP_SELF'].'?id='.((int) $object->id));
+		exit;
+	}
+	setEventMessages($langs->trans($turnoverService->error), array_map(array($langs, 'trans'), $turnoverService->errors), 'errors');
 }
 
 $dispatches = $service->fetchForProposal((int) $object->id, (int) $object->entity);
+$turnoverDispatches = $turnoverService->fetchForProposal((int) $object->id, (int) $object->entity);
 $editable = $canManage && $service->isProposalEditable($object);
 $canSeeAll = $canManage || !empty($user->admin) || $user->hasRight('lmdbsalescommissions', 'commission', 'readall');
 
@@ -145,10 +191,15 @@ dol_banner_tab($object, 'ref', $linkback, 1, 'ref', 'ref', $morehtmlref);
 print '<div class="underbanner clearboth"></div>';
 
 if ($editable) {
-	print '<div class="tabsAction"><a class="butAction" href="'.$_SERVER['PHP_SELF'].'?id='.((int) $object->id).'&mode=create">'.$langs->trans('New').'</a></div>';
+	print '<div class="tabsAction">';
+	print '<a class="butAction" href="'.$_SERVER['PHP_SELF'].'?id='.((int) $object->id).'&mode=create">'.$langs->trans('LmdbSalesCommissionsNewCommissionDispatch').'</a>';
+	print '<a class="butAction" href="'.$_SERVER['PHP_SELF'].'?id='.((int) $object->id).'&mode=createturnover">'.$langs->trans('LmdbSalesCommissionsNewTurnoverDispatch').'</a>';
+	print '</div>';
 } elseif ($canManage) {
 	print info_admin($langs->trans('LmdbSalesCommissionsDispatchLocked'), 0, 0, 'info');
 }
+
+print load_fiche_titre($langs->trans('LmdbSalesCommissionsCommissionDispatchSection'), '', 'fa-percent');
 
 if ($editable && ($mode === 'create' || $mode === 'edit')) {
 	$dispatch = is_object($editedDispatch) ? $editedDispatch : new LmdbSalesCommissionProposalDispatch($db);
@@ -223,6 +274,76 @@ if ($visibleCount === 0) {
 	print '</tr>';
 }
 print '</table>';
+
+print '<br>';
+print load_fiche_titre($langs->trans('LmdbSalesCommissionsTurnoverDispatchSection'), '', 'fa-chart-line');
+print '<div class="opacitymedium">'.$langs->trans('LmdbSalesCommissionsTurnoverDispatchHelp').'</div>';
+
+if ($editable && ($mode === 'createturnover' || $mode === 'editturnover')) {
+	$turnoverDispatch = is_object($editedTurnoverDispatch) ? $editedTurnoverDispatch : new LmdbSalesCommissionProposalTurnoverDispatch($db);
+	print '<form method="POST" action="'.$_SERVER['PHP_SELF'].'" name="turnoverdispatchform">';
+	print '<input type="hidden" name="token" value="'.newToken().'">';
+	print '<input type="hidden" name="action" value="saveturnoverdispatch">';
+	print '<input type="hidden" name="id" value="'.((int) $object->id).'">';
+	if ($mode === 'editturnover') {
+		print '<input type="hidden" name="turnoverdispatchid" value="'.((int) $turnoverDispatch->id).'">';
+	}
+	print '<table class="border centpercent">';
+	print '<tr><td class="titlefieldcreate fieldrequired">'.$langs->trans('SalesRepresentative').'</td><td>'.$form->selectarray('turnover_fk_user', $userOptions, (int) $turnoverDispatch->fk_user, 0, 0, 0, '', 0, 0, 0, '', 'minwidth300').'</td></tr>';
+	print '<tr><td class="fieldrequired">'.$langs->trans('LmdbSalesCommissionsTurnoverDispatchValueType').'</td><td>'.$form->selectarray('turnover_value_type', $valueOptions, (string) ($turnoverDispatch->value_type ?: LmdbSalesCommissionProposalTurnoverDispatchService::VALUE_PERCENTAGE), 0, 0, 0, '', 0, 0, 0, '', 'minwidth300').'</td></tr>';
+	print '<tr><td class="fieldrequired">'.$langs->trans('Value').'</td><td><input class="width100 right" type="text" name="turnover_value" value="'.dol_escape_htmltag((string) $turnoverDispatch->value).'"></td></tr>';
+	print '<tr><td>'.$langs->trans('NotePrivate').'</td><td><textarea class="quatrevingtpercent" name="turnover_note_private" rows="3">'.dol_escape_htmltag((string) $turnoverDispatch->note_private).'</textarea></td></tr>';
+	print '</table>';
+	print '<div class="center"><input type="submit" class="button button-save" value="'.$langs->trans('Save').'"> <a class="button button-cancel" href="'.$_SERVER['PHP_SELF'].'?id='.((int) $object->id).'">'.$langs->trans('Cancel').'</a></div>';
+	print '</form>';
+	if (function_exists('ajax_combobox')) {
+		print ajax_combobox('turnover_fk_user');
+		print ajax_combobox('turnover_value_type');
+	}
+}
+
+$proposalTurnover = property_exists($object, 'total_ht') && is_numeric($object->total_ht) ? (float) price2num(max(0, (float) $object->total_ht), 'MT') : 0.0;
+$turnoverVisibleCount = 0;
+$turnoverFullTotal = 0.0;
+print '<br><table class="noborder liste centpercent">';
+print '<tr class="liste_titre"><td>'.$langs->trans('SalesRepresentative').'</td><td>'.$langs->trans('LmdbSalesCommissionsTurnoverDispatchFormula').'</td><td class="right">'.$langs->trans('LmdbSalesCommissionsAttributedTurnover').'</td>'.($editable ? '<td class="center">'.$langs->trans('Action').'</td>' : '').'</tr>';
+foreach ($turnoverDispatches as $turnoverDispatch) {
+	$allocatedAmount = $turnoverService->calculateAmount($turnoverDispatch, $proposalTurnover);
+	$turnoverFullTotal = (float) price2num($turnoverFullTotal + $allocatedAmount, 'MT');
+	if (!$canSeeAll && !lmdbsalescommissionsCanReadUserScope($user, (int) $turnoverDispatch->fk_user)) {
+		continue;
+	}
+	$turnoverVisibleCount++;
+	$beneficiary = new User($db);
+	$beneficiaryLabel = dol_escape_htmltag((string) $turnoverDispatch->fk_user);
+	if ($beneficiary->fetch((int) $turnoverDispatch->fk_user) > 0) {
+		$beneficiaryLabel = $beneficiary->getNomUrl(1);
+	}
+	$formula = (string) $turnoverDispatch->value_type === LmdbSalesCommissionProposalTurnoverDispatchService::VALUE_PERCENTAGE
+		? price((float) $turnoverDispatch->value, 0, $langs, 0, 0, -1).'%'
+		: lmdbsalescommissionsFormatTotalAmount($turnoverDispatch->value);
+	print '<tr class="oddeven"><td>'.$beneficiaryLabel.'</td><td>'.$formula.'</td><td class="right">'.lmdbsalescommissionsFormatTotalAmount($allocatedAmount).'</td>';
+	if ($editable) {
+		$editUrl = $_SERVER['PHP_SELF'].'?id='.((int) $object->id).'&mode=editturnover&turnoverdispatchid='.((int) $turnoverDispatch->id);
+		$deleteUrl = $_SERVER['PHP_SELF'].'?id='.((int) $object->id).'&action=deleteturnoverdispatch&turnoverdispatchid='.((int) $turnoverDispatch->id).'&token='.newToken();
+		print '<td class="center nowraponall"><a class="reposition" href="'.dol_escape_htmltag($editUrl).'">'.img_edit($langs->trans('Edit')).'</a> ';
+		print '<a class="reposition" href="'.dol_escape_htmltag($deleteUrl).'">'.img_delete($langs->trans('Delete')).'</a></td>';
+	}
+	print '</tr>';
+}
+if ($turnoverVisibleCount === 0) {
+	lmdbsalescommissionsPrintNoRecordRow($langs, $editable ? 4 : 3);
+} elseif ($canSeeAll) {
+	$distributedRate = $proposalTurnover > 0 ? (float) price2num(($turnoverFullTotal / $proposalTurnover) * 100) : 0.0;
+	print '<tr class="liste_total"><td class="liste_total">'.$langs->trans('Total').'</td><td class="liste_total">'.price($distributedRate, 0, $langs, 0, 0, -1).'%</td><td class="liste_total right">'.lmdbsalescommissionsFormatTotalAmount($turnoverFullTotal).'</td>'.($editable ? '<td class="liste_total"></td>' : '').'</tr>';
+}
+print '</table>';
+
+if (empty($turnoverDispatches)) {
+	print info_admin($langs->trans('LmdbSalesCommissionsTurnoverDispatchAutomatic'), 0, 0, 'info');
+} elseif ((float) price2num($turnoverFullTotal, 'MT') !== (float) price2num($proposalTurnover, 'MT')) {
+	print info_admin($langs->trans('LmdbSalesCommissionsTurnoverDispatchIncomplete'), 0, 0, 'warning');
+}
 
 print dol_get_fiche_end();
 llxFooter();

@@ -7,7 +7,9 @@
 ### Nouveautés depuis la version 1.0
 
 - Répartition manuelle des commissions d’un devis entre plusieurs commerciaux, par montant fixe ou pourcentage calculé sur la marge ou le chiffre d’affaires HT.
-- Nouvel onglet **Répartition des commissions** sur les devis, modifiable avant signature puis verrouillé afin de conserver les montants et modalités appliqués.
+- Attribution indépendante du chiffre d’affaires entre plusieurs commerciaux, par montant HT, pourcentage ou combinaison des deux, afin d’alimenter leurs paliers et objectifs sans doubler le CA global.
+- Nouvel onglet **Répartition commissions / CA** sur les devis, avec deux sections distinctes, modifiables avant signature puis verrouillées.
+- Attribution automatique de 100 % du CA au commercial principal lorsqu’aucune répartition explicite n’est définie.
 - Sélection explicite d’une modalité de versement par bénéficiaire ou héritage automatique depuis ses règles de commission.
 - Enregistrement des commissions estimées dès la validation du devis, afin de fiabiliser le suivi du tunnel commercial.
 - Détection des échéances payables à partir des factures client liées directement au devis ou rattachées aux commandes issues du devis.
@@ -16,6 +18,9 @@
 ### Évolutions et corrections
 
 - Adaptation du rattrapage, des contrôles de cohérence, des exports, des listes et des indicateurs aux répartitions multi-commerciaux.
+- Extension du rattrapage aux devis déjà signés : création idempotente des contributions de CA, recalcul des paliers et actualisation des archives d’objectifs.
+- Conservation des commissions et échéances existantes lors d’une resynchronisation du CA ; les échéances versées ne sont jamais modifiées et leurs écarts sont signalés.
+- Blocage de la signature lorsqu’une répartition explicite de CA ne couvre pas exactement 100 % ou lorsqu’aucun commercial principal n’est disponible pour l’attribution automatique.
 - Création des estimations manquantes pour les devis validés et détection des échéances déjà payables pour les devis signés lors du rattrapage.
 - Déduplication du chiffre d’affaires et de la marge par devis dans les indicateurs globaux.
 - Normalisation des montants selon la précision configurée dans Dolibarr.

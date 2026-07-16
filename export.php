@@ -70,7 +70,7 @@ if ($action === 'export') {
 	if (in_array($source, array('proposal', 'order', 'contract'), true)) {
 		$lineExtraFilter .= " AND l.source_type = '".$db->escape($source)."'";
 	}
-	if (in_array($commission_type, array('margin', 'tier', 'dispatch'), true)) {
+	if (in_array($commission_type, array('margin', 'tier', 'dispatch', 'turnover'), true)) {
 		$lineExtraFilter .= " AND l.mode = '".$db->escape($commission_type)."'";
 	}
 	$statusMap = array(
@@ -297,7 +297,7 @@ print '<tr class="oddeven"><td>'.$langs->trans('Group').'</td><td>'.$form->selec
 print '<tr class="oddeven"><td>'.$langs->trans('Year').'</td><td><input type="text" class="flat width75 right" name="year" value="'.($year > 0 ? (int) $year : '').'"></td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('Month').'</td><td><input type="text" class="flat width75 right" name="month" value="'.($month > 0 ? (int) $month : '').'"></td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('Source').'</td><td>'.$form->selectarray('source', array('all' => $langs->trans('All'), 'proposal' => $langs->trans('Propal'), 'order' => $langs->trans('Order'), 'contract' => $langs->trans('Contract')), $source ?: 'all', 0, 0, 0, '', 0, 0, 0, '', 'minwidth200', 1).'</td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('LmdbSalesCommissionsCommissionType').'</td><td>'.$form->selectarray('commission_type', array('all' => $langs->trans('All'), 'margin' => $langs->trans('LmdbSalesCommissionsRuleTypeMargin'), 'tier' => $langs->trans('LmdbSalesCommissionsRuleTypeTier'), 'dispatch' => $langs->trans('LmdbSalesCommissionsModeDispatch')), $commission_type ?: 'all', 0, 0, 0, '', 0, 0, 0, '', 'minwidth200', 1).'</td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('LmdbSalesCommissionsCommissionType').'</td><td>'.$form->selectarray('commission_type', array('all' => $langs->trans('All'), 'margin' => $langs->trans('LmdbSalesCommissionsRuleTypeMargin'), 'tier' => $langs->trans('LmdbSalesCommissionsRuleTypeTier'), 'dispatch' => $langs->trans('LmdbSalesCommissionsModeDispatch'), 'turnover' => $langs->trans('LmdbSalesCommissionsModeTurnover')), $commission_type ?: 'all', 0, 0, 0, '', 0, 0, 0, '', 'minwidth200', 1).'</td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('Status').'</td><td>'.$form->selectarray('status', array('all' => $langs->trans('All'), 'estimated' => $langs->trans('LmdbSalesCommissionsLineStatusEstimated'), 'acquired' => $langs->trans('LmdbSalesCommissionsLineStatusAcquired'), 'payable' => $langs->trans('LmdbSalesCommissionsDueStatusDue'), 'paid' => $langs->trans('LmdbSalesCommissionsDueStatusPaid'), 'cancelled' => $langs->trans('LmdbSalesCommissionsLineStatusCancelled'), 'blocked' => $langs->trans('LmdbSalesCommissionsLineStatusBlocked')), $status ?: 'all', 0, 0, 0, '', 0, 0, 0, '', 'minwidth200', 1).'</td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('LmdbSalesCommissionsObjectiveType').'</td><td>'.$form->selectarray('objective_type', array('all' => $langs->trans('All'), 'monthly' => $langs->trans('LmdbSalesCommissionsMonthlyObjective'), 'yearly' => $langs->trans('LmdbSalesCommissionsYearlyObjective')), $objective_type ?: 'all', 0, 0, 0, '', 0, 0, 0, '', 'minwidth200', 1).'</td></tr>';
 print '<tr class="oddeven"><td></td><td><button type="submit" class="button small">'.$langs->trans('Apply').'</button></td></tr>';

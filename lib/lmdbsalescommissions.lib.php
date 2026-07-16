@@ -479,6 +479,7 @@ function lmdbsalescommissionsGetModeLabel($langs, $mode)
 		'tier' => 'LmdbSalesCommissionsRuleTypeTier',
 		'tracking' => 'LmdbSalesCommissionsModeTracking',
 		'dispatch' => 'LmdbSalesCommissionsModeDispatch',
+		'turnover' => 'LmdbSalesCommissionsModeTurnover',
 	);
 
 	return $langs->trans($labels[$mode] ?? $mode);
@@ -499,6 +500,8 @@ function lmdbsalescommissionsGetRuleSourceLabel($langs, $ruleSource)
 		'default' => 'Default',
 		'none' => 'None',
 		'dispatch' => 'LmdbSalesCommissionsManualDispatch',
+		'turnover' => 'LmdbSalesCommissionsTurnoverDispatch',
+		'automatic' => 'LmdbSalesCommissionsTurnoverDispatchAutomaticSource',
 	);
 
 	return $langs->trans($labels[$ruleSource] ?? $ruleSource);

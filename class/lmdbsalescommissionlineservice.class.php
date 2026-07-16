@@ -11,6 +11,7 @@ require_once __DIR__.'/lmdbsalescommissionline.class.php';
 require_once __DIR__.'/lmdbsalescommissionproposalservice.class.php';
 require_once __DIR__.'/lmdbsalescommissionruleresolver.class.php';
 require_once __DIR__.'/lmdbsalescommissionproposaldispatchservice.class.php';
+require_once __DIR__.'/lmdbsalescommissionproposalturnoverdispatchservice.class.php';
 
 /**
  * Commission line service.
@@ -25,6 +26,7 @@ class LmdbSalesCommissionLineService
 	public const MODE_TIER = 'tier';
 	public const MODE_TRACKING = 'tracking';
 	public const MODE_DISPATCH = 'dispatch';
+	public const MODE_TURNOVER = 'turnover';
 
 	/** @var DoliDB Database handler */
 	private $db;
@@ -35,8 +37,8 @@ class LmdbSalesCommissionLineService
 	/** @var array<int, string> Error list */
 	public $errors = array();
 
-	/** @var array{created:int, updated:int, existing:int, tracking:int, errors:int} Last acquisition result counters */
-	public $lastResult = array('created' => 0, 'updated' => 0, 'existing' => 0, 'tracking' => 0, 'errors' => 0);
+	/** @var array{created:int, updated:int, existing:int, tracking:int, turnover_created:int, turnover_updated:int, turnover_defaulted:int, tiers_recalculated:int, errors:int} Last acquisition result counters */
+	public $lastResult = array('created' => 0, 'updated' => 0, 'existing' => 0, 'tracking' => 0, 'turnover_created' => 0, 'turnover_updated' => 0, 'turnover_defaulted' => 0, 'tiers_recalculated' => 0, 'errors' => 0);
 
 	/**
 	 * Constructor.
@@ -71,6 +73,7 @@ class LmdbSalesCommissionLineService
 		if ($businessDate <= 0) {
 			$businessDate = dol_now();
 		}
+		$created = 0;
 		$dispatchService = new LmdbSalesCommissionProposalDispatchService($this->db);
 		$dispatches = $dispatchService->fetchForProposal((int) $proposal->id, $entity);
 		if ($dispatchService->error !== '') {
@@ -79,39 +82,48 @@ class LmdbSalesCommissionLineService
 			return -1;
 		}
 		if (!empty($dispatches)) {
-			return $this->processDispatches($proposal, $user, $dispatches, $businessDate, self::STATUS_ESTIMATED, false);
+			$result = $this->processDispatches($proposal, $user, $dispatches, $businessDate, self::STATUS_ESTIMATED, false);
+			if ($result < 0) {
+				return -1;
+			}
+			$created += $result;
+		} else {
+			if ($this->cancelDispatchEstimatedProposalLines($proposal, $user) < 0) {
+				$this->lastResult['errors']++;
+				return -1;
+			}
+
+			$salesUserId = LmdbSalesCommissionProposalService::resolveSalesUserId($this->db, $proposal);
+			if ($salesUserId > 0) {
+				$resolver = new LmdbSalesCommissionRuleResolver($this->db);
+				$profile = $resolver->resolveForUser($salesUserId, $businessDate, $entity, 'proposal');
+				if (!empty($profile['errors'])) {
+					$this->errors = $profile['errors'];
+					$this->lastResult['errors']++;
+					return -1;
+				}
+
+				$margin = LmdbSalesCommissionProposalService::getEstimatedMargin($proposal);
+				if (isset($profile['selected']['margin']) && is_array($profile['selected']['margin']) && $margin !== null) {
+					$rule = $profile['selected']['margin'];
+					$totalHt = property_exists($proposal, 'total_ht') && is_numeric($proposal->total_ht) ? (float) price2num($proposal->total_ht, 'MT') : 0.0;
+					$base = max(0, $margin);
+					$rate = (float) ($rule['rate'] ?? 0);
+					$result = $this->upsertProposalLine($proposal, $user, $salesUserId, $entity, self::MODE_MARGIN, $totalHt, $margin, $rate, (float) price2num($base * $rate / 100, 'MT'), $rule, $businessDate, self::STATUS_ESTIMATED, false);
+					if ($result < 0) {
+						return -1;
+					}
+					$created += $result;
+				}
+			}
 		}
 
-		if ($this->cancelDispatchEstimatedProposalLines($proposal, $user) < 0) {
-			$this->lastResult['errors']++;
+		$result = $this->processTurnoverContributions($proposal, $user, $businessDate, self::STATUS_ESTIMATED, false);
+		if ($result < 0) {
 			return -1;
 		}
 
-		$salesUserId = LmdbSalesCommissionProposalService::resolveSalesUserId($this->db, $proposal);
-		if ($salesUserId <= 0) {
-			$this->error = 'LmdbSalesCommissionsProposalWithoutSalesUser';
-			return 0;
-		}
-
-		$resolver = new LmdbSalesCommissionRuleResolver($this->db);
-		$profile = $resolver->resolveForUser($salesUserId, $businessDate, $entity, 'proposal');
-		if (!empty($profile['errors'])) {
-			$this->errors = $profile['errors'];
-			$this->lastResult['errors']++;
-			return -1;
-		}
-
-		$margin = LmdbSalesCommissionProposalService::getEstimatedMargin($proposal);
-		if (!isset($profile['selected']['margin']) || !is_array($profile['selected']['margin']) || $margin === null) {
-			return 0;
-		}
-
-		$rule = $profile['selected']['margin'];
-		$totalHt = property_exists($proposal, 'total_ht') && is_numeric($proposal->total_ht) ? (float) price2num($proposal->total_ht, 'MT') : 0.0;
-		$base = max(0, $margin);
-		$rate = (float) ($rule['rate'] ?? 0);
-
-		return $this->upsertProposalLine($proposal, $user, $salesUserId, $entity, self::MODE_MARGIN, $totalHt, $margin, $rate, (float) price2num($base * $rate / 100, 'MT'), $rule, $businessDate, self::STATUS_ESTIMATED, false);
+		return $created + $result;
 	}
 
 	/**
@@ -137,6 +149,7 @@ class LmdbSalesCommissionLineService
 		if ($businessDate <= 0) {
 			$businessDate = dol_now();
 		}
+		$created = 0;
 		$dispatchService = new LmdbSalesCommissionProposalDispatchService($this->db);
 		$dispatches = $dispatchService->fetchForProposal((int) $proposal->id, $entity);
 		if ($dispatchService->error !== '') {
@@ -145,71 +158,61 @@ class LmdbSalesCommissionLineService
 			return -1;
 		}
 		if (!empty($dispatches)) {
-			return $this->processDispatches($proposal, $user, $dispatches, $businessDate, self::STATUS_ACQUIRED, true);
+			$result = $this->processDispatches($proposal, $user, $dispatches, $businessDate, self::STATUS_ACQUIRED, true);
+			if ($result < 0) {
+				return -1;
+			}
+			$created += $result;
+		} else {
+			$salesUserId = LmdbSalesCommissionProposalService::resolveSalesUserId($this->db, $proposal);
+			if ($salesUserId > 0) {
+				$resolver = new LmdbSalesCommissionRuleResolver($this->db);
+				$profile = $resolver->resolveForUser($salesUserId, $businessDate, $entity, 'proposal');
+				if (!empty($profile['errors'])) {
+					$this->errors = $profile['errors'];
+					$this->lastResult['errors']++;
+					return -1;
+				}
+
+				$margin = LmdbSalesCommissionProposalService::getEstimatedMargin($proposal);
+				$totalHt = property_exists($proposal, 'total_ht') && is_numeric($proposal->total_ht) ? (float) price2num($proposal->total_ht, 'MT') : 0.0;
+				$hasCommissionRule = false;
+
+				if (isset($profile['selected']['margin']) && is_array($profile['selected']['margin'])) {
+					$hasCommissionRule = true;
+				}
+				if (isset($profile['selected']['margin']) && is_array($profile['selected']['margin']) && $margin !== null) {
+					$rule = $profile['selected']['margin'];
+					$base = max(0, $margin);
+					$rate = (float) ($rule['rate'] ?? 0);
+					$result = $this->upsertProposalLine($proposal, $user, $salesUserId, $entity, self::MODE_MARGIN, $totalHt, $margin, $rate, (float) price2num($base * $rate / 100, 'MT'), $rule, $businessDate, self::STATUS_ACQUIRED, true);
+					if ($result < 0) {
+						$this->lastResult['errors']++;
+						return -1;
+					}
+					$created += $result;
+				}
+
+				if (isset($profile['selected']['tier']) && is_array($profile['selected']['tier'])) {
+					$hasCommissionRule = true;
+				}
+
+				if (!$hasCommissionRule) {
+					$result = $this->createTrackingLineIfMissing($proposal, $user, $salesUserId, $entity, $totalHt, $margin, $businessDate);
+					if ($result < 0) {
+						$this->lastResult['errors']++;
+						return -1;
+					}
+					$created += $result;
+				}
+			}
 		}
 
-		$salesUserId = LmdbSalesCommissionProposalService::resolveSalesUserId($this->db, $proposal);
-		if ($salesUserId <= 0) {
-			$this->error = 'LmdbSalesCommissionsProposalWithoutSalesUser';
-			return 0;
-		}
-
-		$resolver = new LmdbSalesCommissionRuleResolver($this->db);
-		$profile = $resolver->resolveForUser($salesUserId, $businessDate, $entity, 'proposal');
-		if (!empty($profile['errors'])) {
-			$this->errors = $profile['errors'];
-			$this->lastResult['errors']++;
+		$result = $this->processTurnoverContributions($proposal, $user, $businessDate, self::STATUS_ACQUIRED, true);
+		if ($result < 0) {
 			return -1;
 		}
-
-		$created = 0;
-		$margin = LmdbSalesCommissionProposalService::getEstimatedMargin($proposal);
-		$totalHt = property_exists($proposal, 'total_ht') && is_numeric($proposal->total_ht) ? (float) price2num($proposal->total_ht, 'MT') : 0.0;
-		$hasCommissionRule = false;
-
-		if (isset($profile['selected']['margin']) && is_array($profile['selected']['margin'])) {
-			$hasCommissionRule = true;
-		}
-		if (isset($profile['selected']['margin']) && is_array($profile['selected']['margin']) && $margin !== null) {
-			$rule = $profile['selected']['margin'];
-			$base = max(0, $margin);
-			$rate = (float) ($rule['rate'] ?? 0);
-			$result = $this->upsertProposalLine($proposal, $user, $salesUserId, $entity, self::MODE_MARGIN, $totalHt, $margin, $rate, (float) price2num($base * $rate / 100, 'MT'), $rule, $businessDate, self::STATUS_ACQUIRED, true);
-			if ($result < 0) {
-				$this->lastResult['errors']++;
-				return -1;
-			}
-			$created += $result;
-		}
-
-		if (isset($profile['selected']['tier']) && is_array($profile['selected']['tier'])) {
-			$hasCommissionRule = true;
-			$rule = $profile['selected']['tier'];
-			$result = $this->upsertProposalLine($proposal, $user, $salesUserId, $entity, self::MODE_TIER, $totalHt, null, null, 0.0, $rule, $businessDate, self::STATUS_ACQUIRED, true);
-			if ($result < 0) {
-				$this->lastResult['errors']++;
-				return -1;
-			}
-			$created += $result;
-			require_once __DIR__.'/lmdbsalescommissiontierservice.class.php';
-			$tierService = new LmdbSalesCommissionTierService($this->db);
-			$tierServiceResult = $tierService->calculateForUser($salesUserId, $user, $businessDate, $entity);
-			if (isset($tierServiceResult['status']) && $tierServiceResult['status'] === 'error') {
-				$this->error = $tierService->error;
-				$this->errors = $tierService->errors;
-				$this->lastResult['errors']++;
-				return -1;
-			}
-		}
-
-		if (!$hasCommissionRule) {
-			$result = $this->createTrackingLineIfMissing($proposal, $user, $salesUserId, $entity, $totalHt, $margin, $businessDate);
-			if ($result < 0) {
-				$this->lastResult['errors']++;
-				return -1;
-			}
-			$created += $result;
-		}
+		$created += $result;
 
 		if ($this->cancelRemainingEstimatedProposalLines($proposal, $user) < 0) {
 			$this->lastResult['errors']++;
@@ -217,6 +220,231 @@ class LmdbSalesCommissionLineService
 		}
 
 		return $created;
+	}
+
+	/**
+	 * Synchronize only turnover contributions without changing commission lines or dues.
+	 *
+	 * @param object $proposal Proposal
+	 * @param User   $user     Triggering user
+	 * @param bool   $acquired True for a signed proposal, false for an estimate
+	 * @return int Number of created turnover contributions, -1 on error
+	 */
+	public function syncTurnoverFromProposal($proposal, $user, $acquired = true)
+	{
+		$this->resetLastResult();
+		if (!is_object($proposal) || empty($proposal->id)) {
+			$this->error = 'LmdbSalesCommissionsInvalidProposal';
+			$this->lastResult['errors']++;
+			return -1;
+		}
+		$this->fetchProposalLinesIfNeeded($proposal);
+		$businessDate = $acquired ? LmdbSalesCommissionProposalService::getSignatureDate($proposal) : LmdbSalesCommissionProposalService::getValidationDate($proposal);
+		if ($businessDate <= 0) {
+			$businessDate = dol_now();
+		}
+
+		return $this->processTurnoverContributions(
+			$proposal,
+			$user,
+			$businessDate,
+			$acquired ? self::STATUS_ACQUIRED : self::STATUS_ESTIMATED,
+			$acquired
+		);
+	}
+
+	/**
+	 * Create dedicated turnover contribution lines for objectives and tiers.
+	 *
+	 * @param object $proposal        Proposal
+	 * @param User   $user            User
+	 * @param int    $businessDate    Business date
+	 * @param int    $status          Estimated or acquired status
+	 * @param bool   $requireComplete Require a complete explicit allocation
+	 * @return int
+	 */
+	private function processTurnoverContributions($proposal, $user, $businessDate, $status, $requireComplete)
+	{
+		$service = new LmdbSalesCommissionProposalTurnoverDispatchService($this->db);
+		$allocations = $service->resolveForProposal($proposal, $requireComplete);
+		if (!is_array($allocations)) {
+			if ((int) $status === self::STATUS_ESTIMATED && $service->error === 'LmdbSalesCommissionsProposalWithoutSalesUser') {
+				return 0;
+			}
+			$this->error = $service->error;
+			$this->errors = $service->errors;
+			$this->lastResult['errors']++;
+			return -1;
+		}
+
+		$entity = (int) $proposal->entity;
+		$keptUsers = array();
+		$tierUsers = array();
+		if ((int) $status === self::STATUS_ACQUIRED) {
+			$tierUsers = $this->fetchTurnoverUsersForProposal((int) $proposal->id, (int) $proposal->entity);
+			if ($this->error !== '') {
+				return -1;
+			}
+		}
+		$created = 0;
+		$defaultCounted = false;
+		foreach ($allocations as $allocation) {
+			$amount = (float) price2num($allocation['amount'], 'MT');
+			if ($amount <= 0) {
+				continue;
+			}
+			$userId = (int) $allocation['user_id'];
+			$keptUsers[] = $userId;
+
+			$resolver = new LmdbSalesCommissionRuleResolver($this->db);
+			$profile = $resolver->resolveForUser($userId, $businessDate, $entity, 'proposal');
+			if (!empty($profile['errors'])) {
+				$this->errors = $profile['errors'];
+				$this->error = $profile['errors'][0];
+				$this->lastResult['errors']++;
+				return -1;
+			}
+			$tierRule = isset($profile['selected']['tier']) && is_array($profile['selected']['tier']) ? $profile['selected']['tier'] : null;
+			$ruleId = is_array($tierRule) ? (int) $tierRule['rule_id'] : 0;
+			$existingId = $this->fetchTurnoverLineId($entity, $userId, (int) $proposal->id);
+			if ($existingId < 0) {
+				return -1;
+			}
+
+			$line = new LmdbSalesCommissionLine($this->db);
+			if ($existingId > 0 && $line->fetch($existingId) <= 0) {
+				$this->error = $line->error;
+				$this->errors = $line->errors;
+				return -1;
+			}
+			if ($existingId > 0 && (int) $line->status === self::STATUS_ACQUIRED && (int) $status === self::STATUS_ESTIMATED) {
+				$this->lastResult['existing']++;
+				continue;
+			}
+
+			$line->entity = $entity;
+			$line->fk_user = $userId;
+			$line->fk_soc = property_exists($proposal, 'socid') ? (int) $proposal->socid : null;
+			$line->source_type = 'proposal';
+			$line->fk_source = (int) $proposal->id;
+			$line->source_ref = property_exists($proposal, 'ref') ? (string) $proposal->ref : '';
+			$line->mode = self::MODE_TURNOVER;
+			$line->amount_base = $amount;
+			$line->margin_base = null;
+			$line->rate = null;
+			$line->fk_tier = null;
+			$line->commission_total = 0.0;
+			$line->payable_total = 0.0;
+			$line->paid_total = 0.0;
+			$line->status = (int) $status;
+			$line->date_acquired = $businessDate;
+			$line->fk_rule = $ruleId;
+			$line->fk_payment_term = null;
+			$line->fk_proposal_dispatch = null;
+			$line->fk_proposal_turnover_dispatch = $allocation['dispatch_id'] > 0 ? (int) $allocation['dispatch_id'] : null;
+			$line->rule_source = is_array($tierRule) ? (string) $tierRule['source'] : ($allocation['is_default'] ? 'automatic' : self::MODE_TURNOVER);
+			$line->snapshot_rule_label = is_array($tierRule) ? (string) $tierRule['rule_label'] : 'LmdbSalesCommissionsTurnoverContribution';
+			$line->snapshot_rule_rate = null;
+			$line->snapshot_base_type = LmdbSalesCommissionProposalDispatchService::BASE_TURNOVER;
+			$line->snapshot_value_type = (string) $allocation['value_type'];
+			$line->snapshot_value = (float) $allocation['value'];
+
+			$result = $existingId > 0 ? $line->update($user) : $line->create($user);
+			if ($result <= 0) {
+				$this->error = $line->error;
+				$this->errors = $line->errors;
+				return -1;
+			}
+			if ($existingId > 0) {
+				$this->lastResult['updated']++;
+				$this->lastResult['turnover_updated']++;
+			} else {
+				$created++;
+				$this->lastResult['created']++;
+				$this->lastResult['turnover_created']++;
+			}
+			if ($allocation['is_default'] && !$defaultCounted) {
+				$this->lastResult['turnover_defaulted']++;
+				$defaultCounted = true;
+			}
+			$tierUsers[$userId] = $userId;
+		}
+
+		if ($this->cancelStaleTurnoverProposalLines($proposal, $user, $keptUsers) < 0) {
+			$this->lastResult['errors']++;
+			return -1;
+		}
+		if ((int) $status === self::STATUS_ACQUIRED && $this->cancelLegacyTierProposalLines($proposal, $user) < 0) {
+			$this->lastResult['errors']++;
+			return -1;
+		}
+
+		if ((int) $status === self::STATUS_ACQUIRED && !empty($tierUsers)) {
+			require_once __DIR__.'/lmdbsalescommissiontierservice.class.php';
+			$tierService = new LmdbSalesCommissionTierService($this->db);
+			foreach ($tierUsers as $tierUserId) {
+				$tierResult = $tierService->calculateForUser($tierUserId, $user, $businessDate, $entity);
+				if (isset($tierResult['status']) && $tierResult['status'] === 'error') {
+					$this->error = $tierService->error;
+					$this->errors = $tierService->errors;
+					$this->lastResult['errors']++;
+					return -1;
+				}
+				if (isset($tierResult['status']) && $tierResult['status'] === 'ok') {
+					$this->lastResult['tiers_recalculated']++;
+				}
+			}
+		}
+
+		return $created;
+	}
+
+	/**
+	 * Cancel removed turnover estimates or contributions.
+	 *
+	 * @param object     $proposal  Proposal
+	 * @param User       $user      User
+	 * @param array<int> $keptUsers Kept user ids
+	 * @return int
+	 */
+	private function cancelStaleTurnoverProposalLines($proposal, $user, array $keptUsers)
+	{
+		$keptUsers = array_values(array_unique(array_filter(array_map('intval', $keptUsers))));
+		$sql = 'UPDATE '.MAIN_DB_PREFIX.'lmdbsalescommissions_line SET status = '.self::STATUS_CANCELLED.', fk_user_modif = '.((int) $user->id);
+		$sql .= ' WHERE entity = '.((int) $proposal->entity)." AND source_type = 'proposal' AND fk_source = ".((int) $proposal->id);
+		$sql .= " AND mode = '".self::MODE_TURNOVER."'";
+		if (!empty($keptUsers)) {
+			$sql .= ' AND fk_user NOT IN ('.implode(',', $keptUsers).')';
+		}
+		if (!$this->db->query($sql)) {
+			$this->error = $this->db->lasterror();
+			return -1;
+		}
+
+		return 1;
+	}
+
+	/**
+	 * Cancel legacy proposal tier bases after dedicated turnover contributions exist.
+	 *
+	 * Period tier bonus lines remain active and are recalculated from turnover mode.
+	 *
+	 * @param object $proposal Proposal
+	 * @param User   $user     User
+	 * @return int
+	 */
+	private function cancelLegacyTierProposalLines($proposal, $user)
+	{
+		$sql = 'UPDATE '.MAIN_DB_PREFIX.'lmdbsalescommissions_line';
+		$sql .= ' SET status = '.self::STATUS_CANCELLED.', fk_user_modif = '.((int) $user->id);
+		$sql .= ' WHERE entity = '.((int) $proposal->entity)." AND source_type = 'proposal' AND fk_source = ".((int) $proposal->id);
+		$sql .= " AND mode = '".self::MODE_TIER."' AND status <> ".self::STATUS_CANCELLED;
+		if (!$this->db->query($sql)) {
+			$this->error = $this->db->lasterror();
+			return -1;
+		}
+
+		return 1;
 	}
 
 	/**
@@ -233,6 +461,20 @@ class LmdbSalesCommissionLineService
 		}
 
 		$entity = !empty($proposal->entity) ? (int) $proposal->entity : 1;
+		$turnoverUsers = array();
+		$sql = 'SELECT fk_user, date_acquired FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_line';
+		$sql .= ' WHERE entity = '.$entity." AND source_type = 'proposal' AND fk_source = ".((int) $proposal->id);
+		$sql .= " AND mode = '".self::MODE_TURNOVER."' AND status = ".self::STATUS_ACQUIRED;
+		$resql = $this->db->query($sql);
+		if (!$resql) {
+			$this->error = $this->db->lasterror();
+			return -1;
+		}
+		while (is_object($obj = $this->db->fetch_object($resql))) {
+			$turnoverUsers[(int) $obj->fk_user] = !empty($obj->date_acquired) ? (int) $this->db->jdate($obj->date_acquired) : dol_now();
+		}
+		$this->db->free($resql);
+
 		$sql = 'UPDATE '.MAIN_DB_PREFIX.'lmdbsalescommissions_line';
 		$sql .= ' SET status = '.self::STATUS_CANCELLED.', fk_user_modif = '.((int) $user->id);
 		$sql .= ' WHERE entity = '.$entity;
@@ -243,6 +485,18 @@ class LmdbSalesCommissionLineService
 		if (!$this->db->query($sql)) {
 			$this->error = $this->db->lasterror();
 			return -1;
+		}
+		if (!empty($turnoverUsers)) {
+			require_once __DIR__.'/lmdbsalescommissiontierservice.class.php';
+			$tierService = new LmdbSalesCommissionTierService($this->db);
+			foreach ($turnoverUsers as $turnoverUserId => $turnoverDate) {
+				$result = $tierService->calculateForUser((int) $turnoverUserId, $user, (int) $turnoverDate, $entity);
+				if (isset($result['status']) && $result['status'] === 'error') {
+					$this->error = $tierService->error;
+					$this->errors = $tierService->errors;
+					return -1;
+				}
+			}
 		}
 
 		return 1;
@@ -346,6 +600,7 @@ class LmdbSalesCommissionLineService
 		$line->fk_rule = 0;
 		$line->fk_payment_term = $calculation['payment_term_id'] > 0 ? (int) $calculation['payment_term_id'] : null;
 		$line->fk_proposal_dispatch = !empty($dispatch->id) ? (int) $dispatch->id : (int) $dispatch->rowid;
+		$line->fk_proposal_turnover_dispatch = null;
 		$line->rule_source = self::MODE_DISPATCH;
 		$line->snapshot_rule_label = 'LmdbSalesCommissionsManualDispatch';
 		$line->snapshot_rule_rate = $calculation['rate'];
@@ -438,6 +693,7 @@ class LmdbSalesCommissionLineService
 		$line->fk_rule = (int) $rule['rule_id'];
 		$line->fk_payment_term = isset($rule['fk_payment_term']) ? (int) $rule['fk_payment_term'] : null;
 		$line->fk_proposal_dispatch = null;
+		$line->fk_proposal_turnover_dispatch = null;
 		$line->rule_source = (string) $rule['source'];
 		$line->snapshot_rule_label = (string) $rule['rule_label'];
 		$line->snapshot_rule_rate = $rate;
@@ -522,6 +778,7 @@ class LmdbSalesCommissionLineService
 		$line->fk_rule = 0;
 		$line->fk_payment_term = null;
 		$line->fk_proposal_dispatch = null;
+		$line->fk_proposal_turnover_dispatch = null;
 		$line->rule_source = 'none';
 		$line->snapshot_rule_label = 'LmdbSalesCommissionsTrackingWithoutRule';
 		$line->snapshot_rule_rate = null;
@@ -553,7 +810,7 @@ class LmdbSalesCommissionLineService
 	{
 		$this->error = '';
 		$this->errors = array();
-		$this->lastResult = array('created' => 0, 'updated' => 0, 'existing' => 0, 'tracking' => 0, 'errors' => 0);
+		$this->lastResult = array('created' => 0, 'updated' => 0, 'existing' => 0, 'tracking' => 0, 'turnover_created' => 0, 'turnover_updated' => 0, 'turnover_defaulted' => 0, 'tiers_recalculated' => 0, 'errors' => 0);
 	}
 
 	/**
@@ -655,6 +912,60 @@ class LmdbSalesCommissionLineService
 		}
 
 		return 1;
+	}
+
+	/**
+	 * Fetch an existing turnover contribution independently from its snapshotted tier rule.
+	 *
+	 * @param int $entity     Entity id
+	 * @param int $userId     User id
+	 * @param int $proposalId Proposal id
+	 * @return int
+	 */
+	private function fetchTurnoverLineId($entity, $userId, $proposalId)
+	{
+		$sql = 'SELECT rowid FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_line';
+		$sql .= ' WHERE entity = '.((int) $entity).' AND fk_user = '.((int) $userId);
+		$sql .= " AND source_type = 'proposal' AND fk_source = ".((int) $proposalId);
+		$sql .= " AND mode = '".self::MODE_TURNOVER."' ORDER BY rowid DESC LIMIT 1";
+		$resql = $this->db->query($sql);
+		if (!$resql) {
+			$this->error = $this->db->lasterror();
+			return -1;
+		}
+		$obj = $this->db->fetch_object($resql);
+		$this->db->free($resql);
+
+		return is_object($obj) ? (int) $obj->rowid : 0;
+	}
+
+	/**
+	 * Fetch current turnover beneficiaries before stale rows are cancelled.
+	 *
+	 * @param int $proposalId Proposal id
+	 * @param int $entity     Entity id
+	 * @return array<int, int>
+	 */
+	private function fetchTurnoverUsersForProposal($proposalId, $entity)
+	{
+		$users = array();
+		$sql = 'SELECT DISTINCT fk_user FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_line';
+		$sql .= ' WHERE entity = '.((int) $entity)." AND source_type = 'proposal' AND fk_source = ".((int) $proposalId);
+		$sql .= " AND mode = '".self::MODE_TURNOVER."'";
+		$resql = $this->db->query($sql);
+		if (!$resql) {
+			$this->error = $this->db->lasterror();
+			return $users;
+		}
+		while (is_object($obj = $this->db->fetch_object($resql))) {
+			$userId = (int) $obj->fk_user;
+			if ($userId > 0) {
+				$users[$userId] = $userId;
+			}
+		}
+		$this->db->free($resql);
+
+		return $users;
 	}
 
 	/**

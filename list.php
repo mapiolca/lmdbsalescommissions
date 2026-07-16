@@ -123,6 +123,7 @@ $mode_options = array(
 	'tier' => $langs->trans('LmdbSalesCommissionsRuleTypeTier'),
 	'tracking' => $langs->trans('LmdbSalesCommissionsModeTracking'),
 	'dispatch' => $langs->trans('LmdbSalesCommissionsModeDispatch'),
+	'turnover' => $langs->trans('LmdbSalesCommissionsModeTurnover'),
 );
 $rule_source_options = array(
 	'user' => $langs->trans('User'),
@@ -130,6 +131,8 @@ $rule_source_options = array(
 	'default' => $langs->trans('Default'),
 	'none' => $langs->trans('None'),
 	'dispatch' => $langs->trans('LmdbSalesCommissionsManualDispatch'),
+	'turnover' => $langs->trans('LmdbSalesCommissionsTurnoverDispatch'),
+	'automatic' => $langs->trans('LmdbSalesCommissionsTurnoverDispatchAutomaticSource'),
 );
 $status_options = array(
 	'0' => $langs->trans('LmdbSalesCommissionsLineStatusEstimated'),
