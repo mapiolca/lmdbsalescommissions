@@ -4,6 +4,7 @@
 
 - Ajout de la traduction du sélecteur de box et exclusion des boxes déjà présentes sur le tableau de bord.
 - Application de la quote-part de chiffre d’affaires à la marge servant de base aux commissions sur marge.
+- Désactivation du chargement d’extrafields pour les objets techniques du module afin d’éviter les requêtes vers des tables `*_extrafields` inexistantes.
 
 ## 1.1.0 - 2026-07-16
 
