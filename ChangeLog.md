@@ -1,11 +1,5 @@
 # ChangeLog
 
-## Unreleased
-
-- Ajout de la traduction du sélecteur de box et exclusion des boxes déjà présentes sur le tableau de bord.
-- Application de la quote-part de chiffre d’affaires à la marge servant de base aux commissions sur marge.
-- Désactivation du chargement d’extrafields pour les objets techniques du module afin d’éviter les requêtes vers des tables `*_extrafields` inexistantes.
-
 ## 1.1.0 - 2026-07-16
 
 ### Nouveautés depuis la version 1.0
@@ -29,6 +23,9 @@
 - Déduplication du chiffre d’affaires et de la marge par devis dans les indicateurs globaux.
 - Normalisation des montants selon la précision configurée dans Dolibarr.
 - Amélioration du rendu natif des tableaux, actions, lignes de total et photos utilisateurs dans les widgets.
+- Ajout de la traduction du sélecteur de box et exclusion des boxes déjà présentes sur le tableau de bord.
+- Application de la quote-part de chiffre d’affaires à la marge servant de base aux commissions sur marge.
+- Désactivation du chargement d’extrafields pour les objets techniques du module afin d’éviter les requêtes vers des tables `*_extrafields` inexistantes.
 
 ## 1.0
 
