@@ -60,7 +60,7 @@ class LmdbSalesCommissionProposalService
 			return 0;
 		}
 
-		foreach (array('fk_user_comm', 'fk_user_commercial', 'commercial_id', 'fk_user_author', 'user_author_id') as $property) {
+		foreach (array('user_author_id', 'user_creation_id', 'fk_user_author', 'fk_user_comm', 'fk_user_commercial', 'commercial_id') as $property) {
 			if (property_exists($proposal, $property) && (int) $proposal->{$property} > 0) {
 				return (int) $proposal->{$property};
 			}
@@ -70,10 +70,10 @@ class LmdbSalesCommissionProposalService
 	}
 
 	/**
-	 * Resolve the effective sales user for a historical proposal.
+	 * Resolve the effective sales user for a proposal.
 	 *
-	 * Thirdparty sales representatives are the source of truth for backfills. When the
-	 * thirdparty has none or several representatives, the proposal author is used.
+	 * The native proposal author is the source of truth. A unique thirdparty sales
+	 * representative remains a compatibility fallback for legacy proposals without an author.
 	 *
 	 * @param DoliDB|null $db       Database handler
 	 * @param object      $proposal Proposal object
@@ -85,7 +85,11 @@ class LmdbSalesCommissionProposalService
 			return 0;
 		}
 
-		$authorId = self::getProposalAuthorId($proposal);
+		$authorId = self::resolveProposalAuthorId($db, $proposal);
+		if ($authorId > 0) {
+			return $authorId;
+		}
+
 		$socid = 0;
 		foreach (array('socid', 'fk_soc') as $property) {
 			if (property_exists($proposal, $property) && (int) $proposal->{$property} > 0) {
@@ -100,13 +104,6 @@ class LmdbSalesCommissionProposalService
 			if ($countSalesUsers === 1) {
 				return (int) $salesUsers[0];
 			}
-			if ($countSalesUsers > 1 && $authorId > 0 && self::isUsableUserId($db, $authorId)) {
-				return $authorId;
-			}
-		}
-
-		if ($authorId > 0 && (!is_object($db) || self::isUsableUserId($db, $authorId))) {
-			return $authorId;
 		}
 
 		foreach (array('fk_user_comm', 'fk_user_commercial', 'commercial_id') as $property) {
@@ -138,6 +135,65 @@ class LmdbSalesCommissionProposalService
 	}
 
 	/**
+	 * Resolve the active author of a proposal from the object or its native database row.
+	 *
+	 * The database fallback is required because some core trigger paths provide a proposal
+	 * object without its author property populated. The proposal entity is always included
+	 * when it is known so another entity's object cannot be used as a fallback.
+	 *
+	 * @param DoliDB|null $db       Database handler
+	 * @param object      $proposal Proposal object
+	 * @return int
+	 */
+	public static function resolveProposalAuthorId($db, $proposal)
+	{
+		if (!is_object($proposal)) {
+			return 0;
+		}
+
+		$authorId = self::getProposalAuthorId($proposal);
+		if ($authorId > 0 && (!is_object($db) || self::isUsableUserId($db, $authorId))) {
+			return $authorId;
+		}
+		if (!is_object($db)) {
+			return 0;
+		}
+
+		$proposalId = 0;
+		foreach (array('id', 'rowid') as $property) {
+			if (property_exists($proposal, $property) && (int) $proposal->{$property} > 0) {
+				$proposalId = (int) $proposal->{$property};
+				break;
+			}
+		}
+		if ($proposalId <= 0) {
+			return 0;
+		}
+
+		$entity = property_exists($proposal, 'entity') ? (int) $proposal->entity : 0;
+		$sql = 'SELECT p.fk_user_author';
+		$sql .= ' FROM '.MAIN_DB_PREFIX.'propal AS p';
+		$sql .= ' INNER JOIN '.MAIN_DB_PREFIX.'user AS u ON u.rowid = p.fk_user_author AND u.statut = 1';
+		$sql .= ' WHERE p.rowid = '.$proposalId;
+		if ($entity > 0) {
+			$sql .= ' AND p.entity = '.$entity;
+		}
+		$sql .= ' LIMIT 1';
+
+		$resql = $db->query($sql);
+		if (!$resql) {
+			dol_syslog(__METHOD__.': '.$db->lasterror(), LOG_ERR);
+			return 0;
+		}
+
+		$obj = $db->fetch_object($resql);
+		$authorId = is_object($obj) ? (int) $obj->fk_user_author : 0;
+		$db->free($resql);
+
+		return $authorId;
+	}
+
+	/**
 	 * Return proposal validation date.
 	 *
 	 * @param object $proposal Proposal object
@@ -166,7 +222,7 @@ class LmdbSalesCommissionProposalService
 	 */
 	private static function getProposalAuthorId($proposal)
 	{
-		foreach (array('fk_user_author', 'user_author_id', 'user_creation_id') as $property) {
+		foreach (array('user_author_id', 'user_creation_id', 'fk_user_author') as $property) {
 			if (property_exists($proposal, $property) && (int) $proposal->{$property} > 0) {
 				return (int) $proposal->{$property};
 			}

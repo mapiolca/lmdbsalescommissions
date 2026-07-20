@@ -195,8 +195,8 @@ class LmdbSalesCommissionProposalTurnoverDispatchService
 			return null;
 		}
 		if (empty($rows)) {
-			$userId = LmdbSalesCommissionProposalService::resolveSalesUserId($this->db, $proposal);
-			if ($userId <= 0 || !$this->isUserUsable($userId, (int) ($proposal->entity ?? 0))) {
+			$userId = LmdbSalesCommissionProposalService::resolveProposalAuthorId($this->db, $proposal);
+			if ($userId <= 0) {
 				$this->error = 'LmdbSalesCommissionsProposalWithoutSalesUser';
 				return null;
 			}

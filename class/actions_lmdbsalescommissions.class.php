@@ -212,7 +212,7 @@ class ActionsLmdbSalesCommissions
 			return $result;
 		}
 
-		$salesUserId = LmdbSalesCommissionProposalService::getSalesUserId($object);
+		$salesUserId = LmdbSalesCommissionProposalService::resolveSalesUserId($this->db, $object);
 		if ($salesUserId <= 0) {
 			return array();
 		}

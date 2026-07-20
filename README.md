@@ -15,7 +15,7 @@ Par rapport à la version 1.0, cette version apporte principalement :
 - la détection des factures payées liées directement au devis ou par l’intermédiaire de ses commandes ;
 - un réglage par entité pour choisir la condition de libération de l’échéance de facture finale ;
 - l’adaptation du rattrapage, des exports et des indicateurs au nouveau fonctionnement multi-commerciaux.
-- le rattrapage des devis déjà signés avec attribution automatique au commercial principal lorsque l’historique ne contient aucune répartition de CA.
+- le rattrapage des devis déjà signés avec attribution automatique au commercial auteur lorsque l’historique ne contient aucune répartition de CA.
 
 ## Périmètre de la version 1.1.0
 
@@ -52,7 +52,7 @@ Il ne contient pas le préfixe `htdocs/custom/`, car ce chemin est géré par Do
 - Estimation de commission sur la fiche devis.
 - Onglet devis **Répartition commissions / CA** avec une section de commission et une section d’attribution du chiffre d’affaires indépendantes.
 - Attribution du CA par montant HT ou pourcentage, avec contrôle immédiat du dépassement et contrôle strict des 100 % à la signature.
-- Attribution automatique de 100 % du CA au commercial principal lorsqu’aucune ligne explicite n’est saisie.
+- Attribution automatique de 100 % du CA au commercial auteur du devis lorsqu’aucune ligne explicite n’est saisie.
 - Héritage automatique des modalités configurées : règle de marge, puis règle de palier, puis paiement intégral à la signature.
 - Sélection explicite d’une modalité de versement existante configurée dans le module.
 - Calcul des commissions à partir de leur propre répartition, tandis que les paliers et objectifs utilisent exclusivement le CA attribué.
@@ -94,7 +94,7 @@ Tous les exports restent centralisés dans **Facturation | Paiement > Commission
 
 Une répartition manuelle peut être créée depuis l’onglet **Répartition commissions / CA** d’un devis en brouillon ou validé non signé. Chaque section est indépendante et chaque commercial ne peut apparaître qu’une fois dans une même section. Les montants fixes doivent être strictement positifs et ne peuvent pas dépasser leur base ; les pourcentages doivent être compris entre 0 % exclu et 100 % inclus.
 
-La répartition des commissions détermine les commissions et leurs modalités de versement. L’attribution du CA alimente séparément les paliers, objectifs et indicateurs individuels. Une attribution explicite peut rester temporairement inférieure à 100 %, mais elle doit représenter exactement 100 % du CA HT à la signature. Sans attribution explicite, 100 % du CA est affecté au commercial principal ; si celui-ci est absent, la signature est refusée. Après signature, les deux répartitions restent consultables mais ne peuvent plus être modifiées.
+La répartition des commissions détermine les commissions et leurs modalités de versement. L’attribution du CA alimente séparément les paliers, objectifs et indicateurs individuels. Une attribution explicite peut rester temporairement inférieure à 100 %, mais elle doit représenter exactement 100 % du CA HT à la signature. Sans attribution explicite, 100 % du CA est affecté au commercial auteur du devis ; si aucun auteur actif ne peut être résolu, la signature est refusée. Après signature, les deux répartitions restent consultables mais ne peuvent plus être modifiées.
 
 ## Mise à niveau depuis la version 1.0
 
@@ -102,7 +102,7 @@ La répartition des commissions détermine les commissions et leurs modalités d
 2. Remplacer le contenu du module par la version 1.1.0.
 3. Désactiver puis réactiver le module afin d’exécuter la migration idempotente des tables, colonnes et index nécessaires aux répartitions de commissions et de CA.
 4. Vérifier le réglage de libération de l’échéance de facture finale dans les paramètres généraux.
-5. Exécuter les contrôles de cohérence et le rattrapage des devis existants si leur CA doit être attribué aux commerciaux. Sans historique explicite, le traitement affecte 100 % du CA au commercial principal du devis.
+5. Exécuter les contrôles de cohérence et le rattrapage des devis existants si leur CA doit être attribué aux commerciaux. Sans historique explicite, le traitement affecte 100 % du CA au commercial auteur du devis.
 
 La désactivation temporaire conserve les réglages métier du module. La migration ajoute les données de répartition sans remettre en cause les commissions déjà enregistrées.
 
@@ -122,7 +122,7 @@ La désactivation temporaire conserve les réglages métier du module. La migrat
 - CA réparti à 60/40 entre deux commerciaux, par pourcentages, montants ou combinaison des deux, sans double comptabilisation globale.
 - Commercial recevant uniquement du CA, uniquement une commission, ou les deux.
 - Répartition de CA incomplète visible et signature refusée ; dépassement refusé dès l’enregistrement.
-- Ancien devis signé attribué à 100 % à son commercial principal lors du rattrapage, sans doublon au second passage.
+- Ancien devis signé attribué à 100 % à son commercial auteur lors du rattrapage, sans doublon au second passage.
 - Archive d’objectif actualisée et échéance déjà versée conservée lors du recalcul.
 - Modalité de versement explicitement sélectionnée ou héritée des réglages du commercial.
 - Répartition verrouillée après signature et visible selon le périmètre de droits propre, groupe ou global.

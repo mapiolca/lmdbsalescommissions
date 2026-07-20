@@ -7,7 +7,7 @@
 - Répartition manuelle des commissions d’un devis entre plusieurs commerciaux, par montant fixe ou pourcentage calculé sur la marge ou le chiffre d’affaires HT.
 - Attribution indépendante du chiffre d’affaires entre plusieurs commerciaux, par montant HT, pourcentage ou combinaison des deux, afin d’alimenter leurs paliers et objectifs sans doubler le CA global.
 - Nouvel onglet **Répartition commissions / CA** sur les devis, avec deux sections distinctes, modifiables avant signature puis verrouillées.
-- Attribution automatique de 100 % du CA au commercial principal lorsqu’aucune répartition explicite n’est définie.
+- Attribution automatique de 100 % du CA au commercial auteur du devis lorsqu’aucune répartition explicite n’est définie.
 - Sélection explicite d’une modalité de versement par bénéficiaire ou héritage automatique depuis ses règles de commission.
 - Enregistrement des commissions estimées dès la validation du devis, afin de fiabiliser le suivi du tunnel commercial.
 - Détection des échéances payables à partir des factures client liées directement au devis ou rattachées aux commandes issues du devis.
@@ -18,7 +18,8 @@
 - Adaptation du rattrapage, des contrôles de cohérence, des exports, des listes et des indicateurs aux répartitions multi-commerciaux.
 - Extension du rattrapage aux devis déjà signés : création idempotente des contributions de CA, recalcul des paliers et actualisation des archives d’objectifs.
 - Conservation des commissions et échéances existantes lors d’une resynchronisation du CA ; les échéances versées ne sont jamais modifiées et leurs écarts sont signalés.
-- Blocage de la signature lorsqu’une répartition explicite de CA ne couvre pas exactement 100 % ou lorsqu’aucun commercial principal n’est disponible pour l’attribution automatique.
+- Blocage de la signature lorsqu’une répartition explicite de CA ne couvre pas exactement 100 % ou lorsque le devis ne possède aucun auteur actif pour l’attribution automatique.
+- Correction de la signature sans répartition explicite : l’auteur natif du devis est désormais résolu en priorité, y compris lorsque le trigger transmet un objet sans auteur chargé ou que l’utilisateur auteur appartient à une autre entité d’origine.
 - Création des estimations manquantes pour les devis validés et détection des échéances déjà payables pour les devis signés lors du rattrapage.
 - Déduplication du chiffre d’affaires et de la marge par devis dans les indicateurs globaux.
 - Normalisation des montants selon la précision configurée dans Dolibarr.
