@@ -22,7 +22,7 @@ class InterfaceLmdbSalesCommissionsTriggers
 	public $description = 'LmdbSalesCommissionsTriggers';
 
 	/** @var string Version */
-	public $version = '1.0';
+	public $version = '1.1.0';
 
 	/** @var string Picto */
 	public $picto = 'fa-percent';
@@ -61,11 +61,41 @@ class InterfaceLmdbSalesCommissionsTriggers
 			return 0;
 		}
 
-		if ($action !== 'PROPAL_VALIDATE' && $action !== 'PROPAL_CLOSE_SIGNED' && $action !== 'PROPAL_CLOSE_REFUSED' && $action !== 'PROPAL_DELETE') {
+		$proposalUpdateActions = array('PROPAL_MODIFY', 'LINEPROPAL_INSERT', 'LINEPROPAL_UPDATE', 'LINEPROPAL_DELETE');
+		if ($action !== 'PROPAL_VALIDATE' && $action !== 'PROPAL_CLOSE_SIGNED' && $action !== 'PROPAL_CLOSE_REFUSED' && $action !== 'PROPAL_DELETE' && !in_array($action, $proposalUpdateActions, true)) {
 			return 0;
 		}
 
 		require_once dol_buildpath('/lmdbsalescommissions/class/lmdbsalescommissionlineservice.class.php', 0);
+		if (in_array($action, $proposalUpdateActions, true)) {
+			$proposal = $object;
+			if ($action !== 'PROPAL_MODIFY') {
+				$proposalId = property_exists($object, 'fk_propal') ? (int) $object->fk_propal : 0;
+				if ($proposalId <= 0) {
+					return 0;
+				}
+				require_once DOL_DOCUMENT_ROOT.'/comm/propal/class/propal.class.php';
+				$proposal = new Propal($this->db);
+				if ($proposal->fetch($proposalId) <= 0) {
+					$this->error = $proposal->error ?: 'ErrorRecordNotFound';
+					return -1;
+				}
+			}
+			$status = property_exists($proposal, 'statut') ? (int) $proposal->statut : (property_exists($proposal, 'status') ? (int) $proposal->status : -1);
+			$signatureDate = property_exists($proposal, 'date_signature') ? (int) $proposal->date_signature : 0;
+			if ($status !== 1 || $signatureDate > 0) {
+				return 0;
+			}
+			$service = new LmdbSalesCommissionLineService($this->db);
+			$result = $service->estimateFromProposal($proposal, $user);
+			if ($result < 0) {
+				$this->error = $service->error;
+				$this->errors = $service->errors;
+				return -1;
+			}
+
+			return 0;
+		}
 
 		$service = new LmdbSalesCommissionLineService($this->db);
 		if ($action === 'PROPAL_VALIDATE') {
@@ -87,6 +117,22 @@ class InterfaceLmdbSalesCommissionsTriggers
 			if ($result < 0) {
 				$this->error = $service->error;
 				return -1;
+			}
+			if ($action === 'PROPAL_DELETE') {
+				require_once dol_buildpath('/lmdbsalescommissions/class/lmdbsalescommissionproposaldispatchservice.class.php', 0);
+				require_once dol_buildpath('/lmdbsalescommissions/class/lmdbsalescommissionproposalturnoverdispatchservice.class.php', 0);
+				$dispatchService = new LmdbSalesCommissionProposalDispatchService($this->db);
+				if ($dispatchService->deleteForProposal($object, $user) < 0) {
+					$this->error = $dispatchService->error;
+					$this->errors = $dispatchService->errors;
+					return -1;
+				}
+				$turnoverDispatchService = new LmdbSalesCommissionProposalTurnoverDispatchService($this->db);
+				if ($turnoverDispatchService->deleteForProposal($object, $user) < 0) {
+					$this->error = $turnoverDispatchService->error;
+					$this->errors = $turnoverDispatchService->errors;
+					return -1;
+				}
 			}
 		}
 

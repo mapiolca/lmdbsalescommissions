@@ -28,9 +28,14 @@ class LmdbSalesCommissionLine extends LmdbSalesCommissionCommon
 	public $date_acquired;
 	public $fk_rule;
 	public $fk_payment_term;
+	public $fk_proposal_dispatch;
+	public $fk_proposal_turnover_dispatch;
 	public $rule_source;
 	public $snapshot_rule_label;
 	public $snapshot_rule_rate;
+	public $snapshot_base_type;
+	public $snapshot_value_type;
+	public $snapshot_value;
 	public $note_private;
 	public $date_creation;
 	public $tms;
@@ -55,9 +60,14 @@ class LmdbSalesCommissionLine extends LmdbSalesCommissionCommon
 		'date_acquired' => array('type' => 'datetime', 'label' => 'LmdbSalesCommissionsDateAcquired', 'enabled' => '1', 'visible' => 1, 'position' => 150),
 		'fk_rule' => array('type' => 'integer', 'label' => 'LmdbSalesCommissionsRule', 'enabled' => '1', 'visible' => 1, 'position' => 160),
 		'fk_payment_term' => array('type' => 'integer', 'label' => 'LmdbSalesCommissionsPaymentTerms', 'enabled' => '1', 'visible' => 1, 'position' => 165),
+		'fk_proposal_dispatch' => array('type' => 'integer', 'label' => 'LmdbSalesCommissionsProposalDispatch', 'enabled' => '1', 'visible' => 0, 'position' => 166),
+		'fk_proposal_turnover_dispatch' => array('type' => 'integer', 'label' => 'LmdbSalesCommissionsProposalTurnoverDispatch', 'enabled' => '1', 'visible' => 0, 'position' => 167),
 		'rule_source' => array('type' => 'varchar(32)', 'label' => 'LmdbSalesCommissionsRuleSource', 'enabled' => '1', 'visible' => 1, 'position' => 170),
 		'snapshot_rule_label' => array('type' => 'varchar(255)', 'label' => 'LmdbSalesCommissionsSnapshotRuleLabel', 'enabled' => '1', 'visible' => 0, 'position' => 180),
 		'snapshot_rule_rate' => array('type' => 'double(10,4)', 'label' => 'LmdbSalesCommissionsSnapshotRuleRate', 'enabled' => '1', 'visible' => 0, 'position' => 190),
+		'snapshot_base_type' => array('type' => 'varchar(16)', 'label' => 'LmdbSalesCommissionsDispatchBase', 'enabled' => '1', 'visible' => 0, 'position' => 191),
+		'snapshot_value_type' => array('type' => 'varchar(16)', 'label' => 'LmdbSalesCommissionsDispatchValueType', 'enabled' => '1', 'visible' => 0, 'position' => 192),
+		'snapshot_value' => array('type' => 'double(24,8)', 'label' => 'LmdbSalesCommissionsDispatchValue', 'enabled' => '1', 'visible' => 0, 'position' => 193),
 		'note_private' => array('type' => 'text', 'label' => 'NotePrivate', 'enabled' => '1', 'visible' => 0, 'position' => 200),
 		'date_creation' => array('type' => 'datetime', 'label' => 'DateCreation', 'enabled' => '1', 'visible' => -2, 'notnull' => 1, 'position' => 500),
 		'tms' => array('type' => 'timestamp', 'label' => 'DateModification', 'enabled' => '1', 'visible' => -2, 'noteditable' => 1, 'position' => 501),

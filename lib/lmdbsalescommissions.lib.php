@@ -155,6 +155,17 @@ function lmdbsalescommissionsCanDo($user, $object, $action)
 }
 
 /**
+ * Check whether the user may manage proposal commission dispatches.
+ *
+ * @param User $user Current user
+ * @return bool
+ */
+function lmdbsalescommissionsCanManageDispatch($user)
+{
+	return lmdbsalescommissionsCanDo($user, 'commission', 'dispatch');
+}
+
+/**
  * Check if user can read at least one commission scope.
  *
  * @param User $user Current user
@@ -467,6 +478,8 @@ function lmdbsalescommissionsGetModeLabel($langs, $mode)
 		'margin' => 'LmdbSalesCommissionsRuleTypeMargin',
 		'tier' => 'LmdbSalesCommissionsRuleTypeTier',
 		'tracking' => 'LmdbSalesCommissionsModeTracking',
+		'dispatch' => 'LmdbSalesCommissionsModeDispatch',
+		'turnover' => 'LmdbSalesCommissionsModeTurnover',
 	);
 
 	return $langs->trans($labels[$mode] ?? $mode);
@@ -486,6 +499,9 @@ function lmdbsalescommissionsGetRuleSourceLabel($langs, $ruleSource)
 		'group' => 'Group',
 		'default' => 'Default',
 		'none' => 'None',
+		'dispatch' => 'LmdbSalesCommissionsManualDispatch',
+		'turnover' => 'LmdbSalesCommissionsTurnoverDispatch',
+		'automatic' => 'LmdbSalesCommissionsTurnoverDispatchAutomaticSource',
 	);
 
 	return $langs->trans($labels[$ruleSource] ?? $ruleSource);
@@ -800,6 +816,60 @@ function lmdbsalescommissionsGetPaymentTermOptions($db, $showEmpty = true)
 }
 
 /**
+ * Return active payment terms owned by one entity.
+ *
+ * @param DoliDB $db        Database handler
+ * @param int    $entity    Owning entity
+ * @param bool   $showEmpty Add empty option
+ * @return array<int, string>
+ */
+function lmdbsalescommissionsGetPaymentTermOptionsForEntity($db, $entity, $showEmpty = true)
+{
+	$options = array();
+	if ($showEmpty) {
+		$options[0] = '';
+	}
+	$sql = 'SELECT pt.rowid, pt.ref, pt.label';
+	$sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_payment_term AS pt';
+	$sql .= ' LEFT JOIN '.MAIN_DB_PREFIX.'lmdbsalescommissions_payment_term_line AS ptl ON ptl.fk_payment_term = pt.rowid AND ptl.entity = pt.entity';
+	$sql .= ' WHERE pt.entity = '.((int) $entity);
+	$sql .= ' AND pt.active = 1';
+	$sql .= ' GROUP BY pt.rowid, pt.ref, pt.label';
+	$sql .= ' HAVING ABS(SUM(CASE WHEN ptl.active = 1 THEN ptl.percentage ELSE 0 END) - 100) <= 0.0001';
+	$sql .= ' ORDER BY pt.label ASC, pt.ref ASC';
+	$resql = $db->query($sql);
+	if (!$resql) {
+		dol_syslog(__METHOD__.': '.$db->lasterror(), LOG_ERR);
+		return $options;
+	}
+	while (is_object($obj = $db->fetch_object($resql))) {
+		$options[(int) $obj->rowid] = trim((string) $obj->ref.' - '.(string) $obj->label);
+	}
+	$db->free($resql);
+
+	return $options;
+}
+
+/**
+ * Format a manual proposal dispatch formula.
+ *
+ * @param Translate      $langs     Translation service
+ * @param string         $baseType  margin or turnover
+ * @param string         $valueType amount or percentage
+ * @param float|int|string|null $value Formula value
+ * @return string
+ */
+function lmdbsalescommissionsFormatDispatchFormula($langs, $baseType, $valueType, $value)
+{
+	$baseLabel = $baseType === 'margin' ? $langs->trans('Margin') : $langs->trans('AmountHT');
+	if ($valueType === 'percentage') {
+		return lmdbsalescommissionsFormatTotalAmount($value).' % '.$baseLabel;
+	}
+
+	return lmdbsalescommissionsFormatTotalAmount($value).' — '.$baseLabel;
+}
+
+/**
  * Return tier grid options for select controls.
  *
  * @param DoliDB $db        Database handler
@@ -896,6 +966,40 @@ function lmdbsalescommissionsGetUserOptions($db, $showEmpty = true)
 	while (is_object($obj = $db->fetch_object($resql))) {
 		$name = trim((string) $obj->firstname.' '.(string) $obj->lastname);
 		$options[(int) $obj->rowid] = ($name !== '' ? $name : (string) $obj->login);
+	}
+	$db->free($resql);
+
+	return $options;
+}
+
+/**
+ * Return active users usable by an object owned by one entity.
+ *
+ * @param DoliDB $db        Database handler
+ * @param int    $entity    Owning entity
+ * @param bool   $showEmpty Add empty option
+ * @return array<int, string>
+ */
+function lmdbsalescommissionsGetUserOptionsForEntity($db, $entity, $showEmpty = true)
+{
+	$options = array();
+	if ($showEmpty) {
+		$options[0] = '';
+	}
+
+	$sql = 'SELECT rowid, login, lastname, firstname';
+	$sql .= ' FROM '.MAIN_DB_PREFIX.'user';
+	$sql .= ' WHERE entity IN (0,'.((int) $entity).')';
+	$sql .= ' AND statut = 1';
+	$sql .= ' ORDER BY lastname ASC, firstname ASC, login ASC';
+	$resql = $db->query($sql);
+	if (!$resql) {
+		dol_syslog(__METHOD__.': '.$db->lasterror(), LOG_ERR);
+		return $options;
+	}
+	while (is_object($obj = $db->fetch_object($resql))) {
+		$name = trim((string) $obj->firstname.' '.(string) $obj->lastname);
+		$options[(int) $obj->rowid] = $name !== '' ? $name : (string) $obj->login;
 	}
 	$db->free($resql);
 

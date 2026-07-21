@@ -1,0 +1,4 @@
+ALTER TABLE llx_lmdbsalescommissions_proposal_turnover_dispatch ADD UNIQUE INDEX uk_lmdbsalescommissions_turnover_dispatch_user (entity, fk_propal, fk_user);
+ALTER TABLE llx_lmdbsalescommissions_proposal_turnover_dispatch ADD INDEX idx_lmdbsalescommissions_turnover_dispatch_entity (entity);
+ALTER TABLE llx_lmdbsalescommissions_proposal_turnover_dispatch ADD INDEX idx_lmdbsalescommissions_turnover_dispatch_propal (fk_propal);
+ALTER TABLE llx_lmdbsalescommissions_proposal_turnover_dispatch ADD INDEX idx_lmdbsalescommissions_turnover_dispatch_user (fk_user);

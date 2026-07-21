@@ -4,6 +4,7 @@
 require_once __DIR__.'/lmdbsalescommissionobjectivearchiveservice.class.php';
 require_once __DIR__.'/lmdbsalescommissiondueservice.class.php';
 require_once __DIR__.'/lmdbsalescommissionline.class.php';
+require_once __DIR__.'/lmdbsalescommissionturnoverservice.class.php';
 
 /**
  * Native scheduled jobs for sales commissions.
@@ -206,12 +207,14 @@ class LmdbSalesCommissionCron
 
 		$sql = 'SELECT SUM(src.amount_base) AS realized';
 		$sql .= ' FROM (';
-		$sql .= ' SELECT entity, fk_user, source_type, fk_source, MAX(amount_base) AS amount_base';
-		$sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_line';
+		$sql .= ' SELECT entity, fk_user, source_type, fk_source,';
+		$sql .= ' '.LmdbSalesCommissionTurnoverService::buildAttributedAmountExpression('l', false).' AS amount_base';
+		$sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_line AS l';
 		$sql .= ' WHERE entity = '.((int) $entity);
 		$sql .= ' AND fk_user = '.((int) $fkUser);
 		$sql .= " AND source_type = 'proposal'";
 		$sql .= ' AND status = 1';
+		$sql .= " AND mode <> 'dispatch'";
 		$sql .= " AND date_acquired >= '".$this->db->idate($dateStart)."'";
 		$sql .= " AND date_acquired <= '".$this->db->idate($dateEnd)."'";
 		$sql .= ' GROUP BY entity, fk_user, source_type, fk_source';

@@ -19,6 +19,12 @@ include_once DOL_DOCUMENT_ROOT.'/core/modules/DolibarrModules.class.php';
  */
 class modLmdbSalesCommissions extends DolibarrModules
 {
+	/** @var string Translation key for the main features summary */
+	public $about_main_features = 'LmdbSalesCommissionsMainFeaturesSummary';
+
+	/** @var string Module license identifier */
+	public $module_license = 'AGPL-3.0-or-later';
+
 	/**
 	 * Constructor.
 	 *
@@ -37,7 +43,7 @@ class modLmdbSalesCommissions extends DolibarrModules
 		$this->name = preg_replace('/^mod/i', '', get_class($this));
 		$this->description = 'LmdbSalesCommissionsDesc';
 		$this->descriptionlong = 'LmdbSalesCommissionsDescLong';
-		$this->version = '1.0';
+		$this->version = '1.1.0';
 		$this->const_name = 'MAIN_MODULE_'.strtoupper($this->name);
 		$this->picto = 'fa-percent_fas_#f0b400';
 		$this->editor_name = 'Pierre Ardoin';
@@ -66,6 +72,7 @@ class modLmdbSalesCommissions extends DolibarrModules
 		$this->const = array();
 		$this->tabs = array(
 			'user:+lmdbsalescommissions:LmdbSalesCommissions:lmdbsalescommissions@lmdbsalescommissions:$user->admin || $user->hasRight("lmdbsalescommissions", "commission", "readown") || $user->hasRight("lmdbsalescommissions", "commission", "readall") || $user->hasRight("lmdbsalescommissions", "commission", "readgroup"):/lmdbsalescommissions/user_commissions.php?id=__ID__',
+			'propal:+lmdbsalescommissions_dispatch:LmdbSalesCommissionsProposalDispatch:lmdbsalescommissions@lmdbsalescommissions:$user->admin || $user->hasRight("lmdbsalescommissions", "commission", "dispatch") || $user->hasRight("lmdbsalescommissions", "commission", "readown") || $user->hasRight("lmdbsalescommissions", "commission", "readall") || $user->hasRight("lmdbsalescommissions", "commission", "readgroup"):/lmdbsalescommissions/proposal_dispatch.php?id=__ID__',
 		);
 		$this->boxes = array(
 			array(
@@ -247,6 +254,12 @@ class modLmdbSalesCommissions extends DolibarrModules
 		$this->rights[$r][4] = 'objective';
 		$this->rights[$r][5] = 'archive';
 
+		$r++;
+		$this->rights[$r][0] = $this->numero * 100 + $r;
+		$this->rights[$r][1] = 'LmdbSalesCommissionsPermissionDispatchCommissions';
+		$this->rights[$r][4] = 'commission';
+		$this->rights[$r][5] = 'dispatch';
+
 		$this->menu = array();
 		$r = 0;
 
@@ -355,12 +368,81 @@ class modLmdbSalesCommissions extends DolibarrModules
 	public function init($options = '')
 	{
 		$sql = array();
+		if ($this->upgradeCommissionLineDispatchSchema(false) < 0) {
+			return -1;
+		}
 		$result = $this->_load_tables('/lmdbsalescommissions/sql/');
 		if ($result < 0) {
 			return -1;
 		}
+		if ($this->upgradeCommissionLineDispatchSchema(true) < 0) {
+			return -1;
+		}
 
 		return $this->_init($sql, $options);
+	}
+
+	/**
+	 * Add dispatch snapshot columns to an existing installation.
+	 *
+	 * @param bool $tableMustExist Fail when the base table is still unavailable
+	 * @return int
+	 */
+	private function upgradeCommissionLineDispatchSchema($tableMustExist)
+	{
+		$table = MAIN_DB_PREFIX.'lmdbsalescommissions_line';
+		$resql = $this->db->query("SHOW TABLES LIKE '".$this->db->escape($table)."'");
+		if (!$resql) {
+			return -1;
+		}
+		$tableExists = $this->db->num_rows($resql) > 0;
+		$this->db->free($resql);
+		if (!$tableExists) {
+			return $tableMustExist ? -1 : 0;
+		}
+
+		$columns = array(
+			'fk_proposal_dispatch' => 'integer DEFAULT NULL',
+			'fk_proposal_turnover_dispatch' => 'integer DEFAULT NULL',
+			'snapshot_base_type' => 'varchar(16) DEFAULT NULL',
+			'snapshot_value_type' => 'varchar(16) DEFAULT NULL',
+			'snapshot_value' => 'double(24,8) DEFAULT NULL',
+		);
+		foreach ($columns as $column => $definition) {
+			$resql = $this->db->query("SHOW COLUMNS FROM ".$table." LIKE '".$this->db->escape($column)."'");
+			if (!$resql) {
+				return -1;
+			}
+			$exists = $this->db->num_rows($resql) > 0;
+			$this->db->free($resql);
+			if (!$exists && !$this->db->query('ALTER TABLE '.$table.' ADD COLUMN '.$column.' '.$definition)) {
+				return -1;
+			}
+		}
+
+		$indexName = 'idx_lmdbsalescommissions_line_dispatch';
+		$resql = $this->db->query("SHOW INDEX FROM ".$table." WHERE Key_name = '".$this->db->escape($indexName)."'");
+		if (!$resql) {
+			return -1;
+		}
+		$indexExists = $this->db->num_rows($resql) > 0;
+		$this->db->free($resql);
+		if (!$indexExists && !$this->db->query('ALTER TABLE '.$table.' ADD INDEX '.$indexName.' (fk_proposal_dispatch)')) {
+			return -1;
+		}
+
+		$turnoverIndexName = 'idx_lmdbsalescommissions_line_turnover_dispatch';
+		$resql = $this->db->query("SHOW INDEX FROM ".$table." WHERE Key_name = '".$this->db->escape($turnoverIndexName)."'");
+		if (!$resql) {
+			return -1;
+		}
+		$turnoverIndexExists = $this->db->num_rows($resql) > 0;
+		$this->db->free($resql);
+		if (!$turnoverIndexExists && !$this->db->query('ALTER TABLE '.$table.' ADD INDEX '.$turnoverIndexName.' (fk_proposal_turnover_dispatch)')) {
+			return -1;
+		}
+
+		return 1;
 	}
 
 	/**

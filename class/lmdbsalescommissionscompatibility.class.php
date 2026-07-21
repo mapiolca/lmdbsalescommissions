@@ -92,6 +92,17 @@ class LmdbSalesCommissionsCompatibility
 				'available' => defined('DOL_DOCUMENT_ROOT') && file_exists(DOL_DOCUMENT_ROOT.'/compta/facture/class/facture.class.php'),
 				'reason' => 'LmdbSalesCommissionsNativeInvoicePaymentDetectionUnavailable',
 			),
+			'proposal_dispatch' => array(
+				'label' => 'LmdbSalesCommissionsCompatibilityProposalDispatch',
+				'description' => 'LmdbSalesCommissionsCompatibilityProposalDispatchDesc',
+				'min_dolibarr' => self::MIN_DOLIBARR_VERSION,
+				'core_available_from' => self::MIN_DOLIBARR_VERSION,
+				'module_available_from' => self::MIN_DOLIBARR_VERSION,
+				'min_php' => self::MIN_PHP_VERSION,
+				'compatibility_check' => 'file_exists(DOL_DOCUMENT_ROOT."/comm/propal/class/propal.class.php") && function_exists("price2num")',
+				'available' => defined('DOL_DOCUMENT_ROOT') && file_exists(DOL_DOCUMENT_ROOT.'/comm/propal/class/propal.class.php') && function_exists('price2num'),
+				'reason' => 'LmdbSalesCommissionsProposalDispatchUnavailable',
+			),
 		);
 	}
 

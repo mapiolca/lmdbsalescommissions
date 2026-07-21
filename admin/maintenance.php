@@ -158,9 +158,15 @@ if ($action === 'archiveobjective') {
 			$stats['tracking'],
 			$stats['skipped_no_user'],
 			$stats['payable_detected'],
+			$stats['turnover_created'],
+			$stats['turnover_updated'],
+			$stats['turnover_defaulted'],
+			$stats['tiers_recalculated'],
+			$stats['objective_archives_updated'],
+			$stats['paid_due_anomalies'],
 			$stats['errors']
 		);
-		if ($stats['errors'] > 0) {
+		if ($stats['errors'] > 0 || $stats['paid_due_anomalies'] > 0) {
 			$errors = $retroactiveService->error !== '' ? array($langs->trans($retroactiveService->error)) : array();
 			$errors = array_merge($errors, $retroactiveService->errors);
 			setEventMessages($message, $errors, 'warnings');

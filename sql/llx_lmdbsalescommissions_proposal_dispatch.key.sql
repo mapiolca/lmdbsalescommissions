@@ -1,0 +1,5 @@
+ALTER TABLE llx_lmdbsalescommissions_proposal_dispatch ADD UNIQUE INDEX uk_lmdbsalescommissions_proposal_dispatch_user (entity, fk_propal, fk_user);
+ALTER TABLE llx_lmdbsalescommissions_proposal_dispatch ADD INDEX idx_lmdbsalescommissions_proposal_dispatch_entity (entity);
+ALTER TABLE llx_lmdbsalescommissions_proposal_dispatch ADD INDEX idx_lmdbsalescommissions_proposal_dispatch_propal (fk_propal);
+ALTER TABLE llx_lmdbsalescommissions_proposal_dispatch ADD INDEX idx_lmdbsalescommissions_proposal_dispatch_user (fk_user);
+ALTER TABLE llx_lmdbsalescommissions_proposal_dispatch ADD INDEX idx_lmdbsalescommissions_proposal_dispatch_payment (fk_payment_term);

@@ -29,8 +29,8 @@ abstract class LmdbSalesCommissionCommon extends CommonObject
 	/** @var int Multicompany management mode */
 	public $ismultientitymanaged = 1;
 
-	/** @var int Extrafields management mode */
-	public $isextrafieldmanaged = 1;
+	/** @var int Extrafields management mode (no extrafields tables are provided) */
+	public $isextrafieldmanaged = 0;
 
 	/** @var array<string, array<string, mixed>> Field definitions */
 	public $fields = array();

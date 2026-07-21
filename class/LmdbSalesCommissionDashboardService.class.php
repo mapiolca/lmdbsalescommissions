@@ -4,6 +4,7 @@
 require_once dol_buildpath('/lmdbsalescommissions/lib/lmdbsalescommissions.lib.php', 0);
 require_once dol_buildpath('/lmdbsalescommissions/class/lmdbsalescommissiondueservice.class.php', 0);
 require_once dol_buildpath('/lmdbsalescommissions/class/lmdbsalescommissionobjectiveresolver.class.php', 0);
+require_once dol_buildpath('/lmdbsalescommissions/class/lmdbsalescommissionturnoverservice.class.php', 0);
 
 /**
  * @phpstan-type DashboardFilters array{
@@ -128,7 +129,7 @@ class LmdbSalesCommissionDashboardService
 		if (!in_array($normalized['source'], array('all', 'proposal', 'order', 'contract'), true)) {
 			$normalized['source'] = 'all';
 		}
-		if (!in_array($normalized['commission_type'], array('all', 'margin', 'tier'), true)) {
+		if (!in_array($normalized['commission_type'], array('all', 'margin', 'tier', 'dispatch', 'turnover'), true)) {
 			$normalized['commission_type'] = 'all';
 		}
 		if (!in_array($normalized['status'], array('all', 'estimated', 'acquired', 'payable', 'paid', 'cancelled', 'blocked'), true)) {
@@ -331,7 +332,7 @@ class LmdbSalesCommissionDashboardService
 		$sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_line AS l';
 		$sql .= ' LEFT JOIN '.MAIN_DB_PREFIX.'user AS u ON u.rowid = l.fk_user';
 		$sql .= ' WHERE l.status = 1'.$where;
-		$sql .= ' AND l.fk_rule > 0';
+		$sql .= " AND (l.fk_rule > 0 OR l.mode = 'dispatch')";
 		$sql .= ' GROUP BY l.fk_user, u.lastname, u.firstname, u.login, u.statut, u.photo, u.email';
 		$sql .= ' ORDER BY commission_total DESC';
 		$sql .= $this->db->plimit($limit);
@@ -354,13 +355,14 @@ class LmdbSalesCommissionDashboardService
 		$objective = $this->getObjectiveTarget($objectiveType, $filters, $user, $year, $month);
 
 		$periodFilters = $filters;
+		$periodFilters['commission_type'] = 'all';
 		$periodFilters['year'] = $year;
 		if ($objectiveType === 'monthly') {
 			$periodFilters['month'] = $month;
 		} else {
 			$periodFilters['month'] = 0;
 		}
-		$realized = $this->getSignedBaseTotals($periodFilters, $user);
+		$realized = $this->getSignedBaseTotals($periodFilters, $user, true);
 		$realizedValue = (float) $realized['turnover'];
 
 		return array(
@@ -379,7 +381,9 @@ class LmdbSalesCommissionDashboardService
 	 */
 	public function getTierProgress(array $filters, $user)
 	{
-		$base = $this->getSignedBaseTotals($filters, $user);
+		$turnoverFilters = $filters;
+		$turnoverFilters['commission_type'] = 'all';
+		$base = $this->getSignedBaseTotals($turnoverFilters, $user, true);
 		$turnover = (float) $base['turnover'];
 		$tier = $this->getReferenceTier($filters, $user, $turnover);
 		$next = $tier['next_threshold'];
@@ -505,7 +509,8 @@ class LmdbSalesCommissionDashboardService
 	{
 		$where = $this->buildLineWhere('l', $filters, $user, 'date_acquired');
 		$sql = 'SELECT l.fk_user, l.fk_soc, l.source_type, l.fk_source, l.source_ref, MAX(l.date_acquired) AS date_acquired,';
-		$sql .= ' MAX(l.amount_base) AS amount_base, MAX(l.margin_base) AS margin_base,';
+		$sql .= ' '.LmdbSalesCommissionTurnoverService::buildAttributedAmountExpression('l', false).' AS amount_base,';
+		$sql .= " MAX(CASE WHEN l.mode <> 'turnover' THEN l.margin_base END) AS margin_base,";
 		$sql .= " SUM(CASE WHEN l.mode = 'margin' THEN l.commission_total ELSE 0 END) AS margin_commission,";
 		$sql .= " SUM(CASE WHEN l.mode = 'tier' THEN l.commission_total ELSE 0 END) AS tier_commission,";
 		$sql .= ' SUM(l.commission_total) AS commission_total, MAX(l.status) AS status,';
@@ -572,6 +577,8 @@ class LmdbSalesCommissionDashboardService
 		$this->appendAnomalyRows($rows, 'error', 'LmdbSalesCommissionsCheckIncompleteRules', 'LmdbSalesCommissionsCheckIncompleteRulesDesc', 'admin/rules.php', $this->getIncompleteRuleRows($limit));
 		$this->appendAnomalyRows($rows, 'error', 'LmdbSalesCommissionsCheckInvalidPaymentTerms', 'LmdbSalesCommissionsCheckInvalidPaymentTermsDesc', 'admin/paymentterms.php', $this->getInvalidPaymentTermRows($limit));
 		$this->appendAnomalyRows($rows, 'error', 'LmdbSalesCommissionsCheckInvalidTierGrids', 'LmdbSalesCommissionsCheckInvalidTierGridsDesc', 'admin/tiergrids.php', $this->getInvalidTierGridRows($limit));
+		$this->appendAnomalyRows($rows, 'error', 'LmdbSalesCommissionsCheckInvalidDispatches', 'LmdbSalesCommissionsCheckInvalidDispatchesDesc', 'admin/checks.php', $this->getInvalidDispatchRows($limit));
+		$this->appendAnomalyRows($rows, 'error', 'LmdbSalesCommissionsCheckInvalidTurnoverDispatches', 'LmdbSalesCommissionsCheckInvalidTurnoverDispatchesDesc', 'admin/checks.php', $this->getInvalidTurnoverDispatchRows($limit));
 		$this->appendAnomalyRows($rows, 'warning', 'LmdbSalesCommissionsCheckOrphanLines', 'LmdbSalesCommissionsCheckOrphanLinesDesc', 'list.php', $this->getOrphanLineRows($filters, $user, $limit));
 		$this->appendAnomalyRows($rows, 'error', 'LmdbSalesCommissionsCheckDueMismatch', 'LmdbSalesCommissionsCheckDueMismatchDesc', 'due.php', $this->getDueMismatchRows($filters, $user, $limit));
 		$this->appendAnomalyRows($rows, 'warning', 'LmdbSalesCommissionsCheckObjectivesWithoutUser', 'LmdbSalesCommissionsCheckObjectivesWithoutUserDesc', 'admin/objectives.php', $this->getObjectivesWithoutUserRows($limit));
@@ -586,17 +593,23 @@ class LmdbSalesCommissionDashboardService
 	 *
 	 * @param DashboardFilters $filters Normalized filters
 	 * @param User             $user    Current user
+	 * @param bool             $excludeDispatch Exclude manual dispatches from performance bases
 	 * @return array{turnover:float, margin:float, count:int}
 	 */
-	private function getSignedBaseTotals(array $filters, $user)
+	private function getSignedBaseTotals(array $filters, $user, $excludeDispatch = false)
 	{
 		$where = $this->buildLineWhere('l', $filters, $user, 'date_acquired');
+		if ($excludeDispatch) {
+			$where .= " AND l.mode <> 'dispatch'";
+		}
 		$sql = 'SELECT SUM(src.amount_base) AS turnover, SUM(src.margin_base) AS margin, COUNT(*) AS nb';
 		$sql .= ' FROM (';
-		$sql .= ' SELECT l.entity, l.fk_user, l.source_type, l.fk_source, MAX(l.amount_base) AS amount_base, MAX(l.margin_base) AS margin_base';
+		$sql .= ' SELECT l.entity, l.source_type, l.fk_source,';
+		$sql .= ' '.LmdbSalesCommissionTurnoverService::buildAttributedAmountExpression('l', true).' AS amount_base,';
+		$sql .= " MAX(CASE WHEN l.mode <> 'turnover' THEN l.margin_base END) AS margin_base";
 		$sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_line AS l';
 		$sql .= ' WHERE l.status = 1'.$where;
-		$sql .= ' GROUP BY l.entity, l.fk_user, l.source_type, l.fk_source';
+		$sql .= ' GROUP BY l.entity, l.source_type, l.fk_source';
 		$sql .= ') AS src';
 		$row = $this->fetchSingleRow($sql);
 
@@ -647,10 +660,27 @@ class LmdbSalesCommissionDashboardService
 		$localFilters['year'] = $year;
 		$localFilters['month'] = 0;
 		$where = $this->buildLineWhere('l', $localFilters, $user, 'date_acquired');
-		$sql = 'SELECT MONTH(l.date_acquired) AS monthnum, SUM(l.'.$field.') AS amount';
-		$sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_line AS l';
-		$sql .= ' WHERE l.status = 1'.$where;
-		$sql .= ' GROUP BY MONTH(l.date_acquired)';
+		if ($field === 'commission_total') {
+			$sql = 'SELECT MONTH(l.date_acquired) AS monthnum, SUM(l.commission_total) AS amount';
+			$sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_line AS l';
+			$sql .= ' WHERE l.status = 1'.$where;
+			$sql .= ' GROUP BY MONTH(l.date_acquired)';
+		} elseif ($field === 'amount_base') {
+			$sql = 'SELECT src.monthnum, SUM(src.amount) AS amount FROM (';
+			$sql .= ' SELECT MONTH(l.date_acquired) AS monthnum, l.entity, l.source_type, l.fk_source,';
+			$sql .= ' '.LmdbSalesCommissionTurnoverService::buildAttributedAmountExpression('l', true).' AS amount';
+			$sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_line AS l';
+			$sql .= ' WHERE l.status = 1'.$where;
+			$sql .= ' GROUP BY MONTH(l.date_acquired), l.entity, l.source_type, l.fk_source';
+			$sql .= ') AS src GROUP BY src.monthnum';
+		} else {
+			$sql = 'SELECT src.monthnum, SUM(src.amount) AS amount FROM (';
+			$sql .= ' SELECT MONTH(l.date_acquired) AS monthnum, l.entity, l.source_type, l.fk_source, MAX(l.'.$field.') AS amount';
+			$sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_line AS l';
+			$sql .= ' WHERE l.status = 1'.$where;
+			$sql .= ' GROUP BY MONTH(l.date_acquired), l.entity, l.source_type, l.fk_source';
+			$sql .= ') AS src GROUP BY src.monthnum';
+		}
 		$rows = $this->fetchRows($sql);
 		$values = array();
 		foreach ($rows as $row) {
@@ -973,6 +1003,59 @@ class LmdbSalesCommissionDashboardService
 		$sql .= ' ORDER BY tg.rowid DESC'.$this->db->plimit($limit);
 
 		return $this->fetchRows($sql);
+	}
+
+	/**
+	 * @param int $limit Max rows
+	 * @return array<int, DashboardRow>
+	 */
+	private function getInvalidDispatchRows($limit)
+	{
+		$sql = 'SELECT d.rowid, COALESCE(p.ref, CONCAT("#", d.fk_propal)) AS ref';
+		$sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_proposal_dispatch AS d';
+		$sql .= ' LEFT JOIN '.MAIN_DB_PREFIX.'propal AS p ON p.rowid = d.fk_propal AND p.entity = d.entity';
+		$sql .= ' LEFT JOIN '.MAIN_DB_PREFIX.'user AS u ON u.rowid = d.fk_user';
+		$sql .= ' LEFT JOIN '.MAIN_DB_PREFIX.'lmdbsalescommissions_payment_term AS pt ON pt.rowid = d.fk_payment_term AND pt.entity = d.entity';
+		$sql .= ' WHERE d.entity IN ('.$this->db->sanitize(getEntity('lmdbsalescommissions_proposal_dispatch')).')';
+		$sql .= " AND (p.rowid IS NULL OR u.rowid IS NULL OR u.statut <> 1 OR u.entity NOT IN (0, d.entity) OR d.base_type NOT IN ('margin','turnover') OR d.value_type NOT IN ('amount','percentage') OR d.value <= 0 OR (d.value_type = 'percentage' AND d.value > 100) OR d.payment_term_mode NOT IN ('automatic','explicit') OR (d.payment_term_mode = 'automatic' AND d.fk_payment_term IS NOT NULL) OR (d.payment_term_mode = 'explicit' AND (pt.rowid IS NULL OR pt.active <> 1 OR ABS((SELECT COALESCE(SUM(ptl.percentage), 0) FROM ".MAIN_DB_PREFIX."lmdbsalescommissions_payment_term_line AS ptl WHERE ptl.entity = d.entity AND ptl.fk_payment_term = d.fk_payment_term AND ptl.active = 1) - 100) > 0.0001)) OR (d.base_type = 'turnover' AND d.value_type = 'amount' AND d.value > GREATEST(p.total_ht, 0)) OR (d.base_type = 'margin' AND NOT EXISTS (SELECT pd.rowid FROM ".MAIN_DB_PREFIX."propaldet AS pd WHERE pd.fk_propal = d.fk_propal AND pd.pa_ht IS NOT NULL)) OR (d.base_type = 'margin' AND d.value_type = 'amount' AND d.value > GREATEST(COALESCE((SELECT SUM(pd.total_ht - (pd.pa_ht * pd.qty)) FROM ".MAIN_DB_PREFIX."propaldet AS pd WHERE pd.fk_propal = d.fk_propal AND pd.pa_ht IS NOT NULL), 0), 0)))";
+		$sql .= ' ORDER BY d.rowid DESC'.$this->db->plimit($limit);
+
+		return $this->fetchRows($sql);
+	}
+
+	/**
+	 * @param int $limit Max rows
+	 * @return array<int, DashboardRow>
+	 */
+	private function getInvalidTurnoverDispatchRows($limit)
+	{
+		$sql = 'SELECT MIN(d.rowid) AS rowid, COALESCE(p.ref, CONCAT("#", d.fk_propal)) AS ref, p.total_ht, p.date_signature,';
+		$sql .= " SUM(CASE WHEN d.value_type = 'percentage' THEN GREATEST(COALESCE(p.total_ht, 0), 0) * d.value / 100 ELSE d.value END) AS allocated_total,";
+		$sql .= " SUM(CASE WHEN p.rowid IS NULL OR u.rowid IS NULL OR u.statut <> 1 OR u.entity NOT IN (0, d.entity) OR d.value_type NOT IN ('amount','percentage') OR d.value <= 0 OR (d.value_type = 'percentage' AND d.value > 100) OR (d.value_type = 'amount' AND d.value > GREATEST(COALESCE(p.total_ht, 0), 0)) THEN 1 ELSE 0 END) AS invalid_rows";
+		$sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_proposal_turnover_dispatch AS d';
+		$sql .= ' LEFT JOIN '.MAIN_DB_PREFIX.'propal AS p ON p.rowid = d.fk_propal AND p.entity = d.entity';
+		$sql .= ' LEFT JOIN '.MAIN_DB_PREFIX.'user AS u ON u.rowid = d.fk_user';
+		$sql .= ' WHERE d.entity IN ('.$this->db->sanitize(getEntity('lmdbsalescommissions_proposal_turnover_dispatch')).')';
+		$sql .= ' GROUP BY d.entity, d.fk_propal, p.ref, p.rowid, p.total_ht, p.date_signature';
+		$sql .= ' ORDER BY MIN(d.rowid) DESC';
+		$candidates = $this->fetchRows($sql);
+		$rows = array();
+		foreach ($candidates as $candidate) {
+			$total = (float) price2num(max(0, (float) $candidate['total_ht']), 'MT');
+			$allocated = (float) price2num($candidate['allocated_total'], 'MT');
+			$isInvalid = (int) $candidate['invalid_rows'] > 0 || $allocated > $total;
+			if (!empty($candidate['date_signature']) && $allocated !== $total) {
+				$isInvalid = true;
+			}
+			if ($isInvalid) {
+				$rows[] = array('rowid' => (int) $candidate['rowid'], 'ref' => (string) $candidate['ref']);
+			}
+			if (count($rows) >= $limit) {
+				break;
+			}
+		}
+
+		return $rows;
 	}
 
 	/**

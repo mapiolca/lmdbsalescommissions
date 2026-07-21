@@ -92,6 +92,7 @@ $mode_options = array(
 	'margin' => $langs->trans('LmdbSalesCommissionsRuleTypeMargin'),
 	'tier' => $langs->trans('LmdbSalesCommissionsRuleTypeTier'),
 	'tracking' => $langs->trans('LmdbSalesCommissionsModeTracking'),
+	'dispatch' => $langs->trans('LmdbSalesCommissionsModeDispatch'),
 );
 
 $contextpage = 'lmdbsalescommissions_due_list';
@@ -311,16 +312,24 @@ if ($resql) {
 	if ($nb === 0) {
 		lmdbsalescommissionsPrintNoRecordRow($langs, $visibleColumnCount);
 	} else {
-		$totalLabelColspan = 1;
-		foreach (array('source', 'date', 'salesrep', 'thirdparty', 'mode', 'event', 'commission_total', 'percentage') as $fieldKey) {
-			if (!empty($arrayfields[$fieldKey]['checked'])) {
-				$totalLabelColspan++;
-			}
-		}
 		print '<tr class="liste_total">';
-		print '<td colspan="'.$totalLabelColspan.'">'.$langs->trans('Total').'</td>';
-		if (!empty($arrayfields['amount']['checked'])) print '<td class="right">'.lmdbsalescommissionsFormatTotalAmount($total_due).'</td>';
-		if (!empty($arrayfields['status']['checked'])) print '<td></td>';
+		print '<td></td>';
+		$totalLabelPrinted = false;
+		foreach ($arrayfields as $fieldKey => $field) {
+			if (empty($field['checked'])) {
+				continue;
+			}
+
+			$cellClass = in_array($fieldKey, array('commission_total', 'percentage', 'amount'), true) ? ' class="right"' : '';
+			print '<td'.$cellClass.'>';
+			if ($fieldKey === 'amount') {
+				print lmdbsalescommissionsFormatTotalAmount($total_due);
+			} elseif (!$totalLabelPrinted) {
+				print $langs->trans('Total');
+				$totalLabelPrinted = true;
+			}
+			print '</td>';
+		}
 		print '<td></td></tr>';
 	}
 } else {
