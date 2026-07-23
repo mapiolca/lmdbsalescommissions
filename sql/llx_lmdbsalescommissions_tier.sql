@@ -5,6 +5,7 @@ CREATE TABLE llx_lmdbsalescommissions_tier
 	fk_tier_grid integer NOT NULL,
 	threshold_amount double(24,8) DEFAULT 0 NOT NULL,
 	bonus_amount double(24,8) DEFAULT 0 NOT NULL,
+	commission_rate double(10,4) DEFAULT NULL,
 	rang integer DEFAULT 0 NOT NULL,
 	active tinyint DEFAULT 1 NOT NULL,
 	date_creation datetime NOT NULL,

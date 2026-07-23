@@ -4,6 +4,7 @@ CREATE TABLE llx_lmdbsalescommissions_due
 	entity integer DEFAULT 1 NOT NULL,
 	fk_commission_line integer NOT NULL,
 	event_type varchar(32) NOT NULL,
+	revision integer DEFAULT 1 NOT NULL,
 	percentage double(10,4) DEFAULT 0 NOT NULL,
 	amount double(24,8) DEFAULT 0 NOT NULL,
 	status smallint DEFAULT 0 NOT NULL,

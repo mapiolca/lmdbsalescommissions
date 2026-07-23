@@ -93,6 +93,7 @@ if ($action === 'archiveobjective') {
 	$processed = 0;
 	$created = 0;
 	$error = 0;
+	$warning = 0;
 
 	$sql = 'SELECT rowid';
 	$sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_line';
@@ -119,10 +120,17 @@ if ($action === 'archiveobjective') {
 				continue;
 			}
 			$created += $result;
+			$warning += count($service->errors);
 		}
 		$db->free($resql);
 		if ($error > 0) {
 			setEventMessages($langs->trans('LmdbSalesCommissionsRebuildDuesPartial', $processed, $created, $error), null, 'warnings');
+		} elseif ($warning > 0) {
+			setEventMessages(
+				$langs->trans('LmdbSalesCommissionsRebuildDuesDone', $processed, $created),
+				array($langs->trans('LmdbSalesCommissionsRebuildDuesWarnings', $warning)),
+				'warnings'
+			);
 		} else {
 			setEventMessages($langs->trans('LmdbSalesCommissionsRebuildDuesDone', $processed, $created), null, 'mesgs');
 		}

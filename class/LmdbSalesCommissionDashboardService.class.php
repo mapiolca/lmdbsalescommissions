@@ -4,6 +4,7 @@
 require_once dol_buildpath('/lmdbsalescommissions/lib/lmdbsalescommissions.lib.php', 0);
 require_once dol_buildpath('/lmdbsalescommissions/class/lmdbsalescommissiondueservice.class.php', 0);
 require_once dol_buildpath('/lmdbsalescommissions/class/lmdbsalescommissionobjectiveresolver.class.php', 0);
+require_once dol_buildpath('/lmdbsalescommissions/class/lmdbsalescommissiontierservice.class.php', 0);
 require_once dol_buildpath('/lmdbsalescommissions/class/lmdbsalescommissionturnoverservice.class.php', 0);
 
 /**
@@ -181,6 +182,9 @@ class LmdbSalesCommissionDashboardService
 			'margin_rate' => null,
 			'commission_estimated' => 0.0,
 			'commission_acquired' => 0.0,
+			'margin_commission_acquired' => 0.0,
+			'dispatch_commission_acquired' => 0.0,
+			'tier_commission_acquired' => 0.0,
 			'tier_bonus' => 0.0,
 			'commission_total' => 0.0,
 			'commission_due' => 0.0,
@@ -202,7 +206,9 @@ class LmdbSalesCommissionDashboardService
 		$sql = 'SELECT';
 		$sql .= ' SUM(CASE WHEN l.status = 0 THEN l.commission_total ELSE 0 END) AS commission_estimated,';
 		$sql .= ' SUM(CASE WHEN l.status = 1 THEN l.commission_total ELSE 0 END) AS commission_acquired,';
-		$sql .= " SUM(CASE WHEN l.status = 1 AND l.mode = 'tier' THEN l.commission_total ELSE 0 END) AS tier_bonus,";
+		$sql .= " SUM(CASE WHEN l.status = 1 AND l.mode = 'margin' THEN l.commission_total ELSE 0 END) AS margin_commission_acquired,";
+		$sql .= " SUM(CASE WHEN l.status = 1 AND l.mode = 'dispatch' THEN l.commission_total ELSE 0 END) AS dispatch_commission_acquired,";
+		$sql .= " SUM(CASE WHEN l.status = 1 AND l.mode = 'tier' THEN l.commission_total ELSE 0 END) AS tier_commission_acquired,";
 		$sql .= ' SUM(CASE WHEN l.status IN (0,1) THEN l.commission_total ELSE 0 END) AS commission_total,';
 		$sql .= ' SUM(l.payable_total) AS payable_total,';
 		$sql .= ' SUM(l.paid_total) AS paid_total';
@@ -212,7 +218,10 @@ class LmdbSalesCommissionDashboardService
 		if (!empty($row)) {
 			$kpis['commission_estimated'] = (float) $row['commission_estimated'];
 			$kpis['commission_acquired'] = (float) $row['commission_acquired'];
-			$kpis['tier_bonus'] = (float) $row['tier_bonus'];
+			$kpis['margin_commission_acquired'] = (float) $row['margin_commission_acquired'];
+			$kpis['dispatch_commission_acquired'] = (float) $row['dispatch_commission_acquired'];
+			$kpis['tier_commission_acquired'] = (float) $row['tier_commission_acquired'];
+			$kpis['tier_bonus'] = (float) $row['tier_commission_acquired'];
 			$kpis['commission_total'] = (float) $row['commission_total'];
 			$kpis['commission_paid'] = (float) $row['paid_total'];
 			$kpis['remaining_due'] = max(0, (float) $row['payable_total'] - (float) $row['paid_total']);
@@ -377,25 +386,116 @@ class LmdbSalesCommissionDashboardService
 	 *
 	 * @param DashboardFilters $filters Normalized filters
 	 * @param User             $user    Current user
-	 * @return array{turnover:float, reached_threshold:float|null, next_threshold:float|null, remaining:float|null, potential_bonus:float|null, rate:float|null}
+	 * @return array{
+	 *     status:string,
+	 *     calculation_mode:string|null,
+	 *     period_type:string|null,
+	 *     period_label:string|null,
+	 *     turnover:float,
+	 *     reached_threshold:float|null,
+	 *     next_threshold:float|null,
+	 *     remaining:float|null,
+	 *     current_commission:float|null,
+	 *     commission_at_next_threshold:float|null,
+	 *     additional_commission_to_next_threshold:float|null,
+	 *     active_rate:float|null,
+	 *     potential_bonus:float|null,
+	 *     open_ended:bool,
+	 *     rate:float|null
+	 * }
 	 */
 	public function getTierProgress(array $filters, $user)
 	{
-		$turnoverFilters = $filters;
-		$turnoverFilters['commission_type'] = 'all';
-		$base = $this->getSignedBaseTotals($turnoverFilters, $user, true);
-		$turnover = (float) $base['turnover'];
-		$tier = $this->getReferenceTier($filters, $user, $turnover);
-		$next = $tier['next_threshold'];
-		$reached = $tier['reached_threshold'];
+		if ($filters['fk_user'] <= 0) {
+			$turnoverFilters = $filters;
+			$turnoverFilters['commission_type'] = 'all';
+			$base = $this->getSignedBaseTotals($turnoverFilters, $user, true);
+
+			return $this->getEmptyTierProgress('scope_requires_user', (float) $base['turnover']);
+		}
+
+		$year = $filters['year'] > 0 ? $filters['year'] : (int) date('Y', dol_now());
+		$month = $filters['month'] > 0 ? $filters['month'] : 1;
+		$referenceDate = dol_mktime(12, 0, 0, $month, 1, $year);
+		$currentDate = dol_now();
+		if ($year === (int) date('Y', $currentDate) && ($filters['month'] === 0 || $filters['month'] === (int) date('n', $currentDate))) {
+			$referenceDate = $currentDate;
+		}
+		$tierService = new LmdbSalesCommissionTierService($this->db);
+		$progress = $tierService->getProgressForUser($filters['fk_user'], $referenceDate, $filters['entity']);
+		if (!isset($progress['status']) || $progress['status'] !== 'ok') {
+			$status = isset($progress['status']) ? (string) $progress['status'] : 'error';
+			return $this->getEmptyTierProgress($status, 0.0);
+		}
+
+		$turnover = (float) $progress['turnover'];
+		$reachedTier = is_array($progress['reached_tier']) ? $progress['reached_tier'] : null;
+		$nextTier = is_array($progress['next_tier']) ? $progress['next_tier'] : null;
+		$period = isset($progress['period']) && is_array($progress['period']) ? $progress['period'] : array();
+		$rule = isset($progress['rule']) && is_array($progress['rule']) ? $progress['rule'] : array();
+		$reached = is_array($reachedTier) ? (float) $reachedTier['threshold_amount'] : null;
+		$next = is_array($nextTier) ? (float) $nextTier['threshold_amount'] : null;
 
 		return array(
+			'status' => 'ok',
+			'calculation_mode' => (string) $progress['calculation_mode'],
+			'period_type' => isset($rule['period_type']) ? (string) $rule['period_type'] : null,
+			'period_label' => isset($period['label']) ? (string) $period['label'] : null,
 			'turnover' => $turnover,
 			'reached_threshold' => $reached,
 			'next_threshold' => $next,
-			'remaining' => $next !== null ? max(0, $next - $turnover) : null,
-			'potential_bonus' => $tier['potential_bonus'],
-			'rate' => $next !== null && $next > 0 ? min(100, ($turnover / $next) * 100) : null,
+			'remaining' => $next !== null ? (float) price2num(max(0, $next - $turnover), 'MT') : null,
+			'current_commission' => (float) $progress['current_commission'],
+			'commission_at_next_threshold' => $progress['commission_at_next_threshold'] !== null ? (float) $progress['commission_at_next_threshold'] : null,
+			'additional_commission_to_next_threshold' => $progress['additional_commission_to_next_threshold'] !== null ? (float) $progress['additional_commission_to_next_threshold'] : null,
+			'active_rate' => $progress['active_rate'] !== null ? (float) $progress['active_rate'] : null,
+			'potential_bonus' => $progress['commission_at_next_threshold'] !== null ? (float) $progress['commission_at_next_threshold'] : null,
+			'open_ended' => !empty($progress['open_ended']),
+			'rate' => $progress['progress_to_next_threshold'] !== null ? (float) $progress['progress_to_next_threshold'] : null,
+		);
+	}
+
+	/**
+	 * Return an empty tier progress payload with a stable shape.
+	 *
+	 * @param string $status   Progress status
+	 * @param float  $turnover Turnover visible for the current scope
+	 * @return array{
+	 *     status:string,
+	 *     calculation_mode:null,
+	 *     period_type:null,
+	 *     period_label:null,
+	 *     turnover:float,
+	 *     reached_threshold:null,
+	 *     next_threshold:null,
+	 *     remaining:null,
+	 *     current_commission:null,
+	 *     commission_at_next_threshold:null,
+	 *     additional_commission_to_next_threshold:null,
+	 *     active_rate:null,
+	 *     potential_bonus:null,
+	 *     open_ended:bool,
+	 *     rate:null
+	 * }
+	 */
+	private function getEmptyTierProgress($status, $turnover)
+	{
+		return array(
+			'status' => $status,
+			'calculation_mode' => null,
+			'period_type' => null,
+			'period_label' => null,
+			'turnover' => $turnover,
+			'reached_threshold' => null,
+			'next_threshold' => null,
+			'remaining' => null,
+			'current_commission' => null,
+			'commission_at_next_threshold' => null,
+			'additional_commission_to_next_threshold' => null,
+			'active_rate' => null,
+			'potential_bonus' => null,
+			'open_ended' => false,
+			'rate' => null,
 		);
 	}
 
@@ -449,7 +549,15 @@ class LmdbSalesCommissionDashboardService
 			$row['reached_threshold'] = $progress['reached_threshold'];
 			$row['next_threshold'] = $progress['next_threshold'];
 			$row['remaining'] = $progress['remaining'];
+			$row['calculation_mode'] = $progress['calculation_mode'];
+			$row['period_type'] = $progress['period_type'];
+			$row['period_label'] = $progress['period_label'];
+			$row['current_commission'] = $progress['current_commission'];
+			$row['commission_at_next_threshold'] = $progress['commission_at_next_threshold'];
+			$row['additional_commission_to_next_threshold'] = $progress['additional_commission_to_next_threshold'];
+			$row['active_rate'] = $progress['active_rate'];
 			$row['potential_bonus'] = $progress['potential_bonus'];
+			$row['open_ended'] = $progress['open_ended'];
 			$row['rate'] = $progress['rate'];
 			$rows[] = $row;
 		}
@@ -732,46 +840,6 @@ class LmdbSalesCommissionDashboardService
 	}
 
 	/**
-	 * Return tier reference for a scope.
-	 *
-	 * @param DashboardFilters $filters  Normalized filters
-	 * @param User             $user     Current user
-	 * @param float            $turnover Current turnover
-	 * @return array{reached_threshold:float|null, next_threshold:float|null, potential_bonus:float|null}
-	 */
-	private function getReferenceTier(array $filters, $user, $turnover)
-	{
-		unset($user);
-
-		$sql = 'SELECT t.threshold_amount, t.bonus_amount';
-		$sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_tier AS t';
-		$sql .= ' INNER JOIN '.MAIN_DB_PREFIX.'lmdbsalescommissions_tier_grid AS g ON g.rowid = t.fk_tier_grid AND g.entity = t.entity';
-		$sql .= ' WHERE t.entity IN ('.$this->db->sanitize(getEntity('lmdbsalescommissions_tier')).')';
-		$sql .= ' AND t.active = 1 AND g.active = 1';
-		$sql .= ' ORDER BY t.threshold_amount ASC';
-		$tiers = $this->fetchRows($sql);
-		$reached = null;
-		$next = null;
-		$bonus = null;
-		foreach ($tiers as $tier) {
-			$threshold = (float) $tier['threshold_amount'];
-			if ($turnover >= $threshold) {
-				$reached = $threshold;
-				continue;
-			}
-			$next = $threshold;
-			$bonus = (float) $tier['bonus_amount'];
-			break;
-		}
-
-		return array(
-			'reached_threshold' => $reached,
-			'next_threshold' => $next,
-			'potential_bonus' => $bonus,
-		);
-	}
-
-	/**
 	 * Return users with objectives or commission lines in scope.
 	 *
 	 * @param DashboardFilters $filters Normalized filters
@@ -999,7 +1067,14 @@ class LmdbSalesCommissionDashboardService
 		$sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_tier_grid AS tg';
 		$sql .= ' WHERE tg.entity IN ('.$this->db->sanitize(getEntity('lmdbsalescommissions_tier_grid')).')';
 		$sql .= ' AND tg.active = 1';
-		$sql .= ' AND NOT EXISTS (SELECT t.rowid FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_tier AS t WHERE t.fk_tier_grid = tg.rowid AND t.entity = tg.entity AND t.active = 1 AND t.threshold_amount > 0 AND t.bonus_amount >= 0)';
+		$sql .= " AND (tg.calculation_mode NOT IN ('fixed_bonus','progressive_rate')";
+		$sql .= ' OR NOT EXISTS (SELECT t.rowid FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_tier AS t WHERE t.fk_tier_grid = tg.rowid AND t.entity = tg.entity AND t.active = 1)';
+		$sql .= ' OR EXISTS (SELECT t.rowid FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_tier AS t WHERE t.fk_tier_grid = tg.rowid AND t.entity = tg.entity AND t.active = 1 AND (t.threshold_amount <= 0';
+		$sql .= " OR (tg.calculation_mode = 'fixed_bonus' AND t.bonus_amount < 0)";
+		$sql .= " OR (tg.calculation_mode = 'progressive_rate' AND (t.commission_rate IS NULL OR t.commission_rate < 0 OR t.commission_rate > 100))))";
+		$sql .= ' OR EXISTS (SELECT t1.rowid FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_tier AS t1 INNER JOIN '.MAIN_DB_PREFIX.'lmdbsalescommissions_tier AS t2 ON t2.entity = t1.entity AND t2.fk_tier_grid = t1.fk_tier_grid AND t2.active = 1 AND t2.rang > t1.rang AND t2.threshold_amount <= t1.threshold_amount WHERE t1.fk_tier_grid = tg.rowid AND t1.entity = tg.entity AND t1.active = 1)';
+		$sql .= " OR (tg.calculation_mode = 'progressive_rate' AND NOT EXISTS (SELECT t.rowid FROM ".MAIN_DB_PREFIX.'lmdbsalescommissions_tier AS t WHERE t.fk_tier_grid = tg.rowid AND t.entity = tg.entity AND t.active = 1 AND t.commission_rate > 0 AND t.commission_rate <= 100))';
+		$sql .= ')';
 		$sql .= ' ORDER BY tg.rowid DESC'.$this->db->plimit($limit);
 
 		return $this->fetchRows($sql);

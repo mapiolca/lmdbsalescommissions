@@ -23,6 +23,7 @@ require_once DOL_DOCUMENT_ROOT.'/core/class/html.form.class.php';
 require_once dol_buildpath('/lmdbsalescommissions/lib/lmdbsalescommissions.lib.php', 0);
 require_once dol_buildpath('/lmdbsalescommissions/class/lmdbsalescommissiontiergrid.class.php', 0);
 require_once dol_buildpath('/lmdbsalescommissions/class/lmdbsalescommissiontier.class.php', 0);
+require_once dol_buildpath('/lmdbsalescommissions/class/lmdbsalescommissiontiercalculator.class.php', 0);
 
 /**
  * Fetch grid and verify entity scope.
@@ -56,7 +57,7 @@ function lmdbsalescommissions_fetch_tier_grid_for_admin($db, $id)
  *
  * @param DoliDB $db     Database handler
  * @param int    $gridId Grid id
- * @return array<int, array{threshold_amount:float, bonus_amount:float, active:int}>
+ * @return array<int, array{threshold_amount:float, bonus_amount:float, commission_rate:float|null, active:int}>
  */
 function lmdbsalescommissions_fetch_tiers($db, $gridId)
 {
@@ -65,7 +66,7 @@ function lmdbsalescommissions_fetch_tiers($db, $gridId)
 		return $tiers;
 	}
 
-	$sql = 'SELECT threshold_amount, bonus_amount, active';
+	$sql = 'SELECT threshold_amount, bonus_amount, commission_rate, active';
 	$sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_tier';
 	$sql .= ' WHERE entity IN ('.$db->sanitize(getEntity('lmdbsalescommissions_tier')).')';
 	$sql .= ' AND fk_tier_grid = '.((int) $gridId);
@@ -81,6 +82,7 @@ function lmdbsalescommissions_fetch_tiers($db, $gridId)
 		$tiers[] = array(
 			'threshold_amount' => (float) $obj->threshold_amount,
 			'bonus_amount' => (float) $obj->bonus_amount,
+			'commission_rate' => $obj->commission_rate !== null ? (float) $obj->commission_rate : null,
 			'active' => (int) $obj->active,
 		);
 	}
@@ -95,7 +97,7 @@ function lmdbsalescommissions_fetch_tiers($db, $gridId)
  * @param DoliDB                       $db    Database handler
  * @param User                         $user  Current user
  * @param LmdbSalesCommissionTierGrid  $grid  Grid
- * @param array<int, array{threshold_amount:float, bonus_amount:float, active:int}> $tiers Tier lines
+ * @param array<int, array{threshold_amount:float, bonus_amount:float, commission_rate:float|null, active:int}> $tiers Tier lines
  * @return int
  */
 function lmdbsalescommissions_save_tiers($db, $user, $grid, array $tiers)
@@ -115,6 +117,7 @@ function lmdbsalescommissions_save_tiers($db, $user, $grid, array $tiers)
 		$tier->fk_tier_grid = (int) $grid->id;
 		$tier->threshold_amount = $tierData['threshold_amount'];
 		$tier->bonus_amount = $tierData['bonus_amount'];
+		$tier->commission_rate = $tierData['commission_rate'];
 		$tier->rang = $rang;
 		$tier->active = $tierData['active'];
 		$result = $tier->create($user);
@@ -150,6 +153,10 @@ $periodtypes = array(
 	'quarterly' => $langs->trans('Quarter'),
 	'yearly' => $langs->trans('Year'),
 );
+$calculationModes = array(
+	LmdbSalesCommissionTierCalculator::MODE_FIXED_BONUS => $langs->trans('LmdbSalesCommissionsTierModeFixedBonus'),
+	LmdbSalesCommissionTierCalculator::MODE_PROGRESSIVE_RATE => $langs->trans('LmdbSalesCommissionsTierModeProgressiveRate'),
+);
 
 if ($action === 'addtiergrid' || $action === 'updatetiergrid') {
 	if (GETPOST('token', 'alpha') === '') {
@@ -159,42 +166,26 @@ if ($action === 'addtiergrid' || $action === 'updatetiergrid') {
 	$ref = trim(GETPOST('ref', 'alpha'));
 	$label = trim(GETPOST('label', 'restricthtml'));
 	$period_type = GETPOST('period_type', 'aZ09');
+	$calculationMode = GETPOST('calculation_mode', 'aZ09');
 	$active = GETPOSTINT('active') ? 1 : 0;
 	$note_private = GETPOST('note_private', 'restricthtml');
 	$tiers = array();
-	$thresholds = array();
-	$lastThreshold = null;
 	$errors = array();
 
 	for ($i = 0; $i < 10; $i++) {
 		$threshold = price2num(GETPOST('threshold_'.$i, 'alphanohtml'), 'MT');
 		$bonus = price2num(GETPOST('bonus_'.$i, 'alphanohtml'), 'MT');
+		$commissionRateValue = trim(GETPOST('commission_rate_'.$i, 'alphanohtml'));
+		$commissionRate = $commissionRateValue !== '' ? (float) price2num($commissionRateValue) : null;
 		$tierActive = GETPOSTINT('tier_active_'.$i) ? 1 : 0;
 
-		if ($threshold == 0 && $bonus == 0) {
+		if ($threshold == 0 && $bonus == 0 && ($commissionRate === null || $commissionRate == 0)) {
 			continue;
 		}
-		if ($threshold <= 0) {
-			$errors[] = $langs->trans('LmdbSalesCommissionsTierThresholdMustBePositive');
-			continue;
-		}
-		if ($bonus < 0) {
-			$errors[] = $langs->trans('LmdbSalesCommissionsTierBonusMustNotBeNegative');
-			continue;
-		}
-		if (isset($thresholds[(string) $threshold])) {
-			$errors[] = $langs->trans('LmdbSalesCommissionsTierDuplicateThreshold');
-			continue;
-		}
-		if ($lastThreshold !== null && $threshold <= $lastThreshold) {
-			$errors[] = $langs->trans('LmdbSalesCommissionsTierThresholdsMustBeOrdered');
-			continue;
-		}
-		$thresholds[(string) $threshold] = true;
-		$lastThreshold = $threshold;
 		$tiers[] = array(
 			'threshold_amount' => $threshold,
-			'bonus_amount' => $bonus,
+			'bonus_amount' => $calculationMode === LmdbSalesCommissionTierCalculator::MODE_FIXED_BONUS ? $bonus : 0.0,
+			'commission_rate' => $calculationMode === LmdbSalesCommissionTierCalculator::MODE_PROGRESSIVE_RATE ? $commissionRate : null,
 			'active' => $tierActive,
 		);
 	}
@@ -208,8 +199,16 @@ if ($action === 'addtiergrid' || $action === 'updatetiergrid') {
 	if (!array_key_exists($period_type, $periodtypes)) {
 		$errors[] = $langs->trans('ErrorFieldRequired', $langs->trans('Period'));
 	}
+	if (!array_key_exists($calculationMode, $calculationModes)) {
+		$errors[] = $langs->trans('ErrorFieldRequired', $langs->trans('LmdbSalesCommissionsTierCalculationMode'));
+	}
 	if (empty($tiers)) {
 		$errors[] = $langs->trans('LmdbSalesCommissionsTierGridMustHaveTier');
+	}
+	if (array_key_exists($calculationMode, $calculationModes) && !empty($tiers)) {
+		foreach (LmdbSalesCommissionTierCalculator::validateConfiguration($calculationMode, $tiers) as $validationKey) {
+			$errors[] = $langs->trans($validationKey);
+		}
 	}
 
 	if (empty($errors)) {
@@ -224,6 +223,7 @@ if ($action === 'addtiergrid' || $action === 'updatetiergrid') {
 		$grid->ref = $ref;
 		$grid->label = $label;
 		$grid->period_type = $period_type;
+		$grid->calculation_mode = $calculationMode;
 		$grid->active = $active;
 		$grid->note_private = $note_private;
 
@@ -269,8 +269,9 @@ if ($mode === 'create' || $mode === 'edit') {
 	$formaction = $mode === 'edit' ? 'updatetiergrid' : 'addtiergrid';
 	$tierValues = $mode === 'edit' ? lmdbsalescommissions_fetch_tiers($db, (int) $id) : array();
 	for ($i = count($tierValues); $i < 5; $i++) {
-		$tierValues[] = array('threshold_amount' => 0.0, 'bonus_amount' => 0.0, 'active' => 1);
+		$tierValues[] = array('threshold_amount' => 0.0, 'bonus_amount' => 0.0, 'commission_rate' => null, 'active' => 1);
 	}
+	$selectedCalculationMode = LmdbSalesCommissionTierCalculator::normalizeMode((string) $grid->calculation_mode);
 
 	print '<form method="POST" action="'.$_SERVER['PHP_SELF'].'" name="tiergridform">';
 	print '<input type="hidden" name="token" value="'.newToken().'">';
@@ -283,17 +284,20 @@ if ($mode === 'create' || $mode === 'edit') {
 	print '<tr><td class="titlefieldcreate fieldrequired">'.$langs->trans('Ref').'</td><td><input class="minwidth300" type="text" name="ref" value="'.dol_escape_htmltag((string) $grid->ref).'"></td></tr>';
 	print '<tr><td class="fieldrequired">'.$langs->trans('Label').'</td><td><input class="minwidth500" type="text" name="label" value="'.dol_escape_htmltag((string) $grid->label).'"></td></tr>';
 	print '<tr><td class="fieldrequired">'.$langs->trans('Period').'</td><td>'.$form->selectarray('period_type', $periodtypes, (string) ($grid->period_type ?: 'monthly'), 0, 0, 0, '', 0, 0, 0, '', 'minwidth300').'</td></tr>';
+	print '<tr><td class="fieldrequired">'.$langs->trans('LmdbSalesCommissionsTierCalculationMode').'</td><td>'.$form->selectarray('calculation_mode', $calculationModes, $selectedCalculationMode, 0, 0, 0, '', 0, 0, 0, '', 'minwidth300').'</td></tr>';
 	print '<tr><td>'.$langs->trans('Active').'</td><td>'.$form->selectyesno('active', (int) ($grid->active !== null ? $grid->active : 1), 1).'</td></tr>';
 	print '<tr><td>'.$langs->trans('NotePrivate').'</td><td><textarea class="quatrevingtpercent" name="note_private" rows="3">'.dol_escape_htmltag((string) $grid->note_private).'</textarea></td></tr>';
 	print '</table>';
 
 	print '<br>';
+	print '<div class="info">'.$langs->trans('LmdbSalesCommissionsProgressiveTierHelp').'</div>';
 	print '<table class="noborder liste centpercent">';
-	print '<tr class="liste_titre"><td>'.$langs->trans('LmdbSalesCommissionsThresholdAmount').'</td><td>'.$langs->trans('LmdbSalesCommissionsBonusAmount').'</td><td class="center">'.$langs->trans('Active').'</td></tr>';
+	print '<tr class="liste_titre"><td>'.$langs->trans('LmdbSalesCommissionsThresholdAmount').'</td><td class="tier-fixed-column">'.$langs->trans('LmdbSalesCommissionsBonusAmount').'</td><td class="tier-progressive-column">'.$langs->trans('LmdbSalesCommissionsCommissionRate').'</td><td class="center">'.$langs->trans('Active').'</td></tr>';
 	foreach ($tierValues as $i => $tierData) {
 		print '<tr class="oddeven">';
 		print '<td><input class="width100 right" type="text" name="threshold_'.$i.'" value="'.dol_escape_htmltag(price2num($tierData['threshold_amount'], 'MT')).'"></td>';
-		print '<td><input class="width100 right" type="text" name="bonus_'.$i.'" value="'.dol_escape_htmltag(price2num($tierData['bonus_amount'], 'MT')).'"></td>';
+		print '<td class="tier-fixed-column"><input class="width100 right" type="text" name="bonus_'.$i.'" value="'.dol_escape_htmltag(price2num($tierData['bonus_amount'], 'MT')).'"></td>';
+		print '<td class="tier-progressive-column"><input class="width100 right" type="text" name="commission_rate_'.$i.'" value="'.($tierData['commission_rate'] !== null ? dol_escape_htmltag((string) $tierData['commission_rate']) : '').'"> %</td>';
 		print '<td class="center">'.$form->selectyesno('tier_active_'.$i, (int) $tierData['active'], 1).'</td>';
 		print '</tr>';
 	}
@@ -308,14 +312,21 @@ if ($mode === 'create' || $mode === 'edit') {
 
 	if (function_exists('ajax_combobox')) {
 		print ajax_combobox('period_type');
+		print ajax_combobox('calculation_mode');
 	}
+	print '<script nonce="'.getNonce().'">';
+	print 'jQuery(function($){';
+	print 'function updateTierColumns(){var progressive=$("#calculation_mode").val()==="'.LmdbSalesCommissionTierCalculator::MODE_PROGRESSIVE_RATE.'";$(".tier-fixed-column").toggle(!progressive);$(".tier-progressive-column").toggle(progressive);}';
+	print '$("#calculation_mode").on("change",updateTierColumns);updateTierColumns();';
+	print '});';
+	print '</script>';
 }
 
-$sql = 'SELECT g.rowid, g.ref, g.label, g.period_type, g.active, COUNT(t.rowid) AS nb_tiers';
+$sql = 'SELECT g.rowid, g.ref, g.label, g.period_type, g.calculation_mode, g.active, COUNT(t.rowid) AS nb_tiers';
 $sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_tier_grid AS g';
 $sql .= ' LEFT JOIN '.MAIN_DB_PREFIX.'lmdbsalescommissions_tier AS t ON t.fk_tier_grid = g.rowid AND t.entity = g.entity';
 $sql .= ' WHERE g.entity IN ('.$db->sanitize(getEntity('lmdbsalescommissions_tier_grid')).')';
-$sql .= ' GROUP BY g.rowid, g.ref, g.label, g.period_type, g.active';
+$sql .= ' GROUP BY g.rowid, g.ref, g.label, g.period_type, g.calculation_mode, g.active';
 $sql .= ' ORDER BY g.active DESC, g.label ASC';
 
 $resql = $db->query($sql);
@@ -328,6 +339,7 @@ if (!$resql) {
 	print '<td>'.$langs->trans('Ref').'</td>';
 	print '<td>'.$langs->trans('Label').'</td>';
 	print '<td>'.$langs->trans('Period').'</td>';
+	print '<td>'.$langs->trans('LmdbSalesCommissionsTierCalculationMode').'</td>';
 	print '<td class="right">'.$langs->trans('LmdbSalesCommissionsTierCount').'</td>';
 	print '<td class="center">'.$langs->trans('Active').'</td>';
 	print '<td class="right">'.$langs->trans('Action').'</td>';
@@ -335,7 +347,7 @@ if (!$resql) {
 
 	$num = $db->num_rows($resql);
 	if ($num === 0) {
-		lmdbsalescommissionsPrintNoRecordRow($langs, 6);
+		lmdbsalescommissionsPrintNoRecordRow($langs, 7);
 	}
 
 	while (is_object($obj = $db->fetch_object($resql))) {
@@ -343,6 +355,8 @@ if (!$resql) {
 		print '<td>'.dol_escape_htmltag((string) $obj->ref).'</td>';
 		print '<td>'.dol_escape_htmltag((string) $obj->label).'</td>';
 		print '<td>'.dol_escape_htmltag($periodtypes[(string) $obj->period_type] ?? (string) $obj->period_type).'</td>';
+		$storedCalculationMode = LmdbSalesCommissionTierCalculator::normalizeMode((string) $obj->calculation_mode);
+		print '<td>'.dol_escape_htmltag($calculationModes[$storedCalculationMode]).'</td>';
 		print '<td class="right">'.((int) $obj->nb_tiers).'</td>';
 		print '<td class="center">'.yn((int) $obj->active).'</td>';
 		print '<td class="right"><a class="reposition" href="'.$_SERVER['PHP_SELF'].'?mode=edit&id='.((int) $obj->rowid).'">'.img_edit().'</a></td>';

@@ -2,7 +2,15 @@
 
 Module Dolibarr externe `lmdbsalescommissions` pour gérer les commissions, primes par paliers et objectifs commerciaux des agents.
 
-Version actuelle : **1.1.0**.
+Version actuelle : **1.2.0**.
+
+## Nouveautés de la version 1.2.0
+
+- Ajout du mode de grille **Pourcentage progressif par tranche** pour les périodes mensuelles, trimestrielles et annuelles.
+- Calcul marginal centralisé des commissions, avec normalisation des montants selon les réglages financiers Dolibarr.
+- Affichage cohérent de la commission acquise ou projetée dans l’administration, les tableaux de bord, les widgets et les exports.
+- Recalcul conservateur des échéances par révision : les versements effectués restent inchangés et seul le solde restant est recréé.
+- Signalement des trop-versés sans création d’échéance négative et sans recalcul automatique de l’historique.
 
 ## Nouveautés de la version 1.1.0
 
@@ -17,11 +25,11 @@ Par rapport à la version 1.0, cette version apporte principalement :
 - l’adaptation du rattrapage, des exports et des indicateurs au nouveau fonctionnement multi-commerciaux.
 - le rattrapage des devis déjà signés avec attribution automatique au commercial auteur lorsque l’historique ne contient aucune répartition de CA.
 
-## Périmètre de la version 1.1.0
+## Périmètre de la version 1.2.0
 
 - Commission constante sur marge.
 - Primes par paliers de chiffre d’affaires.
-- Cumul commission sur marge et prime par paliers.
+- Cumul commission sur marge et commission par paliers.
 - Règles par agent, par groupe d’utilisateurs et par défaut.
 - Objectifs mensuels et annuels facultatifs.
 - Archivage de l’atteinte des objectifs par utilisateur et par période.
@@ -64,9 +72,33 @@ Il ne contient pas le préfixe `htdocs/custom/`, car ce chemin est géré par Do
 - Rattrapage des devis validés non signés pour créer les estimations et des devis signés avec contributions de CA idempotentes, recalcul des paliers, actualisation des archives d’objectifs et détection des échéances déjà payables.
 - Pages métier : tableau de bord par widgets, à verser, suivi, versées, exports.
 - Onglet **Commissions** sur la fiche utilisateur.
-- Widgets Dolibarr agent et manager, ainsi que widgets d’accueil ciblés pour commissions à verser, objectif, palier, anomalies et synthèses manager.
+- Widgets Dolibarr agent et manager, ainsi que widgets d’accueil ciblés pour commissions à verser, objectif, commission par paliers, anomalies et synthèses manager.
 - Crons natifs pour archivage et échéances.
 - Intégration Notifications native via `c_action_trigger`, hook `notifsupported` et substitutions.
+
+## Commissions par paliers
+
+Chaque grille de paliers propose désormais deux modes de calcul :
+
+- **Prime fixe au palier atteint** (`fixed_bonus`) : le montant du dernier seuil atteint est acquis, comme dans les versions précédentes ;
+- **Pourcentage progressif par tranche** (`progressive_rate`) : chaque seuil ouvre une tranche dont le taux ne s’applique qu’à la part de chiffre d’affaires comprise entre ce seuil et le suivant.
+
+Exemple progressif pour un chiffre d’affaires HT de 350 000 € :
+
+```text
+100 000 € → 2,5 % : 100 000 × 2,5 % = 2 500 €
+200 000 € → 3,5 % : 100 000 × 3,5 % = 3 500 €
+300 000 € → 4,0 % :  50 000 × 4,0 % = 2 000 €
+Commission acquise                         = 8 000 €
+```
+
+Les seuils représentent le début des tranches : aucune commission n’est calculée sous le premier seuil et la dernière tranche reste ouverte. Les seuils actifs doivent être strictement positifs, uniques et croissants. Les taux doivent être compris entre 0 et 100 %, avec au moins un taux strictement positif dans une grille progressive.
+
+Le calcul fonctionne pour les périodes mensuelles, trimestrielles et annuelles. La ligne de commission conserve le chiffre d’affaires de période dans `amount_base`, le total calculé dans `commission_total`, le dernier palier ouvert dans `fk_tier` et le mode utilisé dans un snapshot.
+
+Les widgets et la fiche utilisateur affichent le mode réellement affecté au commercial, la période concernée, le taux de la tranche active, la commission acquise, la commission totale et le gain supplémentaire au prochain seuil. La progression est mesurée à l’intérieur de la tranche courante ; la dernière tranche est explicitement signalée comme ouverte.
+
+La modification d’une grille ne recalcule pas automatiquement les périodes antérieures. Le rattrapage doit être lancé explicitement pour les recalculer. Lors de cette opération, les échéances déjà versées restent inchangées ; seules les échéances non versées sont remplacées par le solde restant. Une nouvelle révision est créée pour chaque solde et tout trop-versé par rapport au nouveau calcul est signalé comme anomalie sans produire de montant négatif.
 
 ## Tableau de bord
 
@@ -96,21 +128,22 @@ Une répartition manuelle peut être créée depuis l’onglet **Répartition co
 
 La répartition des commissions détermine les commissions et leurs modalités de versement. L’attribution du CA alimente séparément les paliers, objectifs et indicateurs individuels. Une attribution explicite peut rester temporairement inférieure à 100 %, mais elle doit représenter exactement 100 % du CA HT à la signature. Sans attribution explicite, 100 % du CA est affecté au commercial auteur du devis ; si aucun auteur actif ne peut être résolu, la signature est refusée. Après signature, les deux répartitions restent consultables mais ne peuvent plus être modifiées.
 
-## Mise à niveau depuis la version 1.0
+## Mise à niveau vers la version 1.2.0
 
 1. Sauvegarder la base de données et les fichiers du module.
-2. Remplacer le contenu du module par la version 1.1.0.
+2. Remplacer le contenu du module par la version 1.2.0.
 3. Désactiver puis réactiver le module afin d’exécuter la migration idempotente des tables, colonnes et index nécessaires aux répartitions de commissions et de CA.
 4. Vérifier le réglage de libération de l’échéance de facture finale dans les paramètres généraux.
 5. Exécuter les contrôles de cohérence et le rattrapage des devis existants si leur CA doit être attribué aux commerciaux. Sans historique explicite, le traitement affecte 100 % du CA au commercial auteur du devis.
 
-La désactivation temporaire conserve les réglages métier du module. La migration ajoute les données de répartition sans remettre en cause les commissions déjà enregistrées.
+La désactivation temporaire conserve les réglages métier du module. La migration ajoute les données de répartition et initialise toutes les grilles existantes en mode `fixed_bonus`, sans modifier leurs montants ni recalculer automatiquement l’historique. Elle ajoute également les révisions d’échéances nécessaires aux recalculs conservateurs.
 
 ## Scénarios de validation
 
 - Agent avec commission sur marge seule.
-- Agent avec prime par palier seule.
-- Agent avec commission sur marge et prime par palier.
+- Agent avec commission par paliers seule.
+- Agent avec commission progressive par tranches aux bornes exactes et entre deux seuils.
+- Agent avec commission sur marge et commission par paliers.
 - Agent sans objectif.
 - Agent avec objectif mensuel.
 - Agent avec objectif annuel.
@@ -124,6 +157,7 @@ La désactivation temporaire conserve les réglages métier du module. La migrat
 - Répartition de CA incomplète visible et signature refusée ; dépassement refusé dès l’enregistrement.
 - Ancien devis signé attribué à 100 % à son commercial auteur lors du rattrapage, sans doublon au second passage.
 - Archive d’objectif actualisée et échéance déjà versée conservée lors du recalcul.
+- Recalcul progressif répété sans doublon, avec versement partiel et anomalie lorsque le versé dépasse le nouveau total.
 - Modalité de versement explicitement sélectionnée ou héritée des réglages du commercial.
 - Répartition verrouillée après signature et visible selon le périmètre de droits propre, groupe ou global.
 - Échéance d’acompte rendue payable par une facture d’acompte payée liée directement au devis ou à une commande du devis.
@@ -134,13 +168,13 @@ La désactivation temporaire conserve les réglages métier du module. La migrat
 
 ## Compatibilité
 
-- Version du module : 1.1.0
+- Version du module : 1.2.0
 - Dolibarr : v20+
 - PHP : 8.0+
 - Base de données : MySQL/MariaDB via l’abstraction Dolibarr
 - Module installé sous `htdocs/custom/lmdbsalescommissions/`.
 
-## Limites de la version 1.1.0
+## Limites de la version 1.2.0
 
 - Pas de génération automatique de facture fournisseur ou note de frais.
 - Pas de commissionnement par ligne produit/service.

@@ -337,7 +337,7 @@ class LmdbSalesCommissionRetroactiveService
 	}
 
 	/**
-	 * Count paid tier dues whose historical amount differs from the recalculated bonus.
+	 * Count tier commissions whose preserved due schedule differs from the recalculated commission.
 	 *
 	 * Paid rows are never changed by the turnover backfill.
 	 *
@@ -353,9 +353,9 @@ class LmdbSalesCommissionRetroactiveService
 		if (empty($userIds)) {
 			return 0;
 		}
-		$sql = 'SELECT l.rowid, l.commission_total, SUM(d.amount) AS paid_amount';
+		$sql = 'SELECT l.rowid, l.commission_total, SUM(d.amount) AS due_amount';
 		$sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_line AS l';
-		$sql .= ' INNER JOIN '.MAIN_DB_PREFIX.'lmdbsalescommissions_due AS d ON d.fk_commission_line = l.rowid AND d.entity = l.entity AND d.status = '.LmdbSalesCommissionDueService::STATUS_PAID;
+		$sql .= ' INNER JOIN '.MAIN_DB_PREFIX.'lmdbsalescommissions_due AS d ON d.fk_commission_line = l.rowid AND d.entity = l.entity AND d.status <> '.LmdbSalesCommissionDueService::STATUS_CANCELLED;
 		$sql .= ' WHERE l.entity = '.((int) $entity).' AND l.fk_user IN ('.implode(',', $userIds).')';
 		$sql .= " AND l.source_type = 'tier_period' AND l.mode = 'tier'";
 		$sql .= " AND l.date_acquired >= '".$this->db->idate($dateStart)."' AND l.date_acquired <= '".$this->db->idate($dateEnd)."'";
@@ -368,8 +368,9 @@ class LmdbSalesCommissionRetroactiveService
 		$count = 0;
 		while (is_object($obj = $this->db->fetch_object($resql))) {
 			$commission = (float) price2num($obj->commission_total, 'MT');
-			$paid = (float) price2num($obj->paid_amount, 'MT');
-			if ($commission !== $paid) {
+			$dueAmount = (float) price2num($obj->due_amount, 'MT');
+			$difference = (float) price2num($dueAmount - $commission, 'MT');
+			if ($difference != 0.0) {
 				$count++;
 			}
 		}

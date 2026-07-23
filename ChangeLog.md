@@ -1,5 +1,17 @@
 # ChangeLog
 
+## 1.2.0 - 2026-07-23
+
+### Nouveautés et évolutions
+
+- Ajout du mode de grille **Pourcentage progressif par tranche**, disponible sur les périodes mensuelles, trimestrielles et annuelles, avec calcul marginal centralisé et arrondis financiers Dolibarr.
+- Conservation du mode historique **Prime fixe au palier atteint** comme valeur par défaut pour toutes les grilles existantes.
+- Ajout du taux de commission aux paliers, du snapshot du mode sur les lignes acquises et du détail de commission acquise ou projetée dans les tableaux de bord et exports.
+- Résolution de la grille réellement affectée à chaque commercial dans les indicateurs de progression, sans mélange des paliers appartenant à plusieurs grilles.
+- Versionnement des échéances par révision afin de conserver les versements effectués lors d’un recalcul et de ne recréer que le solde restant par événement.
+- Signalement des trop-versés après recalcul sans création d’échéance négative et sans recalcul historique automatique lors de la modification d’une grille.
+- Actualisation des widgets et indicateurs utilisateurs avec le mode de calcul effectif, la période, le taux actif, la commission acquise ou projetée et une progression mesurée dans la tranche courante.
+
 ## 1.1.0 - 2026-07-16
 
 ### Nouveautés depuis la version 1.0

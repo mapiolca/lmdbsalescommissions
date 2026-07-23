@@ -71,7 +71,19 @@ $checks[] = array(
 $checks[] = array(
 	'label' => 'LmdbSalesCommissionsCheckInvalidTierGrids',
 	'level' => 'error',
-	'count' => lmdbsalescommissions_check_count($db, 'SELECT COUNT(*) AS nb FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_tier_grid AS tg WHERE tg.entity IN ('.$entityTierGrid.') AND tg.active = 1 AND NOT EXISTS (SELECT t.rowid FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_tier AS t WHERE t.fk_tier_grid = tg.rowid AND t.entity = tg.entity AND t.active = 1 AND t.threshold_amount > 0 AND t.bonus_amount >= 0)'),
+	'count' => lmdbsalescommissions_check_count(
+		$db,
+		"SELECT COUNT(*) AS nb FROM ".MAIN_DB_PREFIX."lmdbsalescommissions_tier_grid AS tg"
+		." WHERE tg.entity IN (".$entityTierGrid.") AND tg.active = 1 AND ("
+		."tg.calculation_mode NOT IN ('fixed_bonus','progressive_rate')"
+		." OR NOT EXISTS (SELECT t.rowid FROM ".MAIN_DB_PREFIX."lmdbsalescommissions_tier AS t WHERE t.fk_tier_grid = tg.rowid AND t.entity = tg.entity AND t.active = 1)"
+		." OR EXISTS (SELECT t.rowid FROM ".MAIN_DB_PREFIX."lmdbsalescommissions_tier AS t WHERE t.fk_tier_grid = tg.rowid AND t.entity = tg.entity AND t.active = 1 AND (t.threshold_amount <= 0"
+		." OR (tg.calculation_mode = 'fixed_bonus' AND t.bonus_amount < 0)"
+		." OR (tg.calculation_mode = 'progressive_rate' AND (t.commission_rate IS NULL OR t.commission_rate < 0 OR t.commission_rate > 100))))"
+		." OR EXISTS (SELECT t1.rowid FROM ".MAIN_DB_PREFIX."lmdbsalescommissions_tier AS t1 INNER JOIN ".MAIN_DB_PREFIX."lmdbsalescommissions_tier AS t2 ON t2.entity = t1.entity AND t2.fk_tier_grid = t1.fk_tier_grid AND t2.active = 1 AND t2.rang > t1.rang AND t2.threshold_amount <= t1.threshold_amount WHERE t1.fk_tier_grid = tg.rowid AND t1.entity = tg.entity AND t1.active = 1)"
+		." OR (tg.calculation_mode = 'progressive_rate' AND NOT EXISTS (SELECT t.rowid FROM ".MAIN_DB_PREFIX."lmdbsalescommissions_tier AS t WHERE t.fk_tier_grid = tg.rowid AND t.entity = tg.entity AND t.active = 1 AND t.commission_rate > 0 AND t.commission_rate <= 100))"
+		.")"
+	),
 );
 $checks[] = array(
 	'label' => 'LmdbSalesCommissionsCheckInvalidDispatches',
