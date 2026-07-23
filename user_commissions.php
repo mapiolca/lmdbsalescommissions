@@ -24,6 +24,7 @@ require_once dol_buildpath('/lmdbsalescommissions/lib/lmdbsalescommissions.lib.p
 require_once dol_buildpath('/lmdbsalescommissions/class/lmdbsalescommissiondueservice.class.php', 0);
 require_once dol_buildpath('/lmdbsalescommissions/class/lmdbsalescommissionobjectiveresolver.class.php', 0);
 require_once dol_buildpath('/lmdbsalescommissions/class/lmdbsalescommissionturnoverservice.class.php', 0);
+require_once dol_buildpath('/lmdbsalescommissions/class/LmdbSalesCommissionDashboardService.class.php', 0);
 
 /**
  * Sum signed amount for objective period.
@@ -123,6 +124,12 @@ $monthlyObjective = lmdbsalescommissionsCanReadObjectiveUserScope($user, $id) ? 
 $yearlyObjective = lmdbsalescommissionsCanReadObjectiveUserScope($user, $id) ? $resolver->resolveForUser($id, 'yearly', $year, 0, $now, (int) $conf->entity) : null;
 $monthlyRealized = lmdbsalescommissions_user_sum_realized($db, $id, 'monthly', $year, $month, $entitySql);
 $yearlyRealized = lmdbsalescommissions_user_sum_realized($db, $id, 'yearly', $year, 0, $entitySql);
+$dashboardService = new LmdbSalesCommissionDashboardService($db);
+$tierFilters = $dashboardService->getDefaultFilters($user);
+$tierFilters['fk_user'] = (int) $id;
+$tierFilters['year'] = $year;
+$tierFilters['month'] = $month;
+$tierProgress = $dashboardService->getTierProgress($tierFilters, $user);
 
 llxHeader('', $langs->trans('LmdbSalesCommissions'), '', '', 0, 0, array(), lmdbsalescommissionsGetCssFiles(), '', lmdbsalescommissionsGetBodyClass());
 
@@ -149,11 +156,42 @@ print '<tr class="liste_titre"><td>'.$langs->trans('LmdbSalesCommissionsIndicato
 print '<tr class="oddeven"><td>'.$langs->trans('LmdbSalesCommissionsEstimatedCommission').'</td><td class="right">'.lmdbsalescommissionsFormatTotalAmount($summary['margin_estimated'] + $summary['dispatch_estimated']).'</td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('LmdbSalesCommissionsRuleTypeMargin').'</td><td class="right">'.lmdbsalescommissionsFormatTotalAmount($summary['margin_acquired']).'</td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('LmdbSalesCommissionsModeDispatch').'</td><td class="right">'.lmdbsalescommissionsFormatTotalAmount($summary['dispatch_acquired']).'</td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('LmdbSalesCommissionsRuleTypeTier').'</td><td class="right">'.lmdbsalescommissionsFormatTotalAmount($summary['tier_acquired']).'</td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('LmdbSalesCommissionsTierCommissionAcquired').'</td><td class="right">'.lmdbsalescommissionsFormatTotalAmount($summary['tier_acquired']).'</td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('LmdbSalesCommissionsCommissionTotal').'</td><td class="right">'.lmdbsalescommissionsFormatTotalAmount($summary['acquired_total']).'</td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('LmdbSalesCommissionsPayableTotal').'</td><td class="right">'.lmdbsalescommissionsFormatTotalAmount($summary['payable_total']).'</td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('LmdbSalesCommissionsPaidTotal').'</td><td class="right">'.lmdbsalescommissionsFormatTotalAmount($summary['paid_total']).'</td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('LmdbSalesCommissionsRemainingToPay').'</td><td class="right">'.lmdbsalescommissionsFormatTotalAmount(max(0, $summary['payable_total'] - $summary['paid_total'])).'</td></tr>';
+print '</table>';
+
+print '<br>';
+print load_fiche_titre($langs->trans('LmdbSalesCommissionsCurrentTierProgress'), '', 'fa-layer-group');
+print '<table class="noborder liste centpercent">';
+print '<tr class="liste_titre"><td>'.$langs->trans('LmdbSalesCommissionsIndicator').'</td><td class="right">'.$langs->trans('Value').'</td></tr>';
+if ($tierProgress['status'] !== 'ok') {
+	$tierProgressMessage = $tierProgress['status'] === 'no_rule' ? 'LmdbSalesCommissionsNoTierRuleForPeriod' : 'LmdbSalesCommissionsTierProgressUnavailable';
+	print '<tr class="oddeven"><td colspan="2"><span class="opacitymedium">'.$langs->trans($tierProgressMessage).'</span></td></tr>';
+} else {
+	$modeLabel = lmdbsalescommissionsGetTierCalculationModeLabel($langs, $tierProgress['calculation_mode']);
+	print '<tr class="oddeven"><td>'.$langs->trans('LmdbSalesCommissionsTierCalculationMode').'</td><td class="right">'.dol_escape_htmltag($modeLabel).'</td></tr>';
+	print '<tr class="oddeven"><td>'.$langs->trans('Period').'</td><td class="right">'.dol_escape_htmltag((string) $tierProgress['period_label']).'</td></tr>';
+	print '<tr class="oddeven"><td>'.$langs->trans('LmdbSalesCommissionsCurrentTurnover').'</td><td class="right">'.lmdbsalescommissionsFormatTotalAmount($tierProgress['turnover']).'</td></tr>';
+	print '<tr class="oddeven"><td>'.$langs->trans('LmdbSalesCommissionsReachedTier').'</td><td class="right">'.($tierProgress['reached_threshold'] !== null ? lmdbsalescommissionsFormatTotalAmount($tierProgress['reached_threshold']) : '<span class="opacitymedium">'.$langs->trans('None').'</span>').'</td></tr>';
+	$openEndedLabel = '<span class="opacitymedium">'.$langs->trans('LmdbSalesCommissionsOpenEndedTier').'</span>';
+	print '<tr class="oddeven"><td>'.$langs->trans('LmdbSalesCommissionsNextTier').'</td><td class="right">'.(!empty($tierProgress['open_ended']) ? $openEndedLabel : ($tierProgress['next_threshold'] !== null ? lmdbsalescommissionsFormatTotalAmount($tierProgress['next_threshold']) : '<span class="opacitymedium">'.$langs->trans('None').'</span>')).'</td></tr>';
+	print '<tr class="oddeven"><td>'.$langs->trans('LmdbSalesCommissionsRemainingBeforeTier').'</td><td class="right">'.(!empty($tierProgress['open_ended']) ? $openEndedLabel : ($tierProgress['remaining'] !== null ? lmdbsalescommissionsFormatTotalAmount($tierProgress['remaining']) : '<span class="opacitymedium">'.$langs->trans('None').'</span>')).'</td></tr>';
+	if ($tierProgress['active_rate'] !== null) {
+		print '<tr class="oddeven"><td>'.$langs->trans('LmdbSalesCommissionsActiveTierRate').'</td><td class="right">'.lmdbsalescommissionsFormatTotalAmount($tierProgress['active_rate']).' %</td></tr>';
+	}
+	print '<tr class="oddeven"><td>'.$langs->trans('LmdbSalesCommissionsCurrentTierCommission').'</td><td class="right">'.lmdbsalescommissionsFormatTotalAmount($tierProgress['current_commission']).'</td></tr>';
+	print '<tr class="oddeven"><td>'.$langs->trans('LmdbSalesCommissionsCommissionAtNextThreshold').'</td><td class="right">'.($tierProgress['commission_at_next_threshold'] !== null ? lmdbsalescommissionsFormatTotalAmount($tierProgress['commission_at_next_threshold']) : '<span class="opacitymedium">'.$langs->trans('None').'</span>').'</td></tr>';
+	print '<tr class="oddeven"><td>'.$langs->trans('LmdbSalesCommissionsAdditionalCommissionAtNextThreshold').'</td><td class="right">'.($tierProgress['additional_commission_to_next_threshold'] !== null ? lmdbsalescommissionsFormatTotalAmount($tierProgress['additional_commission_to_next_threshold']) : '<span class="opacitymedium">'.$langs->trans('None').'</span>').'</td></tr>';
+	$progressDisplay = $openEndedLabel;
+	if (empty($tierProgress['open_ended']) && $tierProgress['rate'] !== null) {
+		$boundedProgress = max(0, min(100, (float) $tierProgress['rate']));
+		$progressDisplay = lmdbsalescommissionsFormatTotalAmount($boundedProgress).' % <progress max="100" value="'.dol_escape_htmltag((string) $boundedProgress).'"></progress>';
+	}
+	print '<tr class="oddeven"><td>'.$langs->trans('LmdbSalesCommissionsProgression').'</td><td class="right">'.$progressDisplay.'</td></tr>';
+}
 print '</table>';
 
 print '<br>';

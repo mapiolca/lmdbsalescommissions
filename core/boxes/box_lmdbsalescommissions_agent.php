@@ -65,15 +65,30 @@ class box_lmdbsalescommissions_agent extends ModeleBoxes
 		$filters = $service->getDefaultFilters($user);
 		$filters['fk_user'] = (int) $user->id;
 		$summary = $service->getKpiSummary($filters, $user);
+		$tierProgress = $service->getTierProgress($filters, $user);
 		$values = array(
-			'LmdbSalesCommissionsRuleTypeMargin' => max(0, (float) $summary['commission_acquired'] - (float) $summary['tier_bonus']),
-			'LmdbSalesCommissionsRuleTypeTier' => (float) $summary['tier_bonus'],
+			'LmdbSalesCommissionsRuleTypeMargin' => (float) $summary['margin_commission_acquired'],
+			'LmdbSalesCommissionsModeDispatch' => (float) $summary['dispatch_commission_acquired'],
+			'LmdbSalesCommissionsTierCommissionAcquired' => (float) $summary['tier_commission_acquired'],
 			'LmdbSalesCommissionsPayableTotal' => (float) $summary['commission_due'],
 			'LmdbSalesCommissionsPaidTotal' => (float) $summary['commission_paid'],
 			'AmountHT' => (float) $summary['turnover_signed'],
 		);
+		if ($tierProgress['status'] === 'ok' && $tierProgress['current_commission'] !== null) {
+			$values['LmdbSalesCommissionsCurrentTierCommission'] = (float) $tierProgress['current_commission'];
+		}
 
 		$i = 0;
+		if ($tierProgress['status'] === 'ok') {
+			$this->info_box_contents[$i][0] = array('td' => 'class="tdoverflowmax200"', 'text' => $langs->trans('LmdbSalesCommissionsTierCalculationMode'), 'asis' => 0);
+			$this->info_box_contents[$i][1] = array('td' => 'class="right"', 'text' => dol_escape_htmltag(lmdbsalescommissionsGetTierCalculationModeLabel($langs, $tierProgress['calculation_mode'])), 'asis' => 1);
+			$i++;
+			if ($tierProgress['active_rate'] !== null) {
+				$this->info_box_contents[$i][0] = array('td' => 'class="tdoverflowmax200"', 'text' => $langs->trans('LmdbSalesCommissionsActiveTierRate'), 'asis' => 0);
+				$this->info_box_contents[$i][1] = array('td' => 'class="right"', 'text' => lmdbsalescommissionsFormatTotalAmount($tierProgress['active_rate']).' %', 'asis' => 1);
+				$i++;
+			}
+		}
 		foreach ($values as $label => $value) {
 			$this->info_box_contents[$i][0] = array('td' => 'class="tdoverflowmax200"', 'text' => $langs->trans($label), 'asis' => 0);
 			$this->info_box_contents[$i][1] = array('td' => 'class="right"', 'text' => lmdbsalescommissionsFormatTotalAmount($value), 'asis' => 0);

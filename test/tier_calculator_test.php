@@ -36,6 +36,33 @@ $progressiveNextCommissions = array(
 	300000 => null,
 	350000 => null,
 );
+$progressiveAdditionalCommissions = array(
+	0 => 0.0,
+	100000 => 2500.0,
+	150000 => 1250.0,
+	200000 => 3500.0,
+	250000 => 1750.0,
+	300000 => null,
+	350000 => null,
+);
+$progressiveRates = array(
+	0 => null,
+	100000 => 2.5,
+	150000 => 2.5,
+	200000 => 3.5,
+	250000 => 3.5,
+	300000 => 4.0,
+	350000 => 4.0,
+);
+$progressiveProgress = array(
+	0 => 0.0,
+	100000 => 0.0,
+	150000 => 50.0,
+	200000 => 0.0,
+	250000 => 50.0,
+	300000 => null,
+	350000 => null,
+);
 
 $errors = array();
 foreach ($progressiveCases as $turnover => $expected) {
@@ -55,6 +82,26 @@ foreach ($progressiveCases as $turnover => $expected) {
 		}
 	} elseif ((float) $result['commission_at_next_threshold'] !== $expectedNextCommission) {
 		$errors[] = 'Progressive turnover '.$turnover.': expected next threshold commission '.$expectedNextCommission.', got '.$result['commission_at_next_threshold'];
+	}
+	$expectedAdditionalCommission = $progressiveAdditionalCommissions[$turnover];
+	if ($expectedAdditionalCommission === null) {
+		if ($result['additional_commission_to_next_threshold'] !== null) {
+			$errors[] = 'Progressive turnover '.$turnover.': expected no additional commission to next threshold.';
+		}
+	} elseif ((float) $result['additional_commission_to_next_threshold'] !== $expectedAdditionalCommission) {
+		$errors[] = 'Progressive turnover '.$turnover.': expected additional commission '.$expectedAdditionalCommission.', got '.$result['additional_commission_to_next_threshold'];
+	}
+	$expectedRate = $progressiveRates[$turnover];
+	if ($expectedRate === null ? $result['active_rate'] !== null : (float) $result['active_rate'] !== $expectedRate) {
+		$errors[] = 'Progressive turnover '.$turnover.': active bracket rate mismatch.';
+	}
+	$expectedProgress = $progressiveProgress[$turnover];
+	if ($expectedProgress === null ? $result['progress_to_next_threshold'] !== null : abs((float) $result['progress_to_next_threshold'] - $expectedProgress) > 0.000001) {
+		$errors[] = 'Progressive turnover '.$turnover.': bracket progress mismatch.';
+	}
+	$expectedOpenEnded = $turnover >= 300000;
+	if ((bool) $result['open_ended'] !== $expectedOpenEnded) {
+		$errors[] = 'Progressive turnover '.$turnover.': open-ended bracket mismatch.';
 	}
 }
 
@@ -81,6 +128,20 @@ $fixedCases = array(
 	200000 => 2500.0,
 	350000 => 2500.0,
 );
+$fixedProgress = array(
+	50000 => 50.0,
+	100000 => 0.0,
+	199999 => 99.999,
+	200000 => null,
+	350000 => null,
+);
+$fixedAdditionalCommissions = array(
+	50000 => 1000.0,
+	100000 => 1500.0,
+	199999 => 1500.0,
+	200000 => null,
+	350000 => null,
+);
 foreach ($fixedCases as $turnover => $expected) {
 	$result = LmdbSalesCommissionTierCalculator::calculate(
 		(float) $turnover,
@@ -90,6 +151,17 @@ foreach ($fixedCases as $turnover => $expected) {
 	);
 	if ((float) $result['current_commission'] !== $expected) {
 		$errors[] = 'Fixed turnover '.$turnover.': expected '.$expected.', got '.$result['current_commission'];
+	}
+	$expectedProgress = $fixedProgress[$turnover];
+	if ($expectedProgress === null ? $result['progress_to_next_threshold'] !== null : abs((float) $result['progress_to_next_threshold'] - $expectedProgress) > 0.000001) {
+		$errors[] = 'Fixed turnover '.$turnover.': tier progress mismatch.';
+	}
+	$expectedAdditionalCommission = $fixedAdditionalCommissions[$turnover];
+	if ($expectedAdditionalCommission === null ? $result['additional_commission_to_next_threshold'] !== null : (float) $result['additional_commission_to_next_threshold'] !== $expectedAdditionalCommission) {
+		$errors[] = 'Fixed turnover '.$turnover.': additional commission mismatch.';
+	}
+	if ($result['active_rate'] !== null) {
+		$errors[] = 'Fixed turnover '.$turnover.': fixed mode must not expose an active rate.';
 	}
 }
 

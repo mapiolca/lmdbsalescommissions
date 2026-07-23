@@ -29,7 +29,7 @@ Par rapport à la version 1.0, cette version apporte principalement :
 
 - Commission constante sur marge.
 - Primes par paliers de chiffre d’affaires.
-- Cumul commission sur marge et prime par paliers.
+- Cumul commission sur marge et commission par paliers.
 - Règles par agent, par groupe d’utilisateurs et par défaut.
 - Objectifs mensuels et annuels facultatifs.
 - Archivage de l’atteinte des objectifs par utilisateur et par période.
@@ -72,7 +72,7 @@ Il ne contient pas le préfixe `htdocs/custom/`, car ce chemin est géré par Do
 - Rattrapage des devis validés non signés pour créer les estimations et des devis signés avec contributions de CA idempotentes, recalcul des paliers, actualisation des archives d’objectifs et détection des échéances déjà payables.
 - Pages métier : tableau de bord par widgets, à verser, suivi, versées, exports.
 - Onglet **Commissions** sur la fiche utilisateur.
-- Widgets Dolibarr agent et manager, ainsi que widgets d’accueil ciblés pour commissions à verser, objectif, palier, anomalies et synthèses manager.
+- Widgets Dolibarr agent et manager, ainsi que widgets d’accueil ciblés pour commissions à verser, objectif, commission par paliers, anomalies et synthèses manager.
 - Crons natifs pour archivage et échéances.
 - Intégration Notifications native via `c_action_trigger`, hook `notifsupported` et substitutions.
 
@@ -95,6 +95,8 @@ Commission acquise                         = 8 000 €
 Les seuils représentent le début des tranches : aucune commission n’est calculée sous le premier seuil et la dernière tranche reste ouverte. Les seuils actifs doivent être strictement positifs, uniques et croissants. Les taux doivent être compris entre 0 et 100 %, avec au moins un taux strictement positif dans une grille progressive.
 
 Le calcul fonctionne pour les périodes mensuelles, trimestrielles et annuelles. La ligne de commission conserve le chiffre d’affaires de période dans `amount_base`, le total calculé dans `commission_total`, le dernier palier ouvert dans `fk_tier` et le mode utilisé dans un snapshot.
+
+Les widgets et la fiche utilisateur affichent le mode réellement affecté au commercial, la période concernée, le taux de la tranche active, la commission acquise, la commission totale et le gain supplémentaire au prochain seuil. La progression est mesurée à l’intérieur de la tranche courante ; la dernière tranche est explicitement signalée comme ouverte.
 
 La modification d’une grille ne recalcule pas automatiquement les périodes antérieures. Le rattrapage doit être lancé explicitement pour les recalculer. Lors de cette opération, les échéances déjà versées restent inchangées ; seules les échéances non versées sont remplacées par le solde restant. Une nouvelle révision est créée pour chaque solde et tout trop-versé par rapport au nouveau calcul est signalé comme anomalie sans produire de montant négatif.
 
@@ -139,9 +141,9 @@ La désactivation temporaire conserve les réglages métier du module. La migrat
 ## Scénarios de validation
 
 - Agent avec commission sur marge seule.
-- Agent avec prime par palier seule.
+- Agent avec commission par paliers seule.
 - Agent avec commission progressive par tranches aux bornes exactes et entre deux seuils.
-- Agent avec commission sur marge et prime par palier.
+- Agent avec commission sur marge et commission par paliers.
 - Agent sans objectif.
 - Agent avec objectif mensuel.
 - Agent avec objectif annuel.

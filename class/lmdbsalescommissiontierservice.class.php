@@ -14,7 +14,7 @@ require_once __DIR__.'/lmdbsalescommissiontiercalculator.class.php';
 require_once __DIR__.'/lmdbsalescommissionturnoverservice.class.php';
 
 /**
- * Tier bonus calculation service.
+ * Tier commission calculation service.
  */
 class LmdbSalesCommissionTierService
 {
@@ -38,7 +38,7 @@ class LmdbSalesCommissionTierService
 	}
 
 	/**
-	 * Calculate tier bonus for a user and date.
+	 * Calculate tier commission for a user and date.
 	 *
 	 * @param int  $fkUser User id
 	 * @param User $user   Triggering user
@@ -374,7 +374,7 @@ class LmdbSalesCommissionTierService
 	}
 
 	/**
-	 * Rebuild only unpaid tier bonus dues and preserve paid historical rows.
+	 * Rebuild only unpaid tier commission dues and preserve paid historical rows.
 	 *
 	 * @param LmdbSalesCommissionLine $line Tier period line
 	 * @param User                    $user User

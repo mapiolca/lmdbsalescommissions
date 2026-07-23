@@ -438,7 +438,7 @@ class LmdbSalesCommissionLineService
 	/**
 	 * Cancel legacy proposal tier bases after dedicated turnover contributions exist.
 	 *
-	 * Period tier bonus lines remain active and are recalculated from turnover mode.
+	 * Period tier commission lines remain active and are recalculated from turnover mode.
 	 *
 	 * @param object $proposal Proposal
 	 * @param User   $user     User

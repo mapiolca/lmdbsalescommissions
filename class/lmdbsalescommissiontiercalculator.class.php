@@ -27,6 +27,10 @@ class LmdbSalesCommissionTierCalculator
 	 *     turnover:float,
 	 *     current_commission:float,
 	 *     commission_at_next_threshold:float|null,
+	 *     additional_commission_to_next_threshold:float|null,
+	 *     active_rate:float|null,
+	 *     progress_to_next_threshold:float|null,
+	 *     open_ended:bool,
 	 *     reached_tier:array{rowid:int, threshold_amount:float, bonus_amount:float, commission_rate:float|null, active?:int}|null,
 	 *     next_tier:array{rowid:int, threshold_amount:float, bonus_amount:float, commission_rate:float|null, active?:int}|null,
 	 *     remaining_to_next:float,
@@ -68,11 +72,28 @@ class LmdbSalesCommissionTierCalculator
 			$nextCommission = is_array($next) ? self::normalizeAmount((float) $next['bonus_amount'], $amountNormalizer) : null;
 		}
 
+		$currentCommission = self::normalizeAmount($calculation['total'], $amountNormalizer);
+		$additionalCommission = $nextCommission !== null
+			? self::normalizeAmount($nextCommission - $currentCommission, $amountNormalizer)
+			: null;
+		$rangeStart = is_array($reached) ? (float) $reached['threshold_amount'] : 0.0;
+		$progressToNext = null;
+		if (is_array($next)) {
+			$rangeLength = (float) $next['threshold_amount'] - $rangeStart;
+			$progressToNext = $rangeLength > 0
+				? max(0.0, min(100.0, (($normalizedTurnover - $rangeStart) / $rangeLength) * 100))
+				: 100.0;
+		}
+
 		return array(
 			'calculation_mode' => $mode,
 			'turnover' => $normalizedTurnover,
-			'current_commission' => self::normalizeAmount($calculation['total'], $amountNormalizer),
+			'current_commission' => $currentCommission,
 			'commission_at_next_threshold' => $nextCommission,
+			'additional_commission_to_next_threshold' => $additionalCommission,
+			'active_rate' => $mode === self::MODE_PROGRESSIVE_RATE && is_array($reached) && $reached['commission_rate'] !== null ? (float) $reached['commission_rate'] : null,
+			'progress_to_next_threshold' => $progressToNext,
+			'open_ended' => is_array($reached) && !is_array($next),
 			'reached_tier' => $reached,
 			'next_tier' => $next,
 			'remaining_to_next' => is_array($next) ? self::normalizeAmount(max(0.0, (float) $next['threshold_amount'] - $normalizedTurnover), $amountNormalizer) : 0.0,

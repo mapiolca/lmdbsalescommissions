@@ -10,6 +10,7 @@
 - Résolution de la grille réellement affectée à chaque commercial dans les indicateurs de progression, sans mélange des paliers appartenant à plusieurs grilles.
 - Versionnement des échéances par révision afin de conserver les versements effectués lors d’un recalcul et de ne recréer que le solde restant par événement.
 - Signalement des trop-versés après recalcul sans création d’échéance négative et sans recalcul historique automatique lors de la modification d’une grille.
+- Actualisation des widgets et indicateurs utilisateurs avec le mode de calcul effectif, la période, le taux actif, la commission acquise ou projetée et une progression mesurée dans la tranche courante.
 
 ## 1.1.0 - 2026-07-16
 
