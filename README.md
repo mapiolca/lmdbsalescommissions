@@ -2,7 +2,15 @@
 
 Module Dolibarr externe `lmdbsalescommissions` pour gérer les commissions, primes par paliers et objectifs commerciaux des agents.
 
-Version actuelle : **1.1.0**.
+Version actuelle : **1.2.0**.
+
+## Nouveautés de la version 1.2.0
+
+- Ajout du mode de grille **Pourcentage progressif par tranche** pour les périodes mensuelles, trimestrielles et annuelles.
+- Calcul marginal centralisé des commissions, avec normalisation des montants selon les réglages financiers Dolibarr.
+- Affichage cohérent de la commission acquise ou projetée dans l’administration, les tableaux de bord, les widgets et les exports.
+- Recalcul conservateur des échéances par révision : les versements effectués restent inchangés et seul le solde restant est recréé.
+- Signalement des trop-versés sans création d’échéance négative et sans recalcul automatique de l’historique.
 
 ## Nouveautés de la version 1.1.0
 
@@ -17,7 +25,7 @@ Par rapport à la version 1.0, cette version apporte principalement :
 - l’adaptation du rattrapage, des exports et des indicateurs au nouveau fonctionnement multi-commerciaux.
 - le rattrapage des devis déjà signés avec attribution automatique au commercial auteur lorsque l’historique ne contient aucune répartition de CA.
 
-## Périmètre de la version 1.1.0
+## Périmètre de la version 1.2.0
 
 - Commission constante sur marge.
 - Primes par paliers de chiffre d’affaires.
@@ -118,10 +126,10 @@ Une répartition manuelle peut être créée depuis l’onglet **Répartition co
 
 La répartition des commissions détermine les commissions et leurs modalités de versement. L’attribution du CA alimente séparément les paliers, objectifs et indicateurs individuels. Une attribution explicite peut rester temporairement inférieure à 100 %, mais elle doit représenter exactement 100 % du CA HT à la signature. Sans attribution explicite, 100 % du CA est affecté au commercial auteur du devis ; si aucun auteur actif ne peut être résolu, la signature est refusée. Après signature, les deux répartitions restent consultables mais ne peuvent plus être modifiées.
 
-## Mise à niveau depuis la version 1.0
+## Mise à niveau vers la version 1.2.0
 
 1. Sauvegarder la base de données et les fichiers du module.
-2. Remplacer le contenu du module par la version 1.1.0.
+2. Remplacer le contenu du module par la version 1.2.0.
 3. Désactiver puis réactiver le module afin d’exécuter la migration idempotente des tables, colonnes et index nécessaires aux répartitions de commissions et de CA.
 4. Vérifier le réglage de libération de l’échéance de facture finale dans les paramètres généraux.
 5. Exécuter les contrôles de cohérence et le rattrapage des devis existants si leur CA doit être attribué aux commerciaux. Sans historique explicite, le traitement affecte 100 % du CA au commercial auteur du devis.
@@ -158,13 +166,13 @@ La désactivation temporaire conserve les réglages métier du module. La migrat
 
 ## Compatibilité
 
-- Version du module : 1.1.0
+- Version du module : 1.2.0
 - Dolibarr : v20+
 - PHP : 8.0+
 - Base de données : MySQL/MariaDB via l’abstraction Dolibarr
 - Module installé sous `htdocs/custom/lmdbsalescommissions/`.
 
-## Limites de la version 1.1.0
+## Limites de la version 1.2.0
 
 - Pas de génération automatique de facture fournisseur ou note de frais.
 - Pas de commissionnement par ligne produit/service.

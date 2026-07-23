@@ -22,7 +22,7 @@ class InterfaceLmdbSalesCommissionsTriggers
 	public $description = 'LmdbSalesCommissionsTriggers';
 
 	/** @var string Version */
-	public $version = '1.1.0';
+	public $version = '1.2.0';
 
 	/** @var string Picto */
 	public $picto = 'fa-percent';
