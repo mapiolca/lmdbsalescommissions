@@ -24,6 +24,7 @@ CREATE TABLE llx_lmdbsalescommissions_line
 	rule_source varchar(32) DEFAULT NULL,
 	snapshot_rule_label varchar(255) DEFAULT NULL,
 	snapshot_rule_rate double(10,4) DEFAULT NULL,
+	snapshot_tier_calculation_mode varchar(32) DEFAULT NULL,
 	snapshot_base_type varchar(16) DEFAULT NULL,
 	snapshot_value_type varchar(16) DEFAULT NULL,
 	snapshot_value double(24,8) DEFAULT NULL,

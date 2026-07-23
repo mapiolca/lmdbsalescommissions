@@ -486,6 +486,26 @@ function lmdbsalescommissionsGetModeLabel($langs, $mode)
 }
 
 /**
+ * Return translated tier calculation mode.
+ *
+ * A missing snapshot identifies a historical fixed bonus line.
+ *
+ * @param Translate $langs Language object
+ * @param string|null $mode Calculation mode
+ * @return string
+ */
+function lmdbsalescommissionsGetTierCalculationModeLabel($langs, $mode)
+{
+	$labels = array(
+		'fixed_bonus' => 'LmdbSalesCommissionsTierModeFixedBonus',
+		'progressive_rate' => 'LmdbSalesCommissionsTierModeProgressiveRate',
+	);
+	$normalizedMode = isset($labels[(string) $mode]) ? (string) $mode : 'fixed_bonus';
+
+	return $langs->trans($labels[$normalizedMode]);
+}
+
+/**
  * Return translated rule source label.
  *
  * @param Translate $langs      Language object

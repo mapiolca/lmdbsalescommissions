@@ -10,6 +10,7 @@
 require_once __DIR__.'/lmdbsalescommissionline.class.php';
 require_once __DIR__.'/lmdbsalescommissionlineservice.class.php';
 require_once __DIR__.'/lmdbsalescommissionruleresolver.class.php';
+require_once __DIR__.'/lmdbsalescommissiontiercalculator.class.php';
 require_once __DIR__.'/lmdbsalescommissionturnoverservice.class.php';
 
 /**
@@ -47,6 +48,42 @@ class LmdbSalesCommissionTierService
 	 */
 	public function calculateForUser($fkUser, $user, $date = 0, $entity = 0)
 	{
+		$calculation = $this->getProgressForUser($fkUser, $date, $entity);
+		if (!isset($calculation['status']) || $calculation['status'] !== 'ok') {
+			return $calculation;
+		}
+
+		$lineResult = $this->upsertPeriodLine(
+			$fkUser,
+			$user,
+			(int) $calculation['entity'],
+			$calculation['rule'],
+			$calculation['period'],
+			(float) $calculation['turnover'],
+			(float) $calculation['current_commission'],
+			is_array($calculation['reached_tier']) ? $calculation['reached_tier'] : null,
+			(string) $calculation['calculation_mode'],
+			(int) $calculation['effective_date']
+		);
+		if ($lineResult < 0) {
+			return array('status' => 'error', 'error' => $this->error);
+		}
+
+		$calculation['line_id'] = $lineResult;
+
+		return $calculation;
+	}
+
+	/**
+	 * Calculate tier progress without persisting a commission line.
+	 *
+	 * @param int $fkUser User id
+	 * @param int $date Timestamp, 0 for now
+	 * @param int $entity Entity id, 0 for current entity
+	 * @return array<string, mixed>
+	 */
+	public function getProgressForUser($fkUser, $date = 0, $entity = 0)
+	{
 		global $conf;
 
 		$this->error = '';
@@ -67,34 +104,29 @@ class LmdbSalesCommissionTierService
 		$rule = $profile['selected']['tier'];
 		$period = $this->getPeriodBounds((string) $rule['period_type'], $effectiveDate);
 		$turnover = $this->sumTurnover($fkUser, (int) $rule['rule_id'], $period['start'], $period['end'], $effectiveEntity);
-		$tiers = $this->fetchTiers((int) $rule['fk_tier_grid'], $effectiveEntity);
-		$reached = null;
-		$next = null;
-		foreach ($tiers as $tier) {
-			if ($turnover >= $tier['threshold_amount']) {
-				$reached = $tier;
-				continue;
-			}
-			$next = $tier;
-			break;
-		}
-
-		$bonus = is_array($reached) ? (float) price2num($reached['bonus_amount'], 'MT') : 0.0;
-		$lineResult = $this->upsertPeriodLine($fkUser, $user, $effectiveEntity, $rule, $period, $turnover, $bonus, $reached, $effectiveDate);
-		if ($lineResult < 0) {
+		if ($this->error !== '') {
 			return array('status' => 'error', 'error' => $this->error);
 		}
+		$calculationMode = $this->fetchCalculationMode((int) $rule['fk_tier_grid'], $effectiveEntity);
+		if ($calculationMode === null) {
+			return array('status' => 'error', 'error' => $this->error);
+		}
+		$tiers = $this->fetchTiers((int) $rule['fk_tier_grid'], $effectiveEntity);
+		if ($this->error !== '') {
+			return array('status' => 'error', 'error' => $this->error);
+		}
+		$tierCalculation = LmdbSalesCommissionTierCalculator::calculate($turnover, $calculationMode, $tiers);
 
-		return array(
-			'status' => 'ok',
-			'rule' => $rule,
-			'period' => $period,
-			'turnover' => $turnover,
-			'reached_tier' => $reached,
-			'next_tier' => $next,
-			'remaining_to_next' => is_array($next) ? (float) price2num(max(0, (float) $next['threshold_amount'] - $turnover), 'MT') : 0.0,
-			'bonus' => $bonus,
-			'line_id' => $lineResult,
+		return array_merge(
+			array(
+				'status' => 'ok',
+				'entity' => $effectiveEntity,
+				'effective_date' => $effectiveDate,
+				'rule' => $rule,
+				'period' => $period,
+				'bonus' => $tierCalculation['current_commission'],
+			),
+			$tierCalculation
 		);
 	}
 
@@ -184,7 +216,7 @@ class LmdbSalesCommissionTierService
 	 *
 	 * @param int $gridId Grid id
 	 * @param int $entity Entity id
-	 * @return array<int, array{rowid:int, threshold_amount:float, bonus_amount:float}>
+	 * @return array<int, array{rowid:int, threshold_amount:float, bonus_amount:float, commission_rate:float|null}>
 	 */
 	private function fetchTiers($gridId, $entity)
 	{
@@ -193,7 +225,7 @@ class LmdbSalesCommissionTierService
 			return $tiers;
 		}
 
-		$sql = 'SELECT rowid, threshold_amount, bonus_amount';
+		$sql = 'SELECT rowid, threshold_amount, bonus_amount, commission_rate';
 		$sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_tier';
 		$sql .= ' WHERE entity = '.((int) $entity);
 		$sql .= ' AND fk_tier_grid = '.((int) $gridId);
@@ -211,6 +243,7 @@ class LmdbSalesCommissionTierService
 				'rowid' => (int) $obj->rowid,
 				'threshold_amount' => (float) price2num($obj->threshold_amount, 'MT'),
 				'bonus_amount' => (float) price2num($obj->bonus_amount, 'MT'),
+				'commission_rate' => $obj->commission_rate !== null ? (float) $obj->commission_rate : null,
 			);
 		}
 		$this->db->free($resql);
@@ -219,20 +252,56 @@ class LmdbSalesCommissionTierService
 	}
 
 	/**
+	 * Fetch the calculation mode of a tier grid.
+	 *
+	 * @param int $gridId Grid id
+	 * @param int $entity Entity id
+	 * @return string|null
+	 */
+	private function fetchCalculationMode($gridId, $entity)
+	{
+		if ($gridId <= 0 || $entity <= 0) {
+			$this->error = 'LmdbSalesCommissionsTierGridRequiredForTierRule';
+			return null;
+		}
+
+		$sql = 'SELECT calculation_mode';
+		$sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_tier_grid';
+		$sql .= ' WHERE rowid = '.((int) $gridId);
+		$sql .= ' AND entity = '.((int) $entity);
+		$sql .= ' AND active = 1';
+		$sql .= ' LIMIT 1';
+		$resql = $this->db->query($sql);
+		if (!$resql) {
+			$this->error = $this->db->lasterror();
+			return null;
+		}
+		$obj = $this->db->fetch_object($resql);
+		$this->db->free($resql);
+		if (!is_object($obj)) {
+			$this->error = 'LmdbSalesCommissionsTierGridRequiredForTierRule';
+			return null;
+		}
+
+		return LmdbSalesCommissionTierCalculator::normalizeMode((string) $obj->calculation_mode);
+	}
+
+	/**
 	 * Create or update period summary line.
 	 *
-	 * @param int                    $fkUser   User id
-	 * @param User                   $user     Triggering user
-	 * @param int                    $entity   Entity id
-	 * @param array<string, mixed>   $rule     Resolved rule
-	 * @param array<string, mixed>   $period   Period data
-	 * @param float                  $turnover Turnover
-	 * @param float                     $bonus         Bonus
+	 * @param int                       $fkUser          User id
+	 * @param User                      $user            Triggering user
+	 * @param int                       $entity          Entity id
+	 * @param array<string, mixed>      $rule            Resolved rule
+	 * @param array<string, mixed>      $period          Period data
+	 * @param float                     $turnover        Turnover
+	 * @param float                     $bonus           Commission
 	 * @param array<string, mixed>|null $tier          Reached tier
-	 * @param int                       $dateAcquired  Acquisition date
+	 * @param string                    $calculationMode Calculation mode
+	 * @param int                       $dateAcquired    Acquisition date
 	 * @return int
 	 */
-	private function upsertPeriodLine($fkUser, $user, $entity, array $rule, array $period, $turnover, $bonus, $tier, $dateAcquired)
+	private function upsertPeriodLine($fkUser, $user, $entity, array $rule, array $period, $turnover, $bonus, $tier, $calculationMode, $dateAcquired)
 	{
 		$existingId = $this->fetchPeriodLineId($entity, $fkUser, (int) $period['key'], (int) $rule['rule_id']);
 		$line = new LmdbSalesCommissionLine($this->db);
@@ -240,6 +309,8 @@ class LmdbSalesCommissionTierService
 			$this->error = $line->error;
 			return -1;
 		}
+		$existingPayableTotal = $existingId > 0 ? (float) $line->payable_total : 0.0;
+		$existingPaidTotal = $existingId > 0 ? (float) $line->paid_total : 0.0;
 
 		$line->entity = $entity;
 		$line->fk_user = $fkUser;
@@ -253,8 +324,8 @@ class LmdbSalesCommissionTierService
 		$line->rate = null;
 		$line->fk_tier = is_array($tier) ? (int) $tier['rowid'] : null;
 		$line->commission_total = (float) price2num($bonus, 'MT');
-		$line->payable_total = 0.0;
-		$line->paid_total = 0.0;
+		$line->payable_total = (float) price2num($existingPayableTotal, 'MT');
+		$line->paid_total = (float) price2num($existingPaidTotal, 'MT');
 		$line->status = LmdbSalesCommissionLineService::STATUS_ACQUIRED;
 		$line->date_acquired = $dateAcquired;
 		$line->fk_rule = (int) $rule['rule_id'];
@@ -262,6 +333,7 @@ class LmdbSalesCommissionTierService
 		$line->rule_source = (string) $rule['source'];
 		$line->snapshot_rule_label = (string) $rule['rule_label'];
 		$line->snapshot_rule_rate = null;
+		$line->snapshot_tier_calculation_mode = LmdbSalesCommissionTierCalculator::normalizeMode($calculationMode);
 
 		if ($existingId > 0) {
 			$result = $line->update($user);

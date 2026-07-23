@@ -33,6 +33,7 @@ class LmdbSalesCommissionLine extends LmdbSalesCommissionCommon
 	public $rule_source;
 	public $snapshot_rule_label;
 	public $snapshot_rule_rate;
+	public $snapshot_tier_calculation_mode;
 	public $snapshot_base_type;
 	public $snapshot_value_type;
 	public $snapshot_value;
@@ -65,9 +66,10 @@ class LmdbSalesCommissionLine extends LmdbSalesCommissionCommon
 		'rule_source' => array('type' => 'varchar(32)', 'label' => 'LmdbSalesCommissionsRuleSource', 'enabled' => '1', 'visible' => 1, 'position' => 170),
 		'snapshot_rule_label' => array('type' => 'varchar(255)', 'label' => 'LmdbSalesCommissionsSnapshotRuleLabel', 'enabled' => '1', 'visible' => 0, 'position' => 180),
 		'snapshot_rule_rate' => array('type' => 'double(10,4)', 'label' => 'LmdbSalesCommissionsSnapshotRuleRate', 'enabled' => '1', 'visible' => 0, 'position' => 190),
-		'snapshot_base_type' => array('type' => 'varchar(16)', 'label' => 'LmdbSalesCommissionsDispatchBase', 'enabled' => '1', 'visible' => 0, 'position' => 191),
-		'snapshot_value_type' => array('type' => 'varchar(16)', 'label' => 'LmdbSalesCommissionsDispatchValueType', 'enabled' => '1', 'visible' => 0, 'position' => 192),
-		'snapshot_value' => array('type' => 'double(24,8)', 'label' => 'LmdbSalesCommissionsDispatchValue', 'enabled' => '1', 'visible' => 0, 'position' => 193),
+		'snapshot_tier_calculation_mode' => array('type' => 'varchar(32)', 'label' => 'LmdbSalesCommissionsTierCalculationMode', 'enabled' => '1', 'visible' => 0, 'position' => 191),
+		'snapshot_base_type' => array('type' => 'varchar(16)', 'label' => 'LmdbSalesCommissionsDispatchBase', 'enabled' => '1', 'visible' => 0, 'position' => 192),
+		'snapshot_value_type' => array('type' => 'varchar(16)', 'label' => 'LmdbSalesCommissionsDispatchValueType', 'enabled' => '1', 'visible' => 0, 'position' => 193),
+		'snapshot_value' => array('type' => 'double(24,8)', 'label' => 'LmdbSalesCommissionsDispatchValue', 'enabled' => '1', 'visible' => 0, 'position' => 194),
 		'note_private' => array('type' => 'text', 'label' => 'NotePrivate', 'enabled' => '1', 'visible' => 0, 'position' => 200),
 		'date_creation' => array('type' => 'datetime', 'label' => 'DateCreation', 'enabled' => '1', 'visible' => -2, 'notnull' => 1, 'position' => 500),
 		'tms' => array('type' => 'timestamp', 'label' => 'DateModification', 'enabled' => '1', 'visible' => -2, 'noteditable' => 1, 'position' => 501),

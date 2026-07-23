@@ -68,6 +68,28 @@ Il ne contient pas le préfixe `htdocs/custom/`, car ce chemin est géré par Do
 - Crons natifs pour archivage et échéances.
 - Intégration Notifications native via `c_action_trigger`, hook `notifsupported` et substitutions.
 
+## Commissions par paliers
+
+Chaque grille de paliers propose désormais deux modes de calcul :
+
+- **Prime fixe au palier atteint** (`fixed_bonus`) : le montant du dernier seuil atteint est acquis, comme dans les versions précédentes ;
+- **Pourcentage progressif par tranche** (`progressive_rate`) : chaque seuil ouvre une tranche dont le taux ne s’applique qu’à la part de chiffre d’affaires comprise entre ce seuil et le suivant.
+
+Exemple progressif pour un chiffre d’affaires HT de 350 000 € :
+
+```text
+100 000 € → 2,5 % : 100 000 × 2,5 % = 2 500 €
+200 000 € → 3,5 % : 100 000 × 3,5 % = 3 500 €
+300 000 € → 4,0 % :  50 000 × 4,0 % = 2 000 €
+Commission acquise                         = 8 000 €
+```
+
+Les seuils représentent le début des tranches : aucune commission n’est calculée sous le premier seuil et la dernière tranche reste ouverte. Les seuils actifs doivent être strictement positifs, uniques et croissants. Les taux doivent être compris entre 0 et 100 %, avec au moins un taux strictement positif dans une grille progressive.
+
+Le calcul fonctionne pour les périodes mensuelles, trimestrielles et annuelles. La ligne de commission conserve le chiffre d’affaires de période dans `amount_base`, le total calculé dans `commission_total`, le dernier palier ouvert dans `fk_tier` et le mode utilisé dans un snapshot.
+
+La modification d’une grille ne recalcule pas automatiquement les périodes antérieures. Le rattrapage doit être lancé explicitement pour les recalculer. Lors de cette opération, les échéances déjà versées restent inchangées ; seules les échéances non versées sont remplacées par le solde restant. Une nouvelle révision est créée pour chaque solde et tout trop-versé par rapport au nouveau calcul est signalé comme anomalie sans produire de montant négatif.
+
 ## Tableau de bord
 
 Le tableau de bord **Facturation | Paiement > Commissions > Tableau de bord** est composé de widgets indépendants.
@@ -104,12 +126,13 @@ La répartition des commissions détermine les commissions et leurs modalités d
 4. Vérifier le réglage de libération de l’échéance de facture finale dans les paramètres généraux.
 5. Exécuter les contrôles de cohérence et le rattrapage des devis existants si leur CA doit être attribué aux commerciaux. Sans historique explicite, le traitement affecte 100 % du CA au commercial auteur du devis.
 
-La désactivation temporaire conserve les réglages métier du module. La migration ajoute les données de répartition sans remettre en cause les commissions déjà enregistrées.
+La désactivation temporaire conserve les réglages métier du module. La migration ajoute les données de répartition et initialise toutes les grilles existantes en mode `fixed_bonus`, sans modifier leurs montants ni recalculer automatiquement l’historique. Elle ajoute également les révisions d’échéances nécessaires aux recalculs conservateurs.
 
 ## Scénarios de validation
 
 - Agent avec commission sur marge seule.
 - Agent avec prime par palier seule.
+- Agent avec commission progressive par tranches aux bornes exactes et entre deux seuils.
 - Agent avec commission sur marge et prime par palier.
 - Agent sans objectif.
 - Agent avec objectif mensuel.
@@ -124,6 +147,7 @@ La désactivation temporaire conserve les réglages métier du module. La migrat
 - Répartition de CA incomplète visible et signature refusée ; dépassement refusé dès l’enregistrement.
 - Ancien devis signé attribué à 100 % à son commercial auteur lors du rattrapage, sans doublon au second passage.
 - Archive d’objectif actualisée et échéance déjà versée conservée lors du recalcul.
+- Recalcul progressif répété sans doublon, avec versement partiel et anomalie lorsque le versé dépasse le nouveau total.
 - Modalité de versement explicitement sélectionnée ou héritée des réglages du commercial.
 - Répartition verrouillée après signature et visible selon le périmètre de droits propre, groupe ou global.
 - Échéance d’acompte rendue payable par une facture d’acompte payée liée directement au devis ou à une commande du devis.

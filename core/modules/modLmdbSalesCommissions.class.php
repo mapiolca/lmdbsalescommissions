@@ -371,11 +371,23 @@ class modLmdbSalesCommissions extends DolibarrModules
 		if ($this->upgradeCommissionLineDispatchSchema(false) < 0) {
 			return -1;
 		}
+		if ($this->upgradeTierCalculationSchema(false) < 0) {
+			return -1;
+		}
+		if ($this->upgradeDueRevisionSchema(false) < 0) {
+			return -1;
+		}
 		$result = $this->_load_tables('/lmdbsalescommissions/sql/');
 		if ($result < 0) {
 			return -1;
 		}
 		if ($this->upgradeCommissionLineDispatchSchema(true) < 0) {
+			return -1;
+		}
+		if ($this->upgradeTierCalculationSchema(true) < 0) {
+			return -1;
+		}
+		if ($this->upgradeDueRevisionSchema(true) < 0) {
 			return -1;
 		}
 
@@ -407,6 +419,7 @@ class modLmdbSalesCommissions extends DolibarrModules
 			'snapshot_base_type' => 'varchar(16) DEFAULT NULL',
 			'snapshot_value_type' => 'varchar(16) DEFAULT NULL',
 			'snapshot_value' => 'double(24,8) DEFAULT NULL',
+			'snapshot_tier_calculation_mode' => 'varchar(32) DEFAULT NULL',
 		);
 		foreach ($columns as $column => $definition) {
 			$resql = $this->db->query("SHOW COLUMNS FROM ".$table." LIKE '".$this->db->escape($column)."'");
@@ -440,6 +453,110 @@ class modLmdbSalesCommissions extends DolibarrModules
 		$this->db->free($resql);
 		if (!$turnoverIndexExists && !$this->db->query('ALTER TABLE '.$table.' ADD INDEX '.$turnoverIndexName.' (fk_proposal_turnover_dispatch)')) {
 			return -1;
+		}
+
+		return 1;
+	}
+
+	/**
+	 * Add tier calculation mode and percentage columns to an existing installation.
+	 *
+	 * Existing grids keep the fixed bonus behavior through the database default.
+	 *
+	 * @param bool $tableMustExist Fail when a base table is still unavailable
+	 * @return int
+	 */
+	private function upgradeTierCalculationSchema($tableMustExist)
+	{
+		$tables = array(
+			MAIN_DB_PREFIX.'lmdbsalescommissions_tier_grid' => array(
+				'calculation_mode' => "varchar(32) DEFAULT 'fixed_bonus' NOT NULL",
+			),
+			MAIN_DB_PREFIX.'lmdbsalescommissions_tier' => array(
+				'commission_rate' => 'double(10,4) DEFAULT NULL',
+			),
+		);
+
+		foreach ($tables as $table => $columns) {
+			$resql = $this->db->query("SHOW TABLES LIKE '".$this->db->escape($table)."'");
+			if (!$resql) {
+				return -1;
+			}
+			$tableExists = $this->db->num_rows($resql) > 0;
+			$this->db->free($resql);
+			if (!$tableExists) {
+				if ($tableMustExist) {
+					return -1;
+				}
+				continue;
+			}
+
+			foreach ($columns as $column => $definition) {
+				$resql = $this->db->query("SHOW COLUMNS FROM ".$table." LIKE '".$this->db->escape($column)."'");
+				if (!$resql) {
+					return -1;
+				}
+				$exists = $this->db->num_rows($resql) > 0;
+				$this->db->free($resql);
+				if (!$exists && !$this->db->query('ALTER TABLE '.$table.' ADD COLUMN '.$column.' '.$definition)) {
+					return -1;
+				}
+			}
+		}
+
+		return 1;
+	}
+
+	/**
+	 * Make commission due dates revisionable without altering paid history.
+	 *
+	 * @param bool $tableMustExist Fail when the base table is still unavailable
+	 * @return int
+	 */
+	private function upgradeDueRevisionSchema($tableMustExist)
+	{
+		$table = MAIN_DB_PREFIX.'lmdbsalescommissions_due';
+		$resql = $this->db->query("SHOW TABLES LIKE '".$this->db->escape($table)."'");
+		if (!$resql) {
+			return -1;
+		}
+		$tableExists = $this->db->num_rows($resql) > 0;
+		$this->db->free($resql);
+		if (!$tableExists) {
+			return $tableMustExist ? -1 : 0;
+		}
+
+		$resql = $this->db->query("SHOW COLUMNS FROM ".$table." LIKE 'revision'");
+		if (!$resql) {
+			return -1;
+		}
+		$revisionExists = $this->db->num_rows($resql) > 0;
+		$this->db->free($resql);
+		if (!$revisionExists && !$this->db->query('ALTER TABLE '.$table.' ADD COLUMN revision integer DEFAULT 1 NOT NULL AFTER event_type')) {
+			return -1;
+		}
+
+		$indexName = 'uk_lmdbsalescommissions_due_line_event';
+		$resql = $this->db->query("SHOW INDEX FROM ".$table." WHERE Key_name = '".$this->db->escape($indexName)."'");
+		if (!$resql) {
+			return -1;
+		}
+		$indexColumns = array();
+		while (is_object($obj = $this->db->fetch_object($resql))) {
+			$indexColumns[(int) $obj->Seq_in_index] = (string) $obj->Column_name;
+		}
+		$this->db->free($resql);
+		ksort($indexColumns);
+		$indexColumns = array_values($indexColumns);
+
+		$expectedColumns = array('entity', 'fk_commission_line', 'event_type', 'revision');
+		if ($indexColumns !== $expectedColumns) {
+			if (!empty($indexColumns) && !$this->db->query('ALTER TABLE '.$table.' DROP INDEX '.$indexName)) {
+				return -1;
+			}
+			if (!$this->db->query('ALTER TABLE '.$table.' ADD UNIQUE INDEX '.$indexName.' (entity, fk_commission_line, event_type, revision)')) {
+				return -1;
+			}
 		}
 
 		return 1;

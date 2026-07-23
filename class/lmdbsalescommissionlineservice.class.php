@@ -355,6 +355,7 @@ class LmdbSalesCommissionLineService
 			$line->rule_source = is_array($tierRule) ? (string) $tierRule['source'] : ($allocation['is_default'] ? 'automatic' : self::MODE_TURNOVER);
 			$line->snapshot_rule_label = is_array($tierRule) ? (string) $tierRule['rule_label'] : 'LmdbSalesCommissionsTurnoverContribution';
 			$line->snapshot_rule_rate = null;
+			$line->snapshot_tier_calculation_mode = null;
 			$line->snapshot_base_type = LmdbSalesCommissionProposalDispatchService::BASE_TURNOVER;
 			$line->snapshot_value_type = (string) $allocation['value_type'];
 			$line->snapshot_value = (float) $allocation['value'];
@@ -614,6 +615,7 @@ class LmdbSalesCommissionLineService
 		$line->rule_source = self::MODE_DISPATCH;
 		$line->snapshot_rule_label = 'LmdbSalesCommissionsManualDispatch';
 		$line->snapshot_rule_rate = $calculation['rate'];
+		$line->snapshot_tier_calculation_mode = null;
 		$line->snapshot_base_type = (string) $dispatch->base_type;
 		$line->snapshot_value_type = (string) $dispatch->value_type;
 		$line->snapshot_value = (float) $dispatch->value;
@@ -707,6 +709,7 @@ class LmdbSalesCommissionLineService
 		$line->rule_source = (string) $rule['source'];
 		$line->snapshot_rule_label = (string) $rule['rule_label'];
 		$line->snapshot_rule_rate = $rate;
+		$line->snapshot_tier_calculation_mode = null;
 		$line->snapshot_base_type = null;
 		$line->snapshot_value_type = null;
 		$line->snapshot_value = null;
@@ -792,6 +795,7 @@ class LmdbSalesCommissionLineService
 		$line->rule_source = 'none';
 		$line->snapshot_rule_label = 'LmdbSalesCommissionsTrackingWithoutRule';
 		$line->snapshot_rule_rate = null;
+		$line->snapshot_tier_calculation_mode = null;
 		$line->snapshot_base_type = null;
 		$line->snapshot_value_type = null;
 		$line->snapshot_value = null;

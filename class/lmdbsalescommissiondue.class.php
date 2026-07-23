@@ -13,6 +13,7 @@ class LmdbSalesCommissionDue extends LmdbSalesCommissionCommon
 
 	public $fk_commission_line;
 	public $event_type;
+	public $revision;
 	public $percentage;
 	public $amount;
 	public $status;
@@ -28,13 +29,14 @@ class LmdbSalesCommissionDue extends LmdbSalesCommissionCommon
 		'entity' => array('type' => 'integer', 'label' => 'Entity', 'enabled' => '1', 'visible' => 0, 'notnull' => 1, 'default' => '1', 'position' => 5),
 		'fk_commission_line' => array('type' => 'integer', 'label' => 'LmdbSalesCommissionsCommissionLine', 'enabled' => '1', 'visible' => 1, 'notnull' => 1, 'position' => 10),
 		'event_type' => array('type' => 'varchar(32)', 'label' => 'Event', 'enabled' => '1', 'visible' => 1, 'notnull' => 1, 'position' => 20),
-		'percentage' => array('type' => 'double(10,4)', 'label' => 'Percentage', 'enabled' => '1', 'visible' => 1, 'notnull' => 1, 'default' => '0', 'position' => 30),
-		'amount' => array('type' => 'double(24,8)', 'label' => 'Amount', 'enabled' => '1', 'visible' => 1, 'notnull' => 1, 'default' => '0', 'position' => 40),
-		'status' => array('type' => 'integer', 'label' => 'Status', 'enabled' => '1', 'visible' => 1, 'notnull' => 1, 'default' => '0', 'position' => 50),
-		'date_due' => array('type' => 'datetime', 'label' => 'DateDue', 'enabled' => '1', 'visible' => 1, 'position' => 60),
-		'date_paid' => array('type' => 'datetime', 'label' => 'DatePayment', 'enabled' => '1', 'visible' => 1, 'position' => 70),
-		'fk_user_paid' => array('type' => 'integer', 'label' => 'LmdbSalesCommissionsPaidBy', 'enabled' => '1', 'visible' => 1, 'position' => 80),
-		'note_private' => array('type' => 'text', 'label' => 'NotePrivate', 'enabled' => '1', 'visible' => 0, 'position' => 90),
+		'revision' => array('type' => 'integer', 'label' => 'LmdbSalesCommissionsDueRevision', 'enabled' => '1', 'visible' => 1, 'notnull' => 1, 'default' => '1', 'position' => 30),
+		'percentage' => array('type' => 'double(10,4)', 'label' => 'Percentage', 'enabled' => '1', 'visible' => 1, 'notnull' => 1, 'default' => '0', 'position' => 40),
+		'amount' => array('type' => 'double(24,8)', 'label' => 'Amount', 'enabled' => '1', 'visible' => 1, 'notnull' => 1, 'default' => '0', 'position' => 50),
+		'status' => array('type' => 'integer', 'label' => 'Status', 'enabled' => '1', 'visible' => 1, 'notnull' => 1, 'default' => '0', 'position' => 60),
+		'date_due' => array('type' => 'datetime', 'label' => 'DateDue', 'enabled' => '1', 'visible' => 1, 'position' => 70),
+		'date_paid' => array('type' => 'datetime', 'label' => 'DatePayment', 'enabled' => '1', 'visible' => 1, 'position' => 80),
+		'fk_user_paid' => array('type' => 'integer', 'label' => 'LmdbSalesCommissionsPaidBy', 'enabled' => '1', 'visible' => 1, 'position' => 90),
+		'note_private' => array('type' => 'text', 'label' => 'NotePrivate', 'enabled' => '1', 'visible' => 0, 'position' => 100),
 		'date_creation' => array('type' => 'datetime', 'label' => 'DateCreation', 'enabled' => '1', 'visible' => -2, 'notnull' => 1, 'position' => 500),
 		'tms' => array('type' => 'timestamp', 'label' => 'DateModification', 'enabled' => '1', 'visible' => -2, 'noteditable' => 1, 'position' => 501),
 		'fk_user_creat' => array('type' => 'integer', 'label' => 'UserAuthor', 'enabled' => '1', 'visible' => -2, 'position' => 510),

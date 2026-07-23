@@ -236,8 +236,8 @@ print '</table>';
 print '<br>';
 print load_fiche_titre($langs->trans('LmdbSalesCommissionsUserTabTier'), '', 'fa-layer-group');
 print '<table class="noborder liste centpercent">';
-print '<tr class="liste_titre"><td>'.$langs->trans('Date').'</td><td>'.$langs->trans('Source').'</td><td class="right">'.$langs->trans('AmountHT').'</td><td class="right">'.$langs->trans('LmdbSalesCommissionsCommissionTotal').'</td><td class="right">'.$langs->trans('LmdbSalesCommissionsPayableTotal').'</td><td class="right">'.$langs->trans('LmdbSalesCommissionsPaidTotal').'</td></tr>';
-$sql = 'SELECT date_acquired, source_type, fk_source, source_ref, amount_base, commission_total, payable_total, paid_total';
+print '<tr class="liste_titre"><td>'.$langs->trans('Date').'</td><td>'.$langs->trans('Source').'</td><td>'.$langs->trans('LmdbSalesCommissionsTierCalculationMode').'</td><td class="right">'.$langs->trans('AmountHT').'</td><td class="right">'.$langs->trans('LmdbSalesCommissionsCommissionTotal').'</td><td class="right">'.$langs->trans('LmdbSalesCommissionsPayableTotal').'</td><td class="right">'.$langs->trans('LmdbSalesCommissionsPaidTotal').'</td></tr>';
+$sql = 'SELECT date_acquired, source_type, fk_source, source_ref, snapshot_tier_calculation_mode, amount_base, commission_total, payable_total, paid_total';
 $sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_line';
 $sql .= ' WHERE entity IN ('.$entitySql.') AND fk_user = '.((int) $id)." AND mode = 'tier'";
 $sql .= ' ORDER BY date_acquired DESC, rowid DESC';
@@ -249,20 +249,20 @@ if ($restier) {
 		$tierRows++;
 		print '<tr class="oddeven"><td>'.dol_print_date($db->jdate($obj->date_acquired), 'day').'</td><td>';
 		print lmdbsalescommissionsBuildSourceNomUrl($db, (string) $obj->source_type, (int) $obj->fk_source, (string) $obj->source_ref);
-		print '</td><td class="right">'.lmdbsalescommissionsFormatTotalAmount($obj->amount_base).'</td><td class="right">'.lmdbsalescommissionsFormatTotalAmount($obj->commission_total).'</td><td class="right">'.lmdbsalescommissionsFormatTotalAmount($obj->payable_total).'</td><td class="right">'.lmdbsalescommissionsFormatTotalAmount($obj->paid_total).'</td></tr>';
+		print '</td><td>'.dol_escape_htmltag(lmdbsalescommissionsGetTierCalculationModeLabel($langs, $obj->snapshot_tier_calculation_mode !== null ? (string) $obj->snapshot_tier_calculation_mode : null)).'</td><td class="right">'.lmdbsalescommissionsFormatTotalAmount($obj->amount_base).'</td><td class="right">'.lmdbsalescommissionsFormatTotalAmount($obj->commission_total).'</td><td class="right">'.lmdbsalescommissionsFormatTotalAmount($obj->payable_total).'</td><td class="right">'.lmdbsalescommissionsFormatTotalAmount($obj->paid_total).'</td></tr>';
 	}
 	$db->free($restier);
 }
 if ($tierRows === 0) {
-	lmdbsalescommissionsPrintNoRecordRow($langs, 6);
+	lmdbsalescommissionsPrintNoRecordRow($langs, 7);
 }
 print '</table>';
 
 print '<br>';
 print load_fiche_titre($langs->trans('LmdbSalesCommissionsUserTabDue'), '', 'fa-calendar-check');
 print '<table class="noborder liste centpercent">';
-print '<tr class="liste_titre"><td>'.$langs->trans('Event').'</td><td>'.$langs->trans('Source').'</td><td class="right">'.$langs->trans('Amount').'</td><td class="center">'.$langs->trans('Status').'</td></tr>';
-$sql = 'SELECT d.event_type, d.amount, d.status, l.source_type, l.fk_source, l.source_ref';
+print '<tr class="liste_titre"><td>'.$langs->trans('Event').'</td><td class="center">'.$langs->trans('LmdbSalesCommissionsDueRevision').'</td><td>'.$langs->trans('Source').'</td><td class="right">'.$langs->trans('Amount').'</td><td class="center">'.$langs->trans('Status').'</td></tr>';
+$sql = 'SELECT d.event_type, d.revision, d.amount, d.status, l.source_type, l.fk_source, l.source_ref';
 $sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_due AS d';
 $sql .= ' INNER JOIN '.MAIN_DB_PREFIX.'lmdbsalescommissions_line AS l ON l.rowid = d.fk_commission_line AND l.entity = d.entity';
 $sql .= ' WHERE d.entity IN ('.$db->sanitize(getEntity('lmdbsalescommissions_due')).') AND l.fk_user = '.((int) $id);
@@ -275,14 +275,14 @@ if ($resdue) {
 	while (is_object($obj = $db->fetch_object($resdue))) {
 		$dueRows++;
 		$status = (int) $obj->status;
-		print '<tr class="oddeven"><td>'.dol_escape_htmltag(lmdbsalescommissionsGetDueEventLabel($langs, (string) $obj->event_type)).'</td><td>';
+		print '<tr class="oddeven"><td>'.dol_escape_htmltag(lmdbsalescommissionsGetDueEventLabel($langs, (string) $obj->event_type)).'</td><td class="center">'.((int) $obj->revision).'</td><td>';
 		print lmdbsalescommissionsBuildSourceNomUrl($db, (string) $obj->source_type, (int) $obj->fk_source, (string) $obj->source_ref);
 		print '</td><td class="right">'.lmdbsalescommissionsFormatTotalAmount($obj->amount).'</td><td class="center">'.lmdbsalescommissionsStatusBadge(lmdbsalescommissionsGetDueStatusLabel($langs, $status), $status === LmdbSalesCommissionDueService::STATUS_DUE ? 1 : 0).'</td></tr>';
 	}
 	$db->free($resdue);
 }
 if ($dueRows === 0) {
-	lmdbsalescommissionsPrintNoRecordRow($langs, 4);
+	lmdbsalescommissionsPrintNoRecordRow($langs, 5);
 }
 print '</table>';
 

@@ -104,8 +104,8 @@ if ($action === 'export') {
 	}
 
 	if ($dataset === 'lines') {
-		fputcsv($output, array('date', 'agent', 'client', 'source_type', 'source_ref', 'mode', 'dispatch_base_type', 'dispatch_value_type', 'dispatch_value', 'amount_base', 'margin_base', 'rate', 'commission_total', 'payable_total', 'paid_total', 'status'), ';');
-		$sql = 'SELECT l.date_acquired, l.source_type, l.source_ref, l.mode, l.snapshot_base_type, l.snapshot_value_type, l.snapshot_value, l.amount_base, l.margin_base, l.rate, l.commission_total, l.payable_total, l.paid_total, l.status,';
+		fputcsv($output, array('date', 'agent', 'client', 'source_type', 'source_ref', 'mode', 'tier_calculation_mode', 'dispatch_base_type', 'dispatch_value_type', 'dispatch_value', 'amount_base', 'margin_base', 'rate', 'commission_total', 'payable_total', 'paid_total', 'status'), ';');
+		$sql = 'SELECT l.date_acquired, l.source_type, l.source_ref, l.mode, l.snapshot_tier_calculation_mode, l.snapshot_base_type, l.snapshot_value_type, l.snapshot_value, l.amount_base, l.margin_base, l.rate, l.commission_total, l.payable_total, l.paid_total, l.status,';
 		$sql .= ' u.lastname, u.firstname, u.login, s.nom AS thirdparty_name';
 		$sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_line AS l';
 		$sql .= ' LEFT JOIN '.MAIN_DB_PREFIX.'user AS u ON u.rowid = l.fk_user';
@@ -119,14 +119,17 @@ if ($action === 'export') {
 				if ($agent === '') {
 					$agent = (string) $obj->login;
 				}
-				fputcsv($output, array(dol_print_date($db->jdate($obj->date_acquired), 'day'), $agent, (string) $obj->thirdparty_name, lmdbsalescommissionsGetSourceTypeLabel($langs, (string) $obj->source_type), (string) $obj->source_ref, lmdbsalescommissionsGetModeLabel($langs, (string) $obj->mode), (string) $obj->snapshot_base_type, (string) $obj->snapshot_value_type, $obj->snapshot_value !== null ? (float) $obj->snapshot_value : '', price2num($obj->amount_base, 'MT'), price2num($obj->margin_base, 'MT'), price2num($obj->rate, 'MT'), price2num($obj->commission_total, 'MT'), price2num($obj->payable_total, 'MT'), price2num($obj->paid_total, 'MT'), lmdbsalescommissionsGetLineStatusLabel($langs, (int) $obj->status)), ';');
+				$tierCalculationMode = $obj->snapshot_tier_calculation_mode !== null
+					? (string) $obj->snapshot_tier_calculation_mode
+					: ((string) $obj->mode === 'tier' ? 'fixed_bonus' : '');
+				fputcsv($output, array(dol_print_date($db->jdate($obj->date_acquired), 'day'), $agent, (string) $obj->thirdparty_name, lmdbsalescommissionsGetSourceTypeLabel($langs, (string) $obj->source_type), (string) $obj->source_ref, lmdbsalescommissionsGetModeLabel($langs, (string) $obj->mode), $tierCalculationMode, (string) $obj->snapshot_base_type, (string) $obj->snapshot_value_type, $obj->snapshot_value !== null ? (float) $obj->snapshot_value : '', price2num($obj->amount_base, 'MT'), price2num($obj->margin_base, 'MT'), price2num($obj->rate, 'MT'), price2num($obj->commission_total, 'MT'), price2num($obj->payable_total, 'MT'), price2num($obj->paid_total, 'MT'), lmdbsalescommissionsGetLineStatusLabel($langs, (int) $obj->status)), ';');
 			}
 			$db->free($resql);
 		}
 	} elseif ($dataset === 'due' || $dataset === 'paid') {
-		fputcsv($output, array('event', 'agent', 'client', 'source_type', 'source_ref', 'mode', 'percentage', 'amount', 'status', 'date_due', 'date_paid'), ';');
+		fputcsv($output, array('event', 'revision', 'agent', 'client', 'source_type', 'source_ref', 'mode', 'percentage', 'amount', 'status', 'date_due', 'date_paid'), ';');
 		$wantedStatus = $dataset === 'paid' ? LmdbSalesCommissionDueService::STATUS_PAID : LmdbSalesCommissionDueService::STATUS_DUE;
-		$sql = 'SELECT d.event_type, d.percentage, d.amount, d.status, d.date_due, d.date_paid, l.source_type, l.source_ref, l.mode,';
+		$sql = 'SELECT d.event_type, d.revision, d.percentage, d.amount, d.status, d.date_due, d.date_paid, l.source_type, l.source_ref, l.mode,';
 		$sql .= ' u.lastname, u.firstname, u.login, s.nom AS thirdparty_name';
 		$sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_due AS d';
 		$sql .= ' INNER JOIN '.MAIN_DB_PREFIX.'lmdbsalescommissions_line AS l ON l.rowid = d.fk_commission_line AND l.entity = d.entity';
@@ -142,7 +145,7 @@ if ($action === 'export') {
 				if ($agent === '') {
 					$agent = (string) $obj->login;
 				}
-				fputcsv($output, array(lmdbsalescommissionsGetDueEventLabel($langs, (string) $obj->event_type), $agent, (string) $obj->thirdparty_name, lmdbsalescommissionsGetSourceTypeLabel($langs, (string) $obj->source_type), (string) $obj->source_ref, lmdbsalescommissionsGetModeLabel($langs, (string) $obj->mode), price2num($obj->percentage, 'MT'), price2num($obj->amount, 'MT'), lmdbsalescommissionsGetDueStatusLabel($langs, (int) $obj->status), dol_print_date($db->jdate($obj->date_due), 'day'), dol_print_date($db->jdate($obj->date_paid), 'day')), ';');
+				fputcsv($output, array(lmdbsalescommissionsGetDueEventLabel($langs, (string) $obj->event_type), (int) $obj->revision, $agent, (string) $obj->thirdparty_name, lmdbsalescommissionsGetSourceTypeLabel($langs, (string) $obj->source_type), (string) $obj->source_ref, lmdbsalescommissionsGetModeLabel($langs, (string) $obj->mode), price2num($obj->percentage, 'MT'), price2num($obj->amount, 'MT'), lmdbsalescommissionsGetDueStatusLabel($langs, (int) $obj->status), dol_print_date($db->jdate($obj->date_due), 'day'), dol_print_date($db->jdate($obj->date_paid), 'day')), ';');
 			}
 			$db->free($resql);
 		}
@@ -232,13 +235,13 @@ if ($action === 'export') {
 			'objective_status' => 'all',
 		), $user);
 		if ($dataset === 'agents_near_tier') {
-			fputcsv($output, array('agent', 'turnover', 'reached_tier', 'next_tier', 'remaining', 'potential_bonus', 'progress_rate'), ';');
+			fputcsv($output, array('agent', 'turnover', 'reached_tier', 'next_tier', 'remaining', 'potential_bonus', 'progress_rate', 'calculation_mode', 'current_commission', 'commission_at_next_threshold'), ';');
 			foreach ($dashboardService->getAgentsNearTier($filters, $user, 1000) as $row) {
 				$agent = trim((string) $row['firstname'].' '.(string) $row['lastname']);
 				if ($agent === '') {
 					$agent = (string) $row['login'];
 				}
-				fputcsv($output, array($agent, price2num($row['turnover'], 'MT'), price2num($row['reached_threshold'], 'MT'), price2num($row['next_threshold'], 'MT'), price2num($row['remaining'], 'MT'), price2num($row['potential_bonus'], 'MT'), price2num($row['rate'], 'MT')), ';');
+				fputcsv($output, array($agent, price2num($row['turnover'], 'MT'), price2num($row['reached_threshold'], 'MT'), price2num($row['next_threshold'], 'MT'), price2num($row['remaining'], 'MT'), price2num($row['potential_bonus'], 'MT'), price2num($row['rate'], 'MT'), (string) $row['calculation_mode'], price2num($row['current_commission'], 'MT'), price2num($row['commission_at_next_threshold'], 'MT')), ';');
 			}
 		} elseif ($dataset === 'late_objectives') {
 			fputcsv($output, array('agent', 'objective_type', 'period', 'objective', 'realized', 'achievement_rate', 'gap'), ';');

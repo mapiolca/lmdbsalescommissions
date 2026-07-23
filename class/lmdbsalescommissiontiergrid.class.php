@@ -14,6 +14,7 @@ class LmdbSalesCommissionTierGrid extends LmdbSalesCommissionCommon
 	public $ref;
 	public $label;
 	public $period_type;
+	public $calculation_mode;
 	public $active;
 	public $note_private;
 	public $date_creation;
@@ -25,8 +26,9 @@ class LmdbSalesCommissionTierGrid extends LmdbSalesCommissionCommon
 		'ref' => array('type' => 'varchar(128)', 'label' => 'Ref', 'enabled' => '1', 'visible' => 1, 'notnull' => 1, 'position' => 10),
 		'label' => array('type' => 'varchar(255)', 'label' => 'Label', 'enabled' => '1', 'visible' => 1, 'notnull' => 1, 'position' => 20),
 		'period_type' => array('type' => 'varchar(32)', 'label' => 'Period', 'enabled' => '1', 'visible' => 1, 'notnull' => 1, 'default' => 'monthly', 'position' => 30),
-		'active' => array('type' => 'integer', 'label' => 'Active', 'enabled' => '1', 'visible' => 1, 'notnull' => 1, 'default' => '1', 'position' => 40),
-		'note_private' => array('type' => 'text', 'label' => 'NotePrivate', 'enabled' => '1', 'visible' => 0, 'position' => 50),
+		'calculation_mode' => array('type' => 'varchar(32)', 'label' => 'LmdbSalesCommissionsTierCalculationMode', 'enabled' => '1', 'visible' => 1, 'notnull' => 1, 'default' => 'fixed_bonus', 'position' => 40),
+		'active' => array('type' => 'integer', 'label' => 'Active', 'enabled' => '1', 'visible' => 1, 'notnull' => 1, 'default' => '1', 'position' => 50),
+		'note_private' => array('type' => 'text', 'label' => 'NotePrivate', 'enabled' => '1', 'visible' => 0, 'position' => 60),
 		'date_creation' => array('type' => 'datetime', 'label' => 'DateCreation', 'enabled' => '1', 'visible' => -2, 'notnull' => 1, 'position' => 500),
 		'tms' => array('type' => 'timestamp', 'label' => 'DateModification', 'enabled' => '1', 'visible' => -2, 'noteditable' => 1, 'position' => 501),
 		'fk_user_creat' => array('type' => 'integer', 'label' => 'UserAuthor', 'enabled' => '1', 'visible' => -2, 'position' => 510),

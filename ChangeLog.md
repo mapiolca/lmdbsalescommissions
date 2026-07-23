@@ -15,6 +15,12 @@
 
 ### Évolutions et corrections
 
+- Ajout du mode de grille **Pourcentage progressif par tranche**, disponible sur les périodes mensuelles, trimestrielles et annuelles, avec calcul marginal centralisé et arrondis financiers Dolibarr.
+- Conservation du mode historique **Prime fixe au palier atteint** comme valeur par défaut pour toutes les grilles existantes.
+- Ajout du taux de commission aux paliers, du snapshot du mode sur les lignes acquises et du détail de commission acquise ou projetée dans les tableaux de bord et exports.
+- Résolution de la grille réellement affectée à chaque commercial dans les indicateurs de progression, sans mélange des paliers appartenant à plusieurs grilles.
+- Versionnement des échéances par révision afin de conserver les versements effectués lors d’un recalcul et de ne recréer que le solde restant par événement.
+- Signalement des trop-versés après recalcul sans création d’échéance négative et sans recalcul historique automatique lors de la modification d’une grille.
 - Adaptation du rattrapage, des contrôles de cohérence, des exports, des listes et des indicateurs aux répartitions multi-commerciaux.
 - Extension du rattrapage aux devis déjà signés : création idempotente des contributions de CA, recalcul des paliers et actualisation des archives d’objectifs.
 - Conservation des commissions et échéances existantes lors d’une resynchronisation du CA ; les échéances versées ne sont jamais modifiées et leurs écarts sont signalés.

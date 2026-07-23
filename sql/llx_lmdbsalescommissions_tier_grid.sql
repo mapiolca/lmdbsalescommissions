@@ -5,6 +5,7 @@ CREATE TABLE llx_lmdbsalescommissions_tier_grid
 	ref varchar(128) NOT NULL,
 	label varchar(255) NOT NULL,
 	period_type varchar(32) DEFAULT 'monthly' NOT NULL,
+	calculation_mode varchar(32) DEFAULT 'fixed_bonus' NOT NULL,
 	active tinyint DEFAULT 1 NOT NULL,
 	note_private text,
 	date_creation datetime NOT NULL,

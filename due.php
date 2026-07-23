@@ -103,10 +103,11 @@ $arrayfields = array(
 	'thirdparty' => array('label' => 'ThirdParty', 'checked' => 1, 'position' => 40),
 	'mode' => array('label' => 'Mode', 'checked' => 1, 'position' => 50),
 	'event' => array('label' => 'Event', 'checked' => 1, 'position' => 60),
-	'commission_total' => array('label' => 'LmdbSalesCommissionsCommissionTotal', 'checked' => 1, 'position' => 70),
-	'percentage' => array('label' => 'Percentage', 'checked' => 1, 'position' => 80),
-	'amount' => array('label' => 'Amount', 'checked' => 1, 'position' => 90),
-	'status' => array('label' => 'Status', 'checked' => 1, 'position' => 100),
+	'revision' => array('label' => 'LmdbSalesCommissionsDueRevision', 'checked' => 1, 'position' => 70),
+	'commission_total' => array('label' => 'LmdbSalesCommissionsCommissionTotal', 'checked' => 1, 'position' => 80),
+	'percentage' => array('label' => 'Percentage', 'checked' => 1, 'position' => 90),
+	'amount' => array('label' => 'Amount', 'checked' => 1, 'position' => 100),
+	'status' => array('label' => 'Status', 'checked' => 1, 'position' => 110),
 );
 $arrayfields = dol_sort_array($arrayfields, 'position');
 
@@ -175,7 +176,7 @@ if ($search_mode !== '') {
 	$param .= '&search_mode='.urlencode($search_mode);
 }
 
-$sql = 'SELECT d.rowid, d.event_type, d.percentage, d.amount, d.status, d.date_due, d.date_paid,';
+$sql = 'SELECT d.rowid, d.event_type, d.revision, d.percentage, d.amount, d.status, d.date_due, d.date_paid,';
 $sql .= ' l.rowid AS line_id, l.fk_user, l.fk_soc, l.source_type, l.fk_source, l.source_ref, l.mode, l.commission_total,';
 $sql .= ' u.lastname, u.firstname, u.login, u.statut AS user_status, u.photo AS user_photo, u.email AS user_email, s.nom AS thirdparty_name';
 $sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_due AS d';
@@ -247,6 +248,7 @@ if (!empty($arrayfields['salesrep']['checked'])) print_liste_field_titre($arrayf
 if (!empty($arrayfields['thirdparty']['checked'])) print_liste_field_titre($arrayfields['thirdparty']['label'], $_SERVER['PHP_SELF'], 's.nom', $param, '', '', $sortfield, $sortorder);
 if (!empty($arrayfields['mode']['checked'])) print_liste_field_titre($arrayfields['mode']['label'], $_SERVER['PHP_SELF'], 'l.mode', $param, '', '', $sortfield, $sortorder);
 if (!empty($arrayfields['event']['checked'])) print_liste_field_titre($arrayfields['event']['label'], $_SERVER['PHP_SELF'], 'd.event_type', $param, '', '', $sortfield, $sortorder);
+if (!empty($arrayfields['revision']['checked'])) print_liste_field_titre($arrayfields['revision']['label'], $_SERVER['PHP_SELF'], 'd.revision', $param, '', '', $sortfield, $sortorder, 'center ');
 if (!empty($arrayfields['commission_total']['checked'])) print_liste_field_titre($arrayfields['commission_total']['label'], $_SERVER['PHP_SELF'], 'l.commission_total', $param, '', 'class="right"', $sortfield, $sortorder);
 if (!empty($arrayfields['percentage']['checked'])) print_liste_field_titre($arrayfields['percentage']['label'], $_SERVER['PHP_SELF'], 'd.percentage', $param, '', 'class="right"', $sortfield, $sortorder);
 if (!empty($arrayfields['amount']['checked'])) print_liste_field_titre($arrayfields['amount']['label'], $_SERVER['PHP_SELF'], 'd.amount', $param, '', 'class="right"', $sortfield, $sortorder);
@@ -262,6 +264,7 @@ if (!empty($arrayfields['salesrep']['checked'])) print '<td>'.lmdbsalescommissio
 if (!empty($arrayfields['thirdparty']['checked'])) print '<td></td>';
 if (!empty($arrayfields['mode']['checked'])) print '<td>'.lmdbsalescommissionsAttachFormToControls($form->selectarray('search_mode', $mode_options, $search_mode, 1, 0, 0, '', 0, 0, 0, '', 'minwidth125 maxwidth200', 1), $filterFormId).'</td>';
 if (!empty($arrayfields['event']['checked'])) print '<td>'.lmdbsalescommissionsAttachFormToControls($form->selectarray('search_event_type', array('proposal_signed' => $langs->trans('LmdbSalesCommissionsEventProposalSigned'), 'deposit_paid' => $langs->trans('LmdbSalesCommissionsEventDepositPaid'), 'final_invoice_paid' => $langs->trans('LmdbSalesCommissionsEventFinalInvoicePaid')), $search_event_type, 1, 0, 0, '', 0, 0, 0, '', 'minwidth150 maxwidth200', 1), $filterFormId).'</td>';
+if (!empty($arrayfields['revision']['checked'])) print '<td></td>';
 if (!empty($arrayfields['commission_total']['checked'])) print '<td></td>';
 if (!empty($arrayfields['percentage']['checked'])) print '<td></td>';
 if (!empty($arrayfields['amount']['checked'])) print '<td></td>';
@@ -289,6 +292,7 @@ if ($resql) {
 		if (!empty($arrayfields['thirdparty']['checked'])) print '<td>'.lmdbsalescommissionsBuildThirdpartyNomUrl($db, (int) $obj->fk_soc, (string) $obj->thirdparty_name).'</td>';
 		if (!empty($arrayfields['mode']['checked'])) print '<td>'.dol_escape_htmltag(lmdbsalescommissionsGetModeLabel($langs, (string) $obj->mode)).'</td>';
 		if (!empty($arrayfields['event']['checked'])) print '<td>'.dol_escape_htmltag(lmdbsalescommissionsGetDueEventLabel($langs, (string) $obj->event_type)).'</td>';
+		if (!empty($arrayfields['revision']['checked'])) print '<td class="center">'.((int) $obj->revision).'</td>';
 		if (!empty($arrayfields['commission_total']['checked'])) print '<td class="right">'.lmdbsalescommissionsFormatTotalAmount($obj->commission_total).'</td>';
 		if (!empty($arrayfields['percentage']['checked'])) print '<td class="right">'.lmdbsalescommissionsFormatTotalAmount($obj->percentage).'%</td>';
 		if (!empty($arrayfields['amount']['checked'])) print '<td class="right">'.lmdbsalescommissionsFormatTotalAmount($obj->amount).'</td>';

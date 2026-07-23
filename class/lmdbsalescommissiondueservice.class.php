@@ -72,20 +72,12 @@ class LmdbSalesCommissionDueService
 		if (empty($distribution)) {
 			$distribution = array('proposal_signed' => 100.0);
 		}
+		$targets = $this->buildTargetAmounts((float) $line->commission_total, $distribution);
 
 		$created = 0;
-		$sum = 0.0;
-		$index = 0;
-		$count = count($distribution);
-		foreach ($distribution as $eventType => $percentage) {
-			$index++;
-			if ($percentage <= 0) {
-				continue;
-			}
-			$amount = $index === $count ? (float) price2num((float) $line->commission_total - $sum, 'MT') : (float) price2num(((float) $line->commission_total * $percentage / 100), 'MT');
-			$sum += $amount;
+		foreach ($targets as $eventType => $target) {
 			$status = $eventType === 'proposal_signed' ? self::STATUS_DUE : self::STATUS_WAITING;
-			$result = $this->createDueIfMissing($line, $user, $eventType, $percentage, $amount, $status);
+			$result = $this->createDueIfMissing($line, $user, $eventType, $target['percentage'], $target['amount'], $status, 1, 0);
 			if ($result < 0) {
 				return -1;
 			}
@@ -108,11 +100,21 @@ class LmdbSalesCommissionDueService
 	 */
 	public function rebuildForLine($lineId, $user)
 	{
+		$this->error = '';
+		$this->errors = array();
+
 		$line = new LmdbSalesCommissionLine($this->db);
 		if ($line->fetch($lineId) <= 0) {
 			$this->error = 'ErrorRecordNotFound';
 			return -1;
 		}
+
+		$dueStates = $this->fetchDueStates((int) $line->id, (int) $line->entity);
+		if ($dueStates === null) {
+			return -1;
+		}
+
+		$this->db->begin();
 
 		$sql = 'DELETE FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_due';
 		$sql .= ' WHERE entity = '.((int) $line->entity);
@@ -120,17 +122,71 @@ class LmdbSalesCommissionDueService
 		$sql .= ' AND status <> '.self::STATUS_PAID;
 		if (!$this->db->query($sql)) {
 			$this->error = $this->db->lasterror();
+			$this->db->rollback();
 			return -1;
 		}
 
-		$result = $this->generateForLine($line, $user);
-		if ($result < 0) {
-			return -1;
+		$distribution = $this->fetchDistribution((int) $line->fk_payment_term, (int) $line->entity);
+		if (empty($distribution)) {
+			$distribution = array('proposal_signed' => 100.0);
+		}
+		$targets = $this->buildTargetAmounts((float) $line->commission_total, $distribution);
+		$created = 0;
+		$hasPaidDistributionAnomaly = false;
+		foreach ($targets as $eventType => $target) {
+			$state = isset($dueStates[$eventType]) ? $dueStates[$eventType] : array(
+				'paid_amount' => 0.0,
+				'paid_max_revision' => 0,
+				'fulfilled' => false,
+				'date_due' => 0,
+			);
+			if ($state['paid_amount'] > $target['amount']) {
+				$hasPaidDistributionAnomaly = true;
+			}
+			$remaining = (float) price2num(max(0.0, $target['amount'] - $state['paid_amount']), 'MT');
+			if ($remaining <= 0) {
+				continue;
+			}
+
+			$status = $eventType === self::EVENT_PROPOSAL_SIGNED || $state['fulfilled'] ? self::STATUS_DUE : self::STATUS_WAITING;
+			$revision = max(1, $state['paid_max_revision'] + 1);
+			$result = $this->createDueIfMissing(
+				$line,
+				$user,
+				$eventType,
+				$target['percentage'],
+				$remaining,
+				$status,
+				$revision,
+				$state['date_due']
+			);
+			if ($result < 0) {
+				$this->db->rollback();
+				return -1;
+			}
+			$created += $result;
+		}
+		$this->refreshLineTotals((int) $line->id, (int) $line->entity, $user);
+
+		$totalPaid = 0.0;
+		foreach ($dueStates as $eventType => $state) {
+			$totalPaid = (float) price2num($totalPaid + $state['paid_amount'], 'MT');
+			if ($state['paid_amount'] > 0 && !isset($targets[$eventType])) {
+				$hasPaidDistributionAnomaly = true;
+			}
+		}
+		if ($totalPaid > (float) price2num($line->commission_total, 'MT')) {
+			$this->errors[] = 'LmdbSalesCommissionsPaidAmountExceedsRecalculatedCommission';
+			dol_syslog(__METHOD__.': paid amount exceeds recalculated commission for line '.$lineId, LOG_WARNING);
+		} elseif ($hasPaidDistributionAnomaly) {
+			$this->errors[] = 'LmdbSalesCommissionsPaidScheduleDiffersFromRecalculation';
+			dol_syslog(__METHOD__.': paid schedule differs from recalculated distribution for line '.$lineId, LOG_WARNING);
 		}
 
+		$this->db->commit();
 		dol_syslog(__METHOD__.': rebuilt unpaid due dates for line '.$lineId.' by user '.$user->id, LOG_INFO);
 
-		return $result;
+		return $created;
 	}
 
 	/**
@@ -295,6 +351,94 @@ class LmdbSalesCommissionDueService
 		$this->db->free($resql);
 
 		return $distribution;
+	}
+
+	/**
+	 * Allocate the commission total to payment events with an exact rounded residual.
+	 *
+	 * @param float $commissionTotal Commission total
+	 * @param array<string, float> $distribution Event percentages
+	 * @return array<string, array{percentage:float, amount:float}>
+	 */
+	private function buildTargetAmounts($commissionTotal, array $distribution)
+	{
+		$positiveDistribution = array();
+		foreach ($distribution as $eventType => $percentage) {
+			if ((float) $percentage > 0) {
+				$positiveDistribution[(string) $eventType] = (float) $percentage;
+			}
+		}
+		if (empty($positiveDistribution)) {
+			return array();
+		}
+
+		$targets = array();
+		$normalizedTotal = (float) price2num($commissionTotal, 'MT');
+		$sum = 0.0;
+		$index = 0;
+		$count = count($positiveDistribution);
+		foreach ($positiveDistribution as $eventType => $percentage) {
+			$index++;
+			$amount = $index === $count
+				? (float) price2num(max(0.0, $normalizedTotal - $sum), 'MT')
+				: (float) price2num($normalizedTotal * $percentage / 100, 'MT');
+			$sum = (float) price2num($sum + $amount, 'MT');
+			$targets[$eventType] = array(
+				'percentage' => $percentage,
+				'amount' => $amount,
+			);
+		}
+
+		return $targets;
+	}
+
+	/**
+	 * Read paid history and fulfillment state before rebuilding unpaid revisions.
+	 *
+	 * @param int $lineId Commission line id
+	 * @param int $entity Entity id
+	 * @return array<string, array{paid_amount:float, paid_max_revision:int, fulfilled:bool, date_due:int}>|null
+	 */
+	private function fetchDueStates($lineId, $entity)
+	{
+		$sql = 'SELECT event_type, revision, amount, status, date_due';
+		$sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_due';
+		$sql .= ' WHERE entity = '.((int) $entity);
+		$sql .= ' AND fk_commission_line = '.((int) $lineId);
+		$sql .= ' ORDER BY event_type ASC, revision ASC';
+		$resql = $this->db->query($sql);
+		if (!$resql) {
+			$this->error = $this->db->lasterror();
+			return null;
+		}
+
+		$states = array();
+		while (is_object($obj = $this->db->fetch_object($resql))) {
+			$eventType = (string) $obj->event_type;
+			if (!isset($states[$eventType])) {
+				$states[$eventType] = array(
+					'paid_amount' => 0.0,
+					'paid_max_revision' => 0,
+					'fulfilled' => false,
+					'date_due' => 0,
+				);
+			}
+			$status = (int) $obj->status;
+			$revision = max(1, (int) $obj->revision);
+			if ($status === self::STATUS_PAID) {
+				$states[$eventType]['paid_amount'] = (float) price2num($states[$eventType]['paid_amount'] + (float) $obj->amount, 'MT');
+				$states[$eventType]['paid_max_revision'] = max($states[$eventType]['paid_max_revision'], $revision);
+			}
+			if ($status === self::STATUS_DUE || $status === self::STATUS_PAID) {
+				$states[$eventType]['fulfilled'] = true;
+			}
+			if (!empty($obj->date_due)) {
+				$states[$eventType]['date_due'] = max($states[$eventType]['date_due'], (int) $this->db->jdate($obj->date_due));
+			}
+		}
+		$this->db->free($resql);
+
+		return $states;
 	}
 
 	/**
@@ -676,15 +820,18 @@ class LmdbSalesCommissionDueService
 	 * @param float                   $percentage Percentage
 	 * @param float                   $amount     Amount
 	 * @param int                     $status     Status
+	 * @param int                     $revision   Revision
+	 * @param int                     $dateDue    Due date timestamp
 	 * @return int
 	 */
-	private function createDueIfMissing($line, $user, $eventType, $percentage, $amount, $status)
+	private function createDueIfMissing($line, $user, $eventType, $percentage, $amount, $status, $revision, $dateDue)
 	{
 		$sql = 'SELECT rowid';
 		$sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_due';
 		$sql .= ' WHERE entity = '.((int) $line->entity);
 		$sql .= ' AND fk_commission_line = '.((int) $line->id);
 		$sql .= " AND event_type = '".$this->db->escape($eventType)."'";
+		$sql .= ' AND revision = '.max(1, (int) $revision);
 		$sql .= ' LIMIT 1';
 
 		$resql = $this->db->query($sql);
@@ -702,10 +849,13 @@ class LmdbSalesCommissionDueService
 		$due->entity = (int) $line->entity;
 		$due->fk_commission_line = (int) $line->id;
 		$due->event_type = $eventType;
+		$due->revision = max(1, (int) $revision);
 		$due->percentage = $percentage;
 		$due->amount = (float) price2num($amount, 'MT');
 		$due->status = $status;
-		$due->date_due = $status === self::STATUS_DUE ? (!empty($line->date_acquired) ? (int) $line->date_acquired : dol_now()) : null;
+		$due->date_due = $status === self::STATUS_DUE
+			? ($dateDue > 0 ? $dateDue : (!empty($line->date_acquired) ? (int) $line->date_acquired : dol_now()))
+			: null;
 
 		$result = $due->create($user);
 		if ($result <= 0) {

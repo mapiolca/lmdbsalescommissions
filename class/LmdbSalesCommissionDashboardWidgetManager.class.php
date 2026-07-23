@@ -776,7 +776,8 @@ class LmdbSalesCommissionDashboardWidget extends ModeleBoxes
 			'LmdbSalesCommissionsReachedTier' => $progress['reached_threshold'],
 			'LmdbSalesCommissionsNextTier' => $progress['next_threshold'],
 			'LmdbSalesCommissionsRemainingBeforeTier' => $progress['remaining'],
-			'LmdbSalesCommissionsPotentialBonus' => $progress['potential_bonus'],
+			'LmdbSalesCommissionsCurrentTierCommission' => $progress['current_commission'],
+			'LmdbSalesCommissionsCommissionAtNextThreshold' => $progress['commission_at_next_threshold'],
 		);
 		foreach ($rows as $label => $value) {
 			$this->info_box_contents[] = array(
@@ -830,10 +831,10 @@ class LmdbSalesCommissionDashboardWidget extends ModeleBoxes
 		global $user;
 
 		$rows = $this->service->getAgentsNearTier($this->filters, $user, $max);
-		$this->info_box_contents[] = $this->headerRow(array('SalesRepresentative', 'AmountHT', 'LmdbSalesCommissionsNextTier', 'LmdbSalesCommissionsRemainingBeforeTier', 'LmdbSalesCommissionsPotentialBonus', 'Progress'));
+		$this->info_box_contents[] = $this->headerRow(array('SalesRepresentative', 'AmountHT', 'LmdbSalesCommissionsNextTier', 'LmdbSalesCommissionsRemainingBeforeTier', 'LmdbSalesCommissionsCurrentTierCommission', 'LmdbSalesCommissionsCommissionAtNextThreshold', 'Progress'));
 		if (empty($rows)) {
 			$this->info_box_contents = array();
-			$this->addNoRecordRow(6);
+			$this->addNoRecordRow(7);
 			return;
 		}
 		foreach ($rows as $row) {
@@ -842,7 +843,8 @@ class LmdbSalesCommissionDashboardWidget extends ModeleBoxes
 				array('td' => 'class="right"', 'text' => lmdbsalescommissionsFormatTotalAmount($row['turnover']), 'asis' => 1),
 				array('td' => 'class="right"', 'text' => lmdbsalescommissionsFormatTotalAmount($row['next_threshold']), 'asis' => 1),
 				array('td' => 'class="right"', 'text' => lmdbsalescommissionsFormatTotalAmount($row['remaining']), 'asis' => 1),
-				array('td' => 'class="right"', 'text' => lmdbsalescommissionsFormatTotalAmount($row['potential_bonus']), 'asis' => 1),
+				array('td' => 'class="right"', 'text' => lmdbsalescommissionsFormatTotalAmount($row['current_commission']), 'asis' => 1),
+				array('td' => 'class="right"', 'text' => lmdbsalescommissionsFormatTotalAmount($row['commission_at_next_threshold']), 'asis' => 1),
 				array('td' => 'class="right"', 'text' => $this->formatValue($row['rate'], 'percent_nullable').' '.$this->progress((float) $row['rate']), 'asis' => 1),
 			);
 		}
