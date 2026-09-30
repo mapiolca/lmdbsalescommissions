@@ -8,6 +8,7 @@ $conf = (object) array('entity' => 1, 'use_javascript_ajax' => 1);
 function getDolGlobalInt($key, $default = 0) { return $default; }
 function getDolGlobalString($key, $default = '') { return $default; }
 function isModEnabled($key) { return $key === 'lmdbsalescommissions'; }
+function dol_now() { return 2000; }
 function dol_syslog($message, $level = 0) {}
 function dol_escape_htmltag($value, ...$args) { return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8'); }
 function img_picto($alt, $key) { return '<span class="fa fa-search" aria-hidden="true"></span>'; }
@@ -120,4 +121,19 @@ check(strpos($controller->resprints, '195') === false && strpos($controller->res
 $user->permissions = array();
 $controller->displayMarginInfos(array('context' => 'propalcard'), $proposal, $action, $manager);
 check($controller->resprints === '', 'Successive unauthorized hook clears prior output');
+// The same visible summary now includes the supplementary frozen reward.
+function price($amount) { return (string) $amount; }
+function price2num($amount, $mode = '') { return (float) $amount; }
+$user->permissions = array('readall');
+$db->snapshots[7]['reward'] = array('amount'=>50.0,'mode'=>'fixed','value'=>100.0,'rule_label'=>'BONUS-SEVEN <unsafe>','threshold'=>60.0,'surplus'=>1000.0,'share'=>0.5,'reason'=>'earned');
+$estimates['rows'][0]['amount_value'] = 0.0;
+$estimates['rows'][1]['amount_value'] = 195.0;
+$html=$render($estimates); $xpath=parseView($html);
+check($xpath->query('//tr[@class="liste_total"]/td[2]')->item(0)->textContent === '245', 'Summary total includes bonus exactly once');
+check(strpos($html,'LscBaseCommission')!==false && strpos($html,'LscRewardSurplus')!==false, 'Base, reward and surplus explained');
+check(strpos($html,'BONUS-SEVEN &lt;unsafe&gt;')!==false, 'Reward label escaped');
+$user->permissions=array('readown'); $user->id=8;
+check(strpos($render($estimates),'BONUS-SEVEN')===false, 'Reward outside own scope hidden');
+$user->permissions=array('approvesale');
+check(strpos(LmdbSalesCommissionMarginView::render($db,$proposal,$user),'BONUS-SEVEN')===false, 'Approver alone cannot read reward');
 print "Commission summary: $tests assertions passed using native Form from $lscNativeRoot.\n";

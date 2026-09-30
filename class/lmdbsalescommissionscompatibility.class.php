@@ -59,6 +59,7 @@ class LmdbSalesCommissionsCompatibility
 	public static function getCompatibilityFeatures()
 	{
 		return array(
+			'margin_excess_reward' => array('label' => 'LscReward', 'description' => 'LscRewardHelp', 'min_dolibarr' => '20.0.0', 'min_php' => '8.0.0', 'compatibility_check' => 'nativeMarginGuardCoverage() && LMDBSALESCOMMISSIONS_MARGIN_ENABLED', 'available' => self::nativeMarginGuardCoverage() && (bool) getDolGlobalInt('LMDBSALESCOMMISSIONS_MARGIN_ENABLED'), 'reason' => 'LscRewardUnavailable'),
 			'margin_policy_guards' => array('label' => 'LscPolicies', 'description' => 'LscCoverageDescription', 'min_dolibarr' => '20.0.0', 'min_php' => '8.0.0', 'compatibility_check' => 'nativeMarginGuardCoverage()', 'available' => self::nativeMarginGuardCoverage(), 'reason' => 'LscCoverageUnavailable'),
 			'module_skeleton' => array(
 				'label' => 'LmdbSalesCommissionsCompatibilitySkeleton',

@@ -8,11 +8,12 @@ Version préparée : **1.3.0**.
 
 ## Nouveautés de la version 1.3.0
 
+- Prime additionnelle de dépassement de marge, forfaitaire ou proportionnelle au surplus, répartie selon le CA attribué et figée à la signature : [calcul, configuration et recette](doc/margin-excess-reward.md).
 - Minimum de marge sur coût pour autoriser la vente, distinct de la cible ouvrant droit aux commissions directes.
 - Règles générales autonomes et grilles PV, stockage utile et mixtes, cumulées selon les affectations utilisateur, groupe ou défaut.
 - Dérogations distinctes pour la vente et la commission ; décisions figées à la signature et accords invalidés après modification.
 - Au clic sur **Valider**, une vente bloquée propose une demande motivée en attente ou le retour à la proposition. Une cible de commission seule ne bloque pas ce parcours.
-- Un seul tableau de synthèse sur le devis : **Commercial**, **Com. estimée**, **État**, **Règles appliquées**. La loupe **Consulter** ouvre les deux tableaux détaillés du bénéficiaire dans une modale native.
+- Un seul tableau de synthèse sur le devis : **Commercial**, **Com. estimée**, **État**, **Règles appliquées**. La loupe **Consulter** ouvre les tableaux détaillés du bénéficiaire dans une modale native.
 - Précontrôles serveur des parcours natifs fiche, liste, signature publique et API ; maintien du CA et des paliers lorsque la commission directe est nulle.
 
 ## Nouveautés de la version 1.2.0
@@ -38,7 +39,7 @@ Par rapport à la version 1.0, cette version apporte principalement :
 
 ## Périmètre de la version 1.3.0
 
-- Commission constante sur marge.
+- Commission constante sur marge et prime facultative de dépassement de la cible de marge par devis.
 - Primes par paliers de chiffre d’affaires.
 - Cumul commission sur marge et commission par paliers.
 - Règles par agent, par groupe d’utilisateurs et par défaut.

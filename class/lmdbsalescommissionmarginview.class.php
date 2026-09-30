@@ -3,7 +3,7 @@
 require_once __DIR__.'/lmdbsalescommissionmarginservice.class.php';
 
 /** Internal policy explanation, shared by proposal card and commission dispatch.
- * @phpstan-type EstimateRow array{beneficiary_id:int,beneficiary:string,formula?:string,payment_term?:string,amount?:string,margin?:string,rate?:string,rule?:string,source?:string,status?:string,message?:string}
+ * @phpstan-type EstimateRow array{beneficiary_id:int,beneficiary:string,formula?:string,payment_term?:string,amount?:string,amount_value?:float,base_amount?:string,reward_amount?:string,margin?:string,rate?:string,rule?:string,source?:string,status?:string,message?:string}
  * @phpstan-type EstimateData array{rows?:list<EstimateRow>,total?:string}|EstimateRow
  */
 class LmdbSalesCommissionMarginView
@@ -47,6 +47,31 @@ class LmdbSalesCommissionMarginView
 			if (!$summary) { return $policyError; }
 			$decisions = array();
 		}
+		$rewards = array();
+		$rewardError = '';
+		if ($all || $own || $group) {
+			require_once __DIR__.'/lmdbsalescommissionrewardservice.class.php';
+			try {
+				$visibleDecisions = $all ? $decisions : array_intersect_key($decisions, array_flip($allowedUsers));
+				$rewards = (new LmdbSalesCommissionRewardService($db))->forProposal($proposal, dol_now(), $visibleDecisions);
+			}
+			catch (Exception $e) { $rewardError = '<span class="warning">'.$langs->trans($e->getMessage()).'</span>'; }
+		}
+		$sum = 0.0;
+		$complete = $rewardError === '';
+		foreach ($estimateRows as $beneficiary => &$estimate) {
+			if (!isset($estimate['amount_value'])) { $complete = false; continue; }
+			if (isset($rewards[$beneficiary])) {
+				$estimate['base_amount'] = $estimate['amount'];
+				$estimate['reward_amount'] = price($rewards[$beneficiary]['amount']);
+				$estimate['amount'] = price(price2num($estimate['amount_value'] + $rewards[$beneficiary]['amount'], 'MT'));
+			}
+			$sum += $estimate['amount_value'] + ($rewards[$beneficiary]['amount'] ?? 0.0);
+			if ($rewardError !== '') { $estimate['amount'] = $rewardError; }
+		}
+		unset($estimate);
+		if ($summary && $all && $complete && $estimateRows) { $estimates['total'] = price(price2num($sum, 'MT')); }
+		elseif ($rewardError !== '') { unset($estimates['total']); }
 		if (!$decisions && !$estimateRows) { return $policyError; }
 		require_once DOL_DOCUMENT_ROOT.'/user/class/user.class.php';
 		require_once DOL_DOCUMENT_ROOT.'/core/class/html.form.class.php';
@@ -107,6 +132,9 @@ class LmdbSalesCommissionMarginView
 			} else {
 				$details = '<p><strong>'.$langs->trans('LscAppliedRules').' — '.dol_escape_htmltag($label).'</strong></p>'.$rulesHtml.'</table></div>';
 			}
+			$canReadReward = $all || (($own || $group) && in_array($beneficiary, $allowedUsers, true));
+			if ($canReadReward && isset($rewards[$beneficiary])) { $details .= self::renderRewardDetails($rewards[$beneficiary]); }
+			elseif ($canReadReward && $rewardError !== '') { $details .= $rewardError; }
 			$linkLabel = img_picto('', 'search').' '.$langs->trans('LscConsult');
 			if (!empty($conf->use_javascript_ajax)) {
 				$dialogKey = 'lscmargin'.((int) $proposal->id).'user'.((int) $beneficiary).'view'.$renderSequence;
@@ -177,6 +205,7 @@ class LmdbSalesCommissionMarginView
 		} else {
 			$columns += array('amount' => 'LmdbSalesCommissionsProposalEstimateTableCommission', 'margin' => 'LmdbSalesCommissionsMarginBase', 'rate' => 'Rate', 'rule' => 'LmdbSalesCommissionsProposalEstimateTableRule', 'source' => 'LmdbSalesCommissionsProposalEstimateTableRuleSource');
 		}
+		if (isset($estimate['reward_amount'])) { $columns += array('base_amount' => 'LscBaseCommission', 'reward_amount' => 'LscReward'); }
 		$columns['status'] = 'Status';
 		$estimate['beneficiary'] = $beneficiaryHtml;
 		$estimate['status'] = $status;
@@ -189,6 +218,26 @@ class LmdbSalesCommissionMarginView
 		}
 		$html .= '</tr>';
 		if (isset($estimate['message'])) { $html .= '<tr class="oddeven"><td colspan="'.count($columns).'">'.$estimate['message'].'</td></tr>'; }
+		return $html.'</table></div>';
+	}
+
+	/** @param array<string,mixed> $reward Frozen or estimated reward, after access filtering.
+	 * @return string */
+	public static function renderRewardDetails(array $reward): string
+	{
+		global $langs;
+		$values = array(
+			'LscRewardRule' => dol_escape_htmltag($reward['rule_label']),
+			'LscRewardMode' => $langs->trans($reward['mode'] === 'fixed' ? 'LscRewardFixed' : 'LscRewardPercentage'),
+			'LscRewardValue' => $reward['mode'] === 'fixed' ? price($reward['value']) : price($reward['value']).' %',
+			'LscThreshold' => $reward['threshold'] === null ? '—' : price($reward['threshold']).' %',
+			'LscRewardSurplus' => price($reward['surplus']),
+			'LscRewardShare' => price($reward['share'] * 100).' %',
+			'LscReward' => price($reward['amount']),
+			'Result' => $langs->trans('LscRewardReason_'.$reward['reason']),
+		);
+		$html = '<h3>'.$langs->trans('LscReward').'</h3><div class="div-table-responsive-no-min"><table class="border centpercent">';
+		foreach ($values as $key => $value) { $html .= '<tr><td>'.$langs->trans($key).'</td><td>'.$value.'</td></tr>'; }
 		return $html.'</table></div>';
 	}
 }

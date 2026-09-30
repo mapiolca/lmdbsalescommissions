@@ -69,6 +69,7 @@ class LmdbSalesCommissionDueService
 		}
 
 		$distribution = $this->fetchDistribution((int) $line->fk_payment_term, (int) $line->entity);
+		if ($distribution === null) { return -1; }
 		if (empty($distribution)) {
 			$distribution = array('proposal_signed' => 100.0);
 		}
@@ -84,7 +85,7 @@ class LmdbSalesCommissionDueService
 			$created += $result;
 		}
 
-		$this->refreshLineTotals((int) $line->id, (int) $line->entity, $user);
+		if ($this->refreshLineTotals((int) $line->id, (int) $line->entity, $user) < 0) { return -1; }
 
 		return $created;
 	}
@@ -127,6 +128,7 @@ class LmdbSalesCommissionDueService
 		}
 
 		$distribution = $this->fetchDistribution((int) $line->fk_payment_term, (int) $line->entity);
+		if ($distribution === null) { $this->db->rollback(); return -1; }
 		if (empty($distribution)) {
 			$distribution = array('proposal_signed' => 100.0);
 		}
@@ -324,7 +326,7 @@ class LmdbSalesCommissionDueService
 	 *
 	 * @param int $paymentTermId Payment term id
 	 * @param int $entity        Entity id
-	 * @return array<string, float>
+	 * @return array<string, float>|null Null on SQL failure
 	 */
 	private function fetchDistribution($paymentTermId, $entity)
 	{
@@ -343,7 +345,7 @@ class LmdbSalesCommissionDueService
 		$resql = $this->db->query($sql);
 		if (!$resql) {
 			$this->error = $this->db->lasterror();
-			return $distribution;
+			return null;
 		}
 		while (is_object($obj = $this->db->fetch_object($resql))) {
 			$distribution[(string) $obj->event_type] = (float) $obj->percentage;
@@ -873,7 +875,7 @@ class LmdbSalesCommissionDueService
 	 * @param int  $lineId Line id
 	 * @param int  $entity Entity id
 	 * @param User $user   User
-	 * @return void
+	 * @return int 1 on success, -1 on failure
 	 */
 	private function refreshLineTotals($lineId, $entity, $user)
 	{
@@ -886,22 +888,26 @@ class LmdbSalesCommissionDueService
 		$resql = $this->db->query($sql);
 		if (!$resql) {
 			dol_syslog(__METHOD__.': '.$this->db->lasterror(), LOG_ERR);
-			return;
+			$this->error = 'LscPolicyUnavailable';
+			return -1;
 		}
 
 		$obj = $this->db->fetch_object($resql);
 		$this->db->free($resql);
 		if (!is_object($obj)) {
-			return;
+			$this->error = 'LscPolicyUnavailable';
+			return -1;
 		}
 
 		$line = new LmdbSalesCommissionLine($this->db);
 		if ($line->fetch($lineId) <= 0 || (int) $line->entity !== (int) $entity) {
-			return;
+			$this->error = 'LscPolicyUnavailable';
+			return -1;
 		}
 
 		$line->payable_total = (float) price2num(is_numeric($obj->payable) ? $obj->payable : 0, 'MT');
 		$line->paid_total = (float) price2num(is_numeric($obj->paid) ? $obj->paid : 0, 'MT');
-		$line->update($user, 1);
+		if ($line->update($user, 1) <= 0) { $this->error = $line->error; return -1; }
+		return 1;
 	}
 }

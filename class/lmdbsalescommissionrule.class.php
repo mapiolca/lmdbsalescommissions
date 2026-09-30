@@ -13,6 +13,10 @@ class LmdbSalesCommissionRule extends LmdbSalesCommissionCommon
 	public $policy_context;
 	/** @var string|null sale, commission or both */
 	public $policy_effect;
+	/** @var string|null fixed or percentage */
+	public $reward_mode;
+	/** @var float|string|null Reward amount or rate */
+	public $reward_value;
 	public $element = 'lmdbsalescommissions_rule';
 	public $table_element = 'lmdbsalescommissions_rule';
 
@@ -20,7 +24,7 @@ class LmdbSalesCommissionRule extends LmdbSalesCommissionCommon
 	public $ref;
 	/** @var string|null Label */
 	public $label;
-	/** @var string|null Rule type: margin or tier */
+	/** @var string|null Rule type: margin, tier, margin_policy or margin_excess */
 	public $rule_type;
 	/** @var float|string|null Commission rate */
 	public $rate;
@@ -60,6 +64,8 @@ class LmdbSalesCommissionRule extends LmdbSalesCommissionCommon
 		'ref' => array('type' => 'varchar(128)', 'label' => 'Ref', 'enabled' => '1', 'visible' => 1, 'notnull' => 1, 'position' => 10),
 		'label' => array('type' => 'varchar(255)', 'label' => 'Label', 'enabled' => '1', 'visible' => 1, 'notnull' => 1, 'position' => 20),
 		'rule_type' => array('type' => 'varchar(32)', 'label' => 'Type', 'enabled' => '1', 'visible' => 1, 'notnull' => 1, 'position' => 30),
+		'reward_mode' => array('type' => 'varchar(16)', 'label' => 'LscRewardMode', 'enabled' => '1', 'visible' => 0),
+		'reward_value' => array('type' => 'double(24,8)', 'label' => 'LscRewardValue', 'enabled' => '1', 'visible' => 0),
 		'policy_context' => array('type' => 'varchar(16)', 'label' => 'LscPolicyContext', 'enabled' => '1', 'visible' => 0),
 		'policy_effect' => array('type' => 'varchar(16)', 'label' => 'LscPolicyEffect', 'enabled' => '1', 'visible' => 0),
 		'rate' => array('type' => 'double(10,4)', 'label' => 'Rate', 'enabled' => '1', 'visible' => 1, 'position' => 40),
@@ -81,4 +87,38 @@ class LmdbSalesCommissionRule extends LmdbSalesCommissionCommon
 		'fk_user_modif' => array('type' => 'integer', 'label' => 'UserModif', 'enabled' => '1', 'visible' => -2, 'position' => 520),
 		'import_key' => array('type' => 'varchar(14)', 'label' => 'ImportId', 'enabled' => '1', 'visible' => -2, 'position' => 530),
 	);
+
+	/** Validate the cross-field reward contract before every write.
+	 * @return bool */
+	private function validateReward()
+	{
+		if ($this->rule_type !== 'margin_excess') { return true; }
+		require_once __DIR__.'/lmdbsalescommissionrewardservice.class.php';
+		if (!is_numeric($this->reward_value) || !LmdbSalesCommissionRewardService::validValue((string) $this->reward_mode, (float) $this->reward_value) || $this->source_type !== 'proposal') {
+			$this->setFieldError('reward_value', 'LscRewardInvalid');
+			$this->error = 'LscRewardInvalid';
+			return false;
+		}
+		$this->reward_value = price2num($this->reward_value, $this->reward_mode === 'fixed' ? 'MT' : '');
+		if ((float) $this->reward_value <= 0) { $this->setFieldError('reward_value', 'LscRewardInvalid'); $this->error = 'LscRewardInvalid'; return false; }
+		$this->cumulative = 1;
+		$this->fk_payment_term = null;
+		return true;
+	}
+
+	/** @param User $user Actor
+	 * @param int $notrigger Disable triggers
+	 * @return int */
+	public function create($user, $notrigger = 0)
+	{
+		return $this->validateReward() ? parent::create($user, $notrigger) : -1;
+	}
+
+	/** @param User $user Actor
+	 * @param int $notrigger Disable triggers
+	 * @return int */
+	public function update($user, $notrigger = 0)
+	{
+		return $this->validateReward() ? parent::update($user, $notrigger) : -1;
+	}
 }

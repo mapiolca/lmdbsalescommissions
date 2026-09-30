@@ -32,6 +32,7 @@ class PolicyDb {
 			} else { throw new RuntimeException('Unexpected insert'); }
 			return true;
 		}
+		if (strpos($sql, '_rule_assignment AS a') !== false || strpos($sql, 'usergroup_user') !== false) { return new PolicyRows(array()); }
 		if (strpos($sql, '_proposal_dispatch') !== false) { return new PolicyRows($this->dispatch); }
 		if (strpos($sql, '_margin_revision') !== false) { return new PolicyRows(array(array('object_id' => '10', 'revision' => (string) $this->revision))); }
 		if (strpos($sql, '_margin_approval') !== false) {

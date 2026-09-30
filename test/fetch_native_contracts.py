@@ -14,6 +14,7 @@ REVISIONS = {
     "25.0.0-alpha": "ef6e5818b0a5626f928cb9bc66bddb8be43ac32f",
 }
 FILES = [
+    "core/lib/functions.lib.php", "core/class/extrafields.class.php", "core/db/mysqli.class.php", "core/db/DoliDB.class.php",
     "core/ajax/onlineSign.php", "core/class/hookmanager.class.php",
     "core/class/html.formmargin.class.php", "core/class/html.form.class.php", "core/class/commonobject.class.php",
     "comm/propal/card.php", "comm/propal/list.php", "comm/propal/class/propal.class.php",

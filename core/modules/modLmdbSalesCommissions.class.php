@@ -379,6 +379,7 @@ class modLmdbSalesCommissions extends DolibarrModules
 	public function init($options = '')
 	{
 		$sql = array();
+		if ($this->upgradeRuleSchema(false) < 0) { return -1; }
 		if ($this->upgradeCommissionLineDispatchSchema(false) < 0) {
 			return -1;
 		}
@@ -402,15 +403,29 @@ class modLmdbSalesCommissions extends DolibarrModules
 			return -1;
 		}
 
+		if ($this->upgradeRuleSchema(true) < 0) { return -1; }
+		return $this->_init($sql, $options);
+	}
+
+	/** Add policy/reward fields conservatively; safe before and after table installation.
+	 * @param bool $tableMustExist Fail when the base table is unavailable
+	 * @return int */
+	private function upgradeRuleSchema($tableMustExist)
+	{
 		$table = MAIN_DB_PREFIX.'lmdbsalescommissions_rule';
-		foreach (array('policy_context', 'policy_effect') as $column) {
+		$q = $this->db->query("SHOW TABLES LIKE '".$this->db->escape($table)."'");
+		if (!$q) { return -1; }
+		$exists = $this->db->num_rows($q) > 0;
+		$this->db->free($q);
+		if (!$exists) { return $tableMustExist ? -1 : 0; }
+		foreach (array('policy_context' => 'varchar(16)', 'policy_effect' => 'varchar(16)', 'reward_mode' => 'varchar(16)', 'reward_value' => 'double(24,8)') as $column => $definition) {
 			$resql = $this->db->query("SHOW COLUMNS FROM ".$table." LIKE '".$column."'");
 			if (!$resql) { return -1; }
 			$exists = $this->db->num_rows($resql) > 0;
 			$this->db->free($resql);
-			if (!$exists && !$this->db->query("ALTER TABLE ".$table." ADD ".$column." varchar(16) DEFAULT NULL")) { return -1; }
+			if (!$exists && !$this->db->query("ALTER TABLE ".$table." ADD ".$column." ".$definition." DEFAULT NULL")) { return -1; }
 		}
-		return $this->_init($sql, $options);
+		return 1;
 	}
 
 	/**
@@ -433,6 +448,8 @@ class modLmdbSalesCommissions extends DolibarrModules
 		}
 
 		$columns = array(
+			'fk_reward_rule' => 'integer DEFAULT NULL',
+			'snapshot_reward' => 'text DEFAULT NULL',
 			'fk_proposal_dispatch' => 'integer DEFAULT NULL',
 			'fk_proposal_turnover_dispatch' => 'integer DEFAULT NULL',
 			'snapshot_base_type' => 'varchar(16) DEFAULT NULL',
@@ -473,6 +490,12 @@ class modLmdbSalesCommissions extends DolibarrModules
 		if (!$turnoverIndexExists && !$this->db->query('ALTER TABLE '.$table.' ADD INDEX '.$turnoverIndexName.' (fk_proposal_turnover_dispatch)')) {
 			return -1;
 		}
+
+		$q = $this->db->query("SHOW INDEX FROM ".$table." WHERE Key_name = 'idx_lsc_reward_rule'");
+		if (!$q) { return -1; }
+		$exists = $this->db->num_rows($q) > 0;
+		$this->db->free($q);
+		if (!$exists && !$this->db->query('ALTER TABLE '.$table.' ADD INDEX idx_lsc_reward_rule (fk_reward_rule)')) { return -1; }
 
 		return 1;
 	}

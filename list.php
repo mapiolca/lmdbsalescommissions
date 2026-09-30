@@ -119,7 +119,7 @@ $source_type_options = array(
 	'contract' => $langs->trans('Contract'),
 );
 $mode_options = array(
-	'margin' => $langs->trans('LmdbSalesCommissionsRuleTypeMargin'),
+	'margin_excess' => $langs->trans('LscReward'), 'margin' => $langs->trans('LmdbSalesCommissionsRuleTypeMargin'),
 	'tier' => $langs->trans('LmdbSalesCommissionsRuleTypeTier'),
 	'tracking' => $langs->trans('LmdbSalesCommissionsModeTracking'),
 	'dispatch' => $langs->trans('LmdbSalesCommissionsModeDispatch'),
@@ -200,7 +200,7 @@ $sqlselect .= ' u.lastname, u.firstname, u.login, u.statut AS user_status, u.pho
 $sqlfrom = ' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_line AS l';
 $sqlfrom .= ' LEFT JOIN '.MAIN_DB_PREFIX.'user AS u ON u.rowid = l.fk_user';
 $sqlfrom .= ' LEFT JOIN '.MAIN_DB_PREFIX.'societe AS s ON s.rowid = l.fk_soc';
-$sqlfrom .= " LEFT JOIN ".MAIN_DB_PREFIX."lmdbsalescommissions_margin_snapshot ms ON ms.entity = l.entity AND ms.fk_propal = l.fk_source AND ms.fk_user = l.fk_user AND l.source_type = 'proposal' AND l.mode IN ('margin','dispatch')";
+$sqlfrom .= " LEFT JOIN ".MAIN_DB_PREFIX."lmdbsalescommissions_margin_snapshot ms ON ms.entity = l.entity AND ms.fk_propal = l.fk_source AND ms.fk_user = l.fk_user AND l.source_type = 'proposal' AND l.mode IN ('margin','dispatch','margin_excess')";
 $sqlwhere = ' WHERE l.entity IN ('.$db->sanitize(getEntity('lmdbsalescommissions_line')).')';
 if (!$canReadAll) {
 	$sqlwhere .= ' AND (l.fk_user = '.((int) $user->id);

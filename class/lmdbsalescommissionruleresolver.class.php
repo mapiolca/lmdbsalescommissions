@@ -16,6 +16,8 @@
  *     rule_type:string,
  *     source_type:string,
  *     period_type:string,
+ *     reward_mode:string,
+ *     reward_value:float|null,
  *     rate:float|null,
  *     fk_tier_grid:int|null,
  *     fk_payment_term:int|null,
@@ -59,9 +61,10 @@ class LmdbSalesCommissionRuleResolver
 	 * @param int    $date       Timestamp, 0 for now
 	 * @param int    $entity     Entity id, 0 for current entity
 	 * @param string $sourceType Source type filter
+	 * @param string $ruleType Optional isolated rule type; empty resolves ordinary commissions
 	 * @return ResolutionResult
 	 */
-	public function resolveForUser($fkUser, $date = 0, $entity = 0, $sourceType = '')
+	public function resolveForUser($fkUser, $date = 0, $entity = 0, $sourceType = '', $ruleType = '')
 	{
 		global $conf;
 
@@ -79,8 +82,10 @@ class LmdbSalesCommissionRuleResolver
 
 		$effectiveDate = $date > 0 ? $date : dol_now();
 		$effectiveEntity = $entity > 0 ? $entity : (int) $conf->entity;
-		$groups = $this->fetchUserGroups($fkUser, $effectiveEntity);
-		$candidates = $this->fetchCandidates($fkUser, $groups, $effectiveDate, $effectiveEntity, $sourceType);
+		try {
+			$groups = $this->fetchUserGroups($fkUser, $effectiveEntity);
+			$candidates = $this->fetchCandidates($fkUser, $groups, $effectiveDate, $effectiveEntity, $sourceType, $ruleType);
+		} catch (RuntimeException $e) { $result['errors'][] = $e->getMessage(); return $result; }
 		$result['candidates'] = $candidates;
 
 		$grouped = array();
@@ -126,7 +131,7 @@ class LmdbSalesCommissionRuleResolver
 		$resql = $this->db->query($sql);
 		if (!$resql) {
 			dol_syslog(__METHOD__.': '.$this->db->lasterror(), LOG_ERR);
-			return $groups;
+			throw new RuntimeException('LscPolicyUnavailable');
 		}
 
 		while (is_object($obj = $this->db->fetch_object($resql))) {
@@ -145,19 +150,21 @@ class LmdbSalesCommissionRuleResolver
 	 * @param int         $date       Timestamp
 	 * @param int         $entity     Entity id
 	 * @param string      $sourceType Source type filter
+	 * @param string $ruleType Optional isolated rule type
 	 * @return array<int, ResolvedRule>
 	 */
-	private function fetchCandidates($fkUser, array $groups, $date, $entity, $sourceType)
+	private function fetchCandidates($fkUser, array $groups, $date, $entity, $sourceType, $ruleType)
 	{
 		$candidates = array();
-		$dateSql = "'".$this->db->idate($date)."'";
+		$dateSql = "'".($ruleType === 'margin_excess' ? substr($this->db->idate($date), 0, 10) : $this->db->idate($date))."'";
 
 		$sql = 'SELECT a.rowid AS assignment_id, a.assignment_type, a.priority AS assignment_priority, a.fk_payment_term AS assignment_payment_term,';
-		$sql .= ' r.rowid AS rule_id, r.ref AS rule_ref, r.label AS rule_label, r.rule_type, r.source_type, r.period_type, r.rate, r.fk_tier_grid, r.fk_payment_term AS rule_payment_term, r.priority AS rule_priority';
+		$sql .= ' r.rowid AS rule_id, r.ref AS rule_ref, r.label AS rule_label, r.rule_type, r.source_type, r.period_type, r.reward_mode, r.reward_value, r.rate, r.fk_tier_grid, r.fk_payment_term AS rule_payment_term, r.priority AS rule_priority';
 		$sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_rule_assignment AS a';
 		$sql .= ' INNER JOIN '.MAIN_DB_PREFIX.'lmdbsalescommissions_rule AS r ON r.rowid = a.fk_rule AND r.entity = a.entity';
 		$sql .= ' WHERE a.entity = '.((int) $entity);
 		$sql .= " AND a.active = 1 AND r.active = 1 AND r.rule_type <> 'margin_policy'";
+		$sql .= $ruleType !== '' ? " AND r.rule_type = '".$this->db->escape($ruleType)."'" : " AND r.rule_type <> 'margin_excess'";
 		$sql .= ' AND (a.date_start IS NULL OR a.date_start <= '.$dateSql.')';
 		$sql .= ' AND (a.date_end IS NULL OR a.date_end >= '.$dateSql.')';
 		$sql .= ' AND (r.date_start IS NULL OR r.date_start <= '.$dateSql.')';
@@ -178,7 +185,7 @@ class LmdbSalesCommissionRuleResolver
 		$resql = $this->db->query($sql);
 		if (!$resql) {
 			dol_syslog(__METHOD__.': '.$this->db->lasterror(), LOG_ERR);
-			return $candidates;
+			throw new RuntimeException('LscPolicyUnavailable');
 		}
 
 		$seen = array();
@@ -198,6 +205,8 @@ class LmdbSalesCommissionRuleResolver
 				'rule_type' => (string) $obj->rule_type,
 				'source_type' => (string) $obj->source_type,
 				'period_type' => (string) $obj->period_type,
+				'reward_mode' => (string) ($obj->reward_mode ?? ''),
+				'reward_value' => isset($obj->reward_value) ? (float) $obj->reward_value : null,
 				'rate' => $obj->rate !== null ? (float) $obj->rate : null,
 				'fk_tier_grid' => $obj->fk_tier_grid !== null ? (int) $obj->fk_tier_grid : null,
 				'fk_payment_term' => $obj->assignment_payment_term !== null ? (int) $obj->assignment_payment_term : ($obj->rule_payment_term !== null ? (int) $obj->rule_payment_term : null),
@@ -232,6 +241,11 @@ class LmdbSalesCommissionRuleResolver
 		}
 
 		usort($rules, array($this, 'compareCandidates'));
+		if ($rules[0]['rule_type'] === 'margin_excess') {
+			$unique = array();
+			foreach ($rules as $candidate) { if (!isset($unique[$candidate['rule_id']])) { $unique[$candidate['rule_id']] = $candidate; } }
+			$rules = array_values($unique);
+		}
 		$selected = $rules[0];
 		$selected['reason'] = 'selected_highest_priority';
 

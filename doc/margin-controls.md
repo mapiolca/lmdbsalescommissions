@@ -1,6 +1,6 @@
 # Contrôle des marges — version 1.3.0
 
-Cette évolution prépare la version 1.3.0, après la version publiée 1.2.0. Le descripteur, l’onglet À propos (alimenté par le descripteur), le README et le changelog sont alignés. Cette préparation ne constitue pas une release GitHub ni une activation sur le parc. Les lots chantier, déplacements et bonus de 25 % sur le dépassement sont exclus.
+Cette évolution prépare la version 1.3.0, après la version publiée 1.2.0. Le descripteur, l’onglet À propos (alimenté par le descripteur), le README et le changelog sont alignés. Cette préparation ne constitue pas une release GitHub ni une activation sur le parc. Les lots chantier et déplacements sont exclus de ce périmètre. La prime configurable de dépassement est décrite dans [le contrat de récompense](margin-excess-reward.md).
 
 ## Fonctionnement livré dans la branche
 

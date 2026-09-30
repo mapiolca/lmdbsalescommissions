@@ -214,8 +214,9 @@ class ActionsLmdbSalesCommissions
 					'beneficiary' => $beneficiaryLabel,
 					'formula' => lmdbsalescommissionsFormatDispatchFormula($langs, (string) $dispatch->base_type, (string) $dispatch->value_type, $dispatch->value),
 					'payment_term' => $paymentLabel,
+					'amount_value' => (float) $calculation['commission'],
 					'amount' => lmdbsalescommissionsFormatTotalAmount($calculation['commission']),
-					'status' => $langs->trans('LmdbSalesCommissionsEstimateNotAcquired'),
+					'status' => $langs->trans(LmdbSalesCommissionProposalService::getSignatureDate($object) > 0 ? 'LscFrozen' : 'LmdbSalesCommissionsEstimateNotAcquired'),
 				);
 			}
 			if (empty($rows)) {
@@ -239,6 +240,15 @@ class ActionsLmdbSalesCommissions
 		$beneficiary = new User($this->db);
 		$identity = array('beneficiary_id' => $salesUserId, 'beneficiary' => $beneficiary->fetch($salesUserId) > 0 ? $beneficiary->getNomUrl(1) : $langs->trans('Unknown'));
 
+		if (LmdbSalesCommissionProposalService::getSignatureDate($object) > 0 || (int) ($object->status ?? $object->statut ?? 0) >= 2) {
+			$q = $this->db->query('SELECT commission_total, snapshot_rule_label FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_line WHERE entity = '.$entity.' AND fk_user = '.$salesUserId." AND source_type = 'proposal' AND fk_source = ".((int) $object->id)." AND mode = 'margin' AND status <> 0 ORDER BY rowid DESC LIMIT 1");
+			if (!$q) { return $identity + array('message' => $langs->trans('LscPolicyUnavailable')); }
+			$row = $this->db->fetch_object($q);
+			$this->db->free($q);
+			$amount = is_object($row) ? (float) $row->commission_total : 0.0;
+			return $identity + array('amount_value' => $amount, 'amount' => price($amount), 'rule' => is_object($row) ? dol_escape_htmltag($row->snapshot_rule_label) : '', 'status' => $langs->trans('LscFrozen'));
+		}
+
 		$margin = isset($marginInfo['total_margin']) && is_numeric($marginInfo['total_margin'])
 			? (float) $marginInfo['total_margin']
 			: LmdbSalesCommissionProposalService::getEstimatedMargin($object);
@@ -249,7 +259,7 @@ class ActionsLmdbSalesCommissions
 		if (!empty($profile['errors'])) {
 			return $identity + array('message' => '<span class="warning">'.$langs->trans('LmdbSalesCommissionsEstimateBlockedByRuleConflict').'</span>');
 		} elseif (!is_array($marginRule)) {
-			return $identity + array('message' => '<span class="opacitymedium">'.$langs->trans('LmdbSalesCommissionsNoMarginRuleAvailable').'</span>');
+			return $identity + array('amount_value' => 0.0, 'amount' => price(0), 'message' => '<span class="opacitymedium">'.$langs->trans('LmdbSalesCommissionsNoMarginRuleAvailable').'</span>');
 		} elseif ($margin === null) {
 			return $identity + array('message' => '<span class="opacitymedium">'.$langs->trans('LmdbSalesCommissionsMarginNotComputable').'</span>');
 		}
@@ -268,6 +278,7 @@ class ActionsLmdbSalesCommissions
 
 
 		return $identity + array(
+			'amount_value' => (float) $amount,
 			'amount' => lmdbsalescommissionsFormatTotalAmount($amount),
 			'margin' => lmdbsalescommissionsFormatTotalAmount($commissionableMargin),
 			'rate' => lmdbsalescommissionsFormatTotalAmount($rate).' %',
