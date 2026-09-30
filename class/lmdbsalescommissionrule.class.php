@@ -16,6 +16,43 @@ class LmdbSalesCommissionRule extends LmdbSalesCommissionCommon
 	public $element = 'lmdbsalescommissions_rule';
 	public $table_element = 'lmdbsalescommissions_rule';
 
+	/** Delete an unused margin policy and its bands atomically; retain referenced policies.
+	 * @param User $user Actor
+	 * @param int $notrigger Disable native CRUD trigger
+	 * @return int Positive on success, negative on failure
+	 */
+	public function delete($user, $notrigger = 0)
+	{
+		global $conf;
+		if ($this->rule_type !== 'margin_policy') { return parent::delete($user, $notrigger); }
+		if (!$user->hasRight('lmdbsalescommissions', 'admin', 'configure') || !$user->admin || !empty($user->socid)
+			|| (int) $this->entity !== (int) $conf->entity || (int) $this->id <= 0) {
+			$this->error = 'LscPolicyDeleteDenied'; return -1;
+		}
+		if (!$this->db->begin()) { $this->error = 'LscPolicyUnavailable'; return -1; }
+		try {
+			$where = 'entity = '.((int) $this->entity).' AND fk_rule = '.((int) $this->id);
+			$lock = $this->db->query('SELECT rowid FROM '.MAIN_DB_PREFIX.$this->table_element.' WHERE entity = '.((int) $this->entity).' AND rowid = '.((int) $this->id)." AND rule_type = 'margin_policy' FOR UPDATE");
+			if (!$lock || !$this->db->num_rows($lock)) { throw new RuntimeException('LscPolicyUnavailable'); }
+			$this->db->free($lock);
+			foreach (array('rule_assignment', 'line', 'margin_approval', 'margin_request') as $table) {
+				$result = $this->db->query('SELECT rowid FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_'.$table.' WHERE '.$where.$this->db->plimit(1));
+				if (!$result) { throw new RuntimeException('LscPolicyUnavailable'); }
+				$used = $this->db->num_rows($result) > 0;
+				$this->db->free($result);
+				if ($used) { throw new RuntimeException('LscPolicyInUse'); }
+			}
+			if (!$this->db->query('DELETE FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_margin_band WHERE '.$where)) { throw new RuntimeException('LscPolicyUnavailable'); }
+			// CommonObject v20 derives a different code from the class name; use our stable CRUD prefix.
+			if (parent::delete($user, 1) <= 0) { throw new RuntimeException('LscPolicyUnavailable'); }
+			if (!$notrigger && $this->call_trigger($this->TRIGGER_PREFIX.'_DELETE', $user) < 0) { throw new RuntimeException('LscPolicyUnavailable'); }
+			if (!$this->db->commit()) { throw new RuntimeException('LscPolicyUnavailable'); }
+			return 1;
+		} catch (Exception $e) {
+			$this->db->rollback(); $this->error = $e->getMessage(); return -1;
+		}
+	}
+
 	/** @var string|null Reference */
 	public $ref;
 	/** @var string|null Label */

@@ -354,6 +354,10 @@ ChooseBoxToAdd=Choose a box to add
 
 # Margin policies
 LscPolicies=Margin controls
+LscEnableMarginControl=Enable margin controls
+LscConfirmDeletePolicy=Delete control "%s" and its bands? A control still assigned or referenced by a commission, request or approval cannot be deleted.
+LscPolicyInUse=This control is still assigned or referenced by a commission, request or approval. Remove its assignments or disable it to preserve its history.
+LscPolicyDeleteDenied=You cannot delete this margin control in this entity.
 LscPolicyContext=Context
 LscPolicyEffect=Effect
 LscGeneral=General

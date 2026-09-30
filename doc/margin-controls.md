@@ -6,6 +6,10 @@ Cette évolution prépare la version 1.3.0, après la version publiée 1.2.0. Le
 
 Les règles `margin_policy` se configurent dans **Réglages > Contrôles de marge**, puis s'affectent dans **Affectations**. Elles sont séparées des anciennes règles de calcul `margin`/`tier`, qui continuent à déterminer le montant habituel et les modalités de versement.
 
+La ligne **Activer le contrôle des marges** porte l'interrupteur natif et son aide. Le bouton **+** en haut à droite du tableau ouvre la création en modale ; la colonne **Actions** propose le crayon pour modifier et la corbeille pour demander confirmation de suppression. Les références restent du texte. Les tranches techniques sont éditables dans la même modale après création du contrôle. Les formulaires utilisent POST avec token et restent accessibles sans JavaScript ; la confirmation de suppression utilise `Form::formconfirm()` et l'éditeur le dialogue jQuery UI livré par Dolibarr. Le commutateur conserve l'action métier du module, ses contrôles de compatibilité et son horodatage d'activation, au lieu d'écrire directement une constante.
+
+La suppression vérifie le droit de configuration, le rôle administrateur interne et l'entité propriétaire. Elle refuse les contrôles encore affectés ou référencés par une ligne, un accord ou une demande de dérogation ; leur désactivation reste possible. Pour un contrôle inutilisé, les tranches et la règle sont supprimées dans la même transaction avec un unique événement CRUD de suppression et invalidation des décisions courantes. Les instantanés historiques sont conservés. Cette évolution d'interface ne nécessite aucune migration ni réactivation supplémentaire.
+
 Une règle générale porte sur la marge globale du devis, sans dépendre de Centrale PV, d'une catégorie ou d'un extrafield. Elle peut contrôler la vente, la commission ou les deux. Les grilles PV, stockage et mixtes contrôlent uniquement la commission. Le minimum de vente et la cible de commission différents nécessitent deux règles générales.
 
 Le calcul utilise `FormMargin::getMarginInfosArray()` sur une copie des lignes : coûts fournisseur, coût absent, remise exceptionnelle et réglages natifs conservent leur signification. Le taux est `(vente HT − coût HT) / coût HT × 100`. Le coût nul ou une donnée de coût nécessaire indisponible ne vaut pas conformité. L'égalité au seuil est acceptée, avec uniquement une tolérance de précision machine sur le taux ; les kWc/kWh ne sont jamais arrondis avant comparaison.
@@ -109,12 +113,17 @@ php test/native_margin_contract_test.php test/.core-cache/20.0.0/htdocs 20.0.0
 php test/margin_guard_test.php test/.core-cache/20.0.0/htdocs 20.0.0
 php test/margin_validation_test.php test/.core-cache/20.0.0/htdocs 20.0.0
 php test/margin_summary_test.php test/.core-cache/20.0.0/htdocs
+php test/margin_admin_test.php test/.core-cache/20.0.0/htdocs
 php test/tier_calculator_test.php
 ```
 
 La suite comprend les seuils 25/40/65 %, l'égalité décimale, les bornes techniques, les conflits, l'indépendance des accords, leur péremption, le rejeu de signature, le gel historique, la désactivation, l'erreur SQL, le rollback simulé, deux entités, les refus API, les appels successifs du gestionnaire de hooks et les commissions fixes/proportionnelles nulles avec CA conservé. Le workflow `Margin controls` ajoute la matrice PHP/Dolibarr et un test DDL MariaDB sur base jetable, avec préfixe long, unicité par entité et résolution SQL réelle des affectations (utilisateur/groupe/défaut et validité jusqu’à la fin du jour). Son statut réel doit être lu sur le SHA de la PR ; sa déclaration ne vaut pas exécution.
 
 PHPStan n'est pas installé/configuré dans cet environnement : analyse non exécutée. Lint PHP et tests ciblés ne la remplacent pas.
+
+Pour les réglages compacts, `margin_admin_test.php` exécute **42 assertions sur chacune des six révisions** sous PHP 8.4.22 : tableau sans formulaire permanent, création/édition POST, token, échappement, initialisation Select2, tranches techniques, confirmation native avec et sans JavaScript, contrôle référencé, droits et entité, échecs de début/écriture/trigger/commit et rollback simulé. `Form` et ses composants sont natifs ; SQL, acteur et effets de `deleteCommon()` sont simulés, sans transaction ERP réelle. Les helpers de boutons et pictogrammes sont des doublures pour le test de structure ; leur présence a été vérifiée dans les sources figées v20–v25 alpha. La suite figure dans la matrice CI existante.
+
+Dans Chrome, la modale de création des réglages a été observée dans le DOM et sur capture d'un aperçu HTTP local utilisant le JavaScript natif v25 alpha et le template du module. Le thème de l'aperçu et les pictogrammes sont simplifiés, les données simulées. Le pilotage des clics a échoué avant exécution : cette observation ne valide ni les soumissions, ni la réouverture, ni le rendu complet du thème Dolibarr et Select2. Ces réglages modifiés n'ont pas été déployés sur develop pendant cette vérification ; la recette réelle reste à faire après redéploiement, notamment activation, création, édition, suppression confirmée/refusée et rendu mobile.
 
 Recette complémentaire du 30 septembre 2026 : après déploiement de la branche par l'utilisateur, six devis brouillons ont été préparés dans l'entité TEST de develop (Dolibarr 25 alpha, Multicompany 24.0.2). Les décisions affichées ont été vérifiées pour les marges générales de 25/40/65 %, PV 9 kWc, stockage utile 10 kWh et mixte 9 kWc + 10 kWh à 65 %. Aucun de ces devis n'a été validé ou signé pendant cette recette ; les canaux de mutation ci-dessous restent à vérifier.
 
