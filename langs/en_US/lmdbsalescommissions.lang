@@ -380,6 +380,7 @@ LscPermissionApproveSale=Approve sale below minimum markup
 LscPermissionApproveCommission=Approve commission below markup target
 LscActualRate=Actual markup on cost
 LscAppliedRules=Applied policies
+LscConsult=View
 LscFrozen=Decision frozen at signature
 LscApproval=Approval
 LscApprove=Approve this exception

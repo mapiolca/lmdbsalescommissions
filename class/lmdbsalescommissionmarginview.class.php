@@ -5,10 +5,13 @@ require_once __DIR__.'/lmdbsalescommissionmarginservice.class.php';
 /** Internal policy explanation, shared by proposal card and commission dispatch. */
 class LmdbSalesCommissionMarginView
 {
+	/** @var int Distinguish multiple blocks rendered on the same page. */
+	private static $renderSequence = 0;
+
 	/** @return string Escaped HTML; approval forms only on the secured dispatch page. */
 	public static function render($db, $proposal, $user, $forms = false)
 	{
-		global $langs;
+		global $langs, $conf;
 		if (!empty($user->socid)) { return ''; }
 		$all = $user->hasRight('lmdbsalescommissions', 'commission', 'readall') || $user->hasRight('lmdbsalescommissions', 'commission', 'dispatch');
 		$saleApproval = $user->hasRight('lmdbsalescommissions', 'marginpolicy', 'approvesale');
@@ -29,6 +32,9 @@ class LmdbSalesCommissionMarginView
 		catch (Exception $e) { return '<span class="warning">'.$langs->trans($e->getMessage() === 'LscOwnerContext' ? 'LscOwnerContext' : 'LscPolicyUnavailable').'</span>'; }
 		if (!$decisions) { return ''; }
 		require_once DOL_DOCUMENT_ROOT.'/user/class/user.class.php';
+		require_once DOL_DOCUMENT_ROOT.'/core/class/html.form.class.php';
+		$form = new Form($db);
+		$renderSequence = ++self::$renderSequence;
 		$html = '<div class="div-table-responsive-no-min"><table class="noborder centpercent"><tr class="liste_titre">';
 		foreach (array('SalesRepresentative', 'LscSale', 'LscCommission', 'LscActualRate', 'LscAppliedRules') as $key) { $html .= '<td>'.$langs->trans($key).'</td>'; }
 		$html .= '</tr>';
@@ -41,18 +47,33 @@ class LmdbSalesCommissionMarginView
 			$html .= '<tr class="oddeven"><td>'.dol_escape_htmltag($label).'</td>';
 			foreach (array('sale', 'commission') as $effect) { $html .= '<td>'.$langs->trans('LscState_'.$effect.'_'.$decision[$effect]).'</td>'; }
 			$html .= '<td>'.($decision['inputs']['rate'] === null ? $langs->trans('Unknown') : dol_escape_htmltag((string) $decision['inputs']['rate']).' %').'</td><td>';
-			$html .= $decision['frozen'] ? $langs->trans('LscFrozen').'<br>' : '';
+			$rulesHtml = '<p><strong>'.$langs->trans('LscAppliedRules').' — '.dol_escape_htmltag($label).'</strong></p>';
+			$rulesHtml .= $decision['frozen'] ? '<p>'.$langs->trans('LscFrozen').'</p>' : '';
+			$rulesHtml .= '<div class="div-table-responsive-no-min"><table class="noborder centpercent"><tr class="liste_titre">';
+			foreach (array('LmdbSalesCommissionsProposalEstimateTableRuleSource', 'LmdbSalesCommissionsProposalEstimateTableRule', 'LscPolicyContext', 'LscPolicyEffect', 'LscThreshold', 'Result') as $key) { $rulesHtml .= '<th scope="col">'.$langs->trans($key).'</th>'; }
+			$rulesHtml .= '</tr>';
 			foreach ($decision['checks'] as $check) {
 				$originLabel = array('user' => 'User', 'group' => 'Group', 'default' => 'Default')[$check['origin_type'] ?? ''] ?? '';
-				$html .= ($originLabel !== '' ? $langs->trans($originLabel).' / ' : '').dol_escape_htmltag($check['origin']).' — '.$langs->trans('LscContext_'.$check['context']).' / '.$langs->trans('LscEffect_'.$check['effect']).' : '.($check['threshold'] === null ? '—' : dol_escape_htmltag((string) $check['threshold']).' %').' · '.$langs->trans('LscReason_'.$check['reason']).'<br>';
-				if (isset($check['approval_id'])) { $html .= $langs->trans('LscApproval').' #'.((int) $check['approval_id']).'<br>'; }
+				$rulesHtml .= '<tr class="oddeven"><td>'.($originLabel !== '' ? $langs->trans($originLabel) : '—').'</td><td>'.dol_escape_htmltag($check['origin']).'</td><td>'.$langs->trans('LscContext_'.$check['context']).'</td><td>'.$langs->trans('LscEffect_'.$check['effect']).'</td><td class="right">'.($check['threshold'] === null ? '—' : dol_escape_htmltag((string) $check['threshold']).' %').'</td><td>'.$langs->trans('LscReason_'.$check['reason']);
+				if (isset($check['approval_id'])) { $rulesHtml .= '<br>'.$langs->trans('LscApproval').' #'.((int) $check['approval_id']); }
 				if ($forms && !$decision['frozen'] && $check['state'] === 'deny' && (($check['effect'] === 'sale' && $saleApproval) || ($check['effect'] === 'commission' && $commissionApproval))) {
-					$html .= '<form method="POST" action="'.dol_buildpath('/lmdbsalescommissions/proposal_dispatch.php', 1).'"><input type="hidden" name="token" value="'.newToken().'">';
-					foreach (array('action' => 'approvemargin', 'id' => (int) $proposal->id, 'beneficiary' => $beneficiary, 'rule' => $check['rule_id'], 'effect' => $check['effect'], 'fingerprint' => $decision['fingerprint']) as $key => $value) { $html .= '<input type="hidden" name="'.$key.'" value="'.dol_escape_htmltag((string) $value).'">'; }
-					$html .= '<label>'.$langs->trans('Reason').' <input name="reason" required></label> <button class="button">'.$langs->trans('LscApprove').'</button></form>';
+					$rulesHtml .= '<form method="POST" action="'.dol_buildpath('/lmdbsalescommissions/proposal_dispatch.php', 1).'"><input type="hidden" name="token" value="'.newToken().'">';
+					foreach (array('action' => 'approvemargin', 'id' => (int) $proposal->id, 'beneficiary' => $beneficiary, 'rule' => $check['rule_id'], 'effect' => $check['effect'], 'fingerprint' => $decision['fingerprint']) as $key => $value) { $rulesHtml .= '<input type="hidden" name="'.$key.'" value="'.dol_escape_htmltag((string) $value).'">'; }
+					$rulesHtml .= '<label>'.$langs->trans('Reason').' <input name="reason" required></label> <button class="button">'.$langs->trans('LscApprove').'</button></form>';
 				}
+				$rulesHtml .= '</td></tr>';
 			}
-			if (!$decision['checks']) { $html .= $langs->trans('LscNoRule'); }
+			if (!$decision['checks']) { $rulesHtml .= '<tr class="oddeven"><td colspan="6"><span class="opacitymedium">'.$langs->trans('LscNoRule').'</span></td></tr>'; }
+			$rulesHtml .= '</table></div>';
+			$linkLabel = img_picto('', 'search').' '.$langs->trans('LscConsult');
+			if (!empty($conf->use_javascript_ajax)) {
+				$dialogKey = 'lscmargin'.((int) $proposal->id).'user'.((int) $beneficiary).'view'.$renderSequence;
+				$link = '<a class="nowrap" href="#idfortooltiponclick_'.$dialogKey.'" aria-haspopup="dialog" aria-controls="idfortooltiponclick_'.$dialogKey.'" aria-label="'.dol_escape_htmltag($langs->trans('LscConsult').' — '.$langs->trans('LscAppliedRules').' — '.$label).'">'.$linkLabel.'</a>';
+				// Native click-to-open dialog: no module JS, endpoint or duplicate event handlers.
+				$html .= $form->textwithpicto($link, $rulesHtml, 1, 'none', '', 1, 3, $dialogKey);
+			} else {
+				$html .= '<details><summary class="cursorpointer">'.$linkLabel.'</summary>'.$rulesHtml.'</details>';
+			}
 			$html .= '</td></tr>';
 		}
 		if (!$count) { $html .= '<tr><td colspan="5">'.$langs->trans('NoRecordFound').'</td></tr>'; }

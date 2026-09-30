@@ -38,6 +38,8 @@ L'identifiant de module existant 450024 est conservé ; aucun nouvel ID de modul
 
 Depuis **Répartition commissions / CA**, chaque accord vise un bénéficiaire, une règle et un effet. Motif obligatoire, auteur de l'accord et horodatage serveur sont conservés. Une décision indéterminée exige de corriger les données ou le conflit ; elle n'est pas dérogeable. Une dérogation de vente ne rétablit pas la commission.
 
+Sur la fiche devis et dans **Répartition commissions / CA**, la colonne **Règles appliquées** affiche une loupe et **Consulter**. La modale native Dolibarr présente, pour le bénéficiaire concerné, la source, la règle, le contexte, l'effet, le seuil et le résultat. Les accords existants et les formulaires de dérogation autorisés restent dans ce détail. Si JavaScript est désactivé dans Dolibarr, le tableau reste accessible dans un bloc dépliable.
+
 L'empreinte comprend les données économiques, les coûts résolus, les réglages de marge, les données techniques utiles, les bénéficiaires, les politiques et leurs révisions. Les mutations natives de devis/lignes et les mutations des règles/affectations/répartitions invalident les anciens accords. Un formulaire ouvert avant une modification ne peut pas approuver le nouvel état.
 
 Les décisions sont figées dans la transaction de signature, par devis et bénéficiaire, avec règles, valeurs et accords. Les commissions acquises existantes et les versements ne sont pas recalculés. Un devis signé avant activation reste historique ; un devis validé mais non signé est recontrôlé à sa signature. Une signature postérieure à l'activation sans décision conservée est signalée, sans fabrication rétroactive d'un instantané.
@@ -102,7 +104,11 @@ php test/tier_calculator_test.php
 
 La suite comprend les seuils 25/40/65 %, l'égalité décimale, les bornes techniques, les conflits, l'indépendance des accords, leur péremption, le rejeu de signature, le gel historique, la désactivation, l'erreur SQL, le rollback simulé, deux entités, les refus API, les appels successifs du gestionnaire de hooks et les commissions fixes/proportionnelles nulles avec CA conservé. Le workflow `Margin controls` ajoute la matrice PHP/Dolibarr et un test DDL MariaDB sur base jetable, avec préfixe long, unicité par entité et résolution SQL réelle des affectations (utilisateur/groupe/défaut et validité jusqu’à la fin du jour). Son statut réel doit être lu sur le SHA de la PR ; sa déclaration ne vaut pas exécution.
 
-PHPStan n'est pas installé/configuré dans cet environnement : analyse non exécutée. Lint PHP et tests ciblés ne la remplacent pas. Aucune instance n'a été déployée ou modifiée et aucune validation navigateur n'est revendiquée.
+PHPStan n'est pas installé/configuré dans cet environnement : analyse non exécutée. Lint PHP et tests ciblés ne la remplacent pas.
+
+Recette complémentaire du 30 septembre 2026 : après déploiement de la branche par l'utilisateur, six devis brouillons ont été préparés dans l'entité TEST de develop (Dolibarr 25 alpha, Multicompany 24.0.2). Les décisions affichées ont été vérifiées pour les marges générales de 25/40/65 %, PV 9 kWc, stockage utile 10 kWh et mixte 9 kWc + 10 kWh à 65 %. Aucun de ces devis n'a été validé ou signé pendant cette recette ; les canaux de mutation ci-dessous restent à vérifier.
+
+Pour le lien **Consulter**, le rendu PHP de `Form::textwithpicto()` a été exécuté avec les six révisions natives ci-dessus sous PHP 8.4.22, avec données simulées et identifiants distincts pour deux bénéficiaires dans deux blocs. Le tableau compact a été observé dans Chrome sur un aperçu HTTP local utilisant le JavaScript natif v25 alpha. Le pilotage des clics a échoué avant leur exécution : l'ouverture, la fermeture et la réouverture de la modale restent à vérifier après redéploiement sur develop. Ce dernier changement d'interface n'a pas été déployé pendant cette vérification.
 
 ## Recette d'instance avant activation
 

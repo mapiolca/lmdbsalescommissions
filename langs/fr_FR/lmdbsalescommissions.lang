@@ -380,6 +380,7 @@ LscPermissionApproveSale=Autoriser une vente sous le minimum de marge
 LscPermissionApproveCommission=Maintenir une commission sous la cible de marge
 LscActualRate=Marge réelle sur coût
 LscAppliedRules=Règles appliquées
+LscConsult=Consulter
 LscFrozen=Décision figée à la signature
 LscApproval=Dérogation
 LscApprove=Approuver cette dérogation
