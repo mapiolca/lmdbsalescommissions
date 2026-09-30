@@ -42,9 +42,10 @@ if ($action !== '') {
 	// Native switches and formconfirm use token-protected GET; editor and band forms use POST.
 	if (GETPOST('token', 'alpha') === '' || ($_SERVER['REQUEST_METHOD'] !== 'POST' && !in_array($action, array('activate', 'togglepolicy', 'confirm_delete'), true))) { accessforbidden(); }
 	if ($action === 'confirm_delete' && GETPOST('confirm', 'alpha') !== 'yes') { header('Location: '.$pageUrl); exit; }
-	$created = false;
-	$db->begin();
+	$originalId = $id;
+	$transactionStarted = $db->begin();
 	try {
+		if (!$transactionStarted) { throw new RuntimeException('LscPolicyUnavailable'); }
 		if ($id) {
 			$lock = $db->query('SELECT rowid FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_rule WHERE entity = '.((int) $conf->entity).' AND rowid = '.$id.' FOR UPDATE');
 			if (!$lock || !$db->num_rows($lock)) { throw new RuntimeException('LscPolicyUnavailable'); }
@@ -74,7 +75,7 @@ if ($action !== '') {
 			$effect = GETPOST('policy_effect', 'aZ09');
 			$rate = str_replace(',', '.', trim(GETPOST('rate', 'alphanohtml')));
 			if (!isset($contexts[$context], $effects[$effect]) || ($context !== 'general' && $effect !== 'commission') || ($context === 'general' && (!is_numeric($rate) || !is_finite((float) $rate) || (float) $rate < 0))) { throw new RuntimeException('LscInvalidPolicy'); }
-			if ($id && $rule->policy_context !== $context && $bands) { throw new RuntimeException('LscInvalidPolicy'); }
+			if ($id && $rule->policy_context !== $context && $bands) { throw new RuntimeException('LscPolicyContextHasBands'); }
 			$rule->entity = (int) $conf->entity;
 			$rule->ref = trim(GETPOST('ref', 'alphanohtml'));
 			$rule->label = trim(GETPOST('label', 'alphanohtml'));
@@ -87,44 +88,56 @@ if ($action !== '') {
 			if (!$rule->validateField($rule->fields, 'ref', $rule->ref) || !$rule->validateField($rule->fields, 'label', $rule->label)) { throw new RuntimeException('LscInvalidPolicy'); }
 			$result = $id ? $rule->update($user) : $rule->create($user);
 			if ($result <= 0) { throw new RuntimeException('LscInvalidPolicy'); }
-			if (!$id) { $id = $result; $created = true; }
+			if (!$id) { $id = $result; }
 		} elseif ($action === 'confirm_delete' && $id) {
 			if ($rule->delete($user) <= 0) { throw new RuntimeException($rule->error); }
 			$id = 0;
 		} elseif ($action === 'togglepolicy' && $id) {
 			$rule->active = (int) $rule->active ? 0 : 1;
 			if ($rule->update($user) <= 0) { throw new RuntimeException('LscInvalidPolicy'); }
-		} elseif ($action === 'addband' && $id && $rule->policy_context !== 'general') {
+		} elseif ($action === 'deleteband' && $id) {
+			if (!$db->query('DELETE FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_margin_band WHERE entity = '.((int) $conf->entity).' AND fk_rule = '.$id.' AND rowid = '.GETPOSTINT('band'))) { throw new RuntimeException('LscInvalidBand'); }
+			if ($rule->update($user) <= 0) { throw new RuntimeException('LscInvalidPolicy'); }
+		} elseif ($action !== 'addband' || !$id || $rule->policy_context === 'general') { throw new RuntimeException('LscInvalidPolicy'); }
+		// Save a pending band with the policy, including its first creation, in the same transaction.
+		if (in_array($action, array('savepolicy', 'addband'), true) && $rule->policy_context !== 'general') {
 			$band = array();
+			$hasBandInput = $action === 'addband' || GETPOSTINT('add_band_continue') === 1;
 			foreach (array('kwc_min', 'kwc_max', 'kwh_min', 'kwh_max', 'threshold') as $key) {
 				$value = str_replace(',', '.', trim(GETPOST($key, 'alphanohtml')));
-				if ($value === '' && $key !== 'threshold') { $band[$key] = null; }
+				if ($value !== '') { $hasBandInput = true; }
+				if ($value === '') { $band[$key] = null; }
 				elseif (!is_numeric($value) || !is_finite((float) $value)) { throw new RuntimeException('LscInvalidBand'); }
 				else { $band[$key] = (float) $value; }
 			}
 			$band['kwc_inclusive'] = GETPOSTINT('kwc_inclusive') === 1 ? 1 : 0;
 			$band['kwh_inclusive'] = GETPOSTINT('kwh_inclusive') === 1 ? 1 : 0;
-			if (!LmdbSalesCommissionMarginEngine::validBands(array_merge($bands, array($band)), $rule->policy_context)) { throw new RuntimeException('LscInvalidBand'); }
-			$columns = array_keys($band); $values = array();
-			foreach ($band as $value) { $values[] = $value === null ? 'NULL' : "'".$db->escape((string) $value)."'"; }
-			if (!$db->query('INSERT INTO '.MAIN_DB_PREFIX.'lmdbsalescommissions_margin_band (entity,fk_rule,'.implode(',', $columns).') VALUES ('.((int) $conf->entity).','.$id.','.implode(',', $values).')')) { throw new RuntimeException('LscInvalidBand'); }
-			if ($rule->update($user) <= 0) { throw new RuntimeException('LscInvalidPolicy'); }
-		} elseif ($action === 'deleteband' && $id) {
-			if (!$db->query('DELETE FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_margin_band WHERE entity = '.((int) $conf->entity).' AND fk_rule = '.$id.' AND rowid = '.GETPOSTINT('band'))) { throw new RuntimeException('LscInvalidBand'); }
-			if ($rule->update($user) <= 0) { throw new RuntimeException('LscInvalidPolicy'); }
-		} else { throw new RuntimeException('LscInvalidPolicy'); }
+			if ($hasBandInput) {
+				if ($band['threshold'] === null || !LmdbSalesCommissionMarginEngine::validBands(array_merge($bands, array($band)), $rule->policy_context)) { throw new RuntimeException('LscInvalidBand'); }
+				$columns = array_keys($band); $values = array();
+				foreach ($band as $value) { $values[] = $value === null ? 'NULL' : "'".$db->escape((string) $value)."'"; }
+				if (!$db->query('INSERT INTO '.MAIN_DB_PREFIX.'lmdbsalescommissions_margin_band (entity,fk_rule,'.implode(',', $columns).') VALUES ('.((int) $conf->entity).','.$id.','.implode(',', $values).')')) { throw new RuntimeException('LscInvalidBand'); }
+				if ($action === 'addband' && $rule->update($user) <= 0) { throw new RuntimeException('LscInvalidPolicy'); }
+			}
+		}
 		if (!$db->commit()) { throw new RuntimeException('LscPolicyUnavailable'); }
 		setEventMessages($langs->trans('RecordSaved'), null, 'mesgs');
-		$keepEditor = $id && ($created || in_array($action, array('togglepolicy', 'addband', 'deleteband'), true));
+		$keepEditor = $id && (in_array($action, array('togglepolicy', 'addband', 'deleteband'), true) || ($action === 'savepolicy' && GETPOSTINT('add_band_continue') === 1 && $rule->policy_context !== 'general'));
 		header('Location: '.$pageUrl.($keepEditor ? '?mode=edit&id='.$id : '')); exit;
 	} catch (Exception $e) {
-		$db->rollback(); setEventMessages($langs->trans($e->getMessage()), null, 'errors');
+		if ($transactionStarted) { $db->rollback(); }
+		$id = $originalId;
+		setEventMessages($langs->trans($e->getMessage()), null, 'errors');
 		$mode = $action === 'savepolicy' ? ($id ? 'edit' : 'create') : ($id && $action !== 'confirm_delete' ? 'edit' : '');
 	}
 }
 $formValues = array();
 foreach (array('ref', 'label', 'rate', 'policy_context', 'policy_effect') as $key) {
 	$formValues[$key] = $action === 'savepolicy' ? GETPOST($key, 'alphanohtml') : (string) ($rule->$key ?? '');
+}
+$bandValues = array();
+foreach (array('kwc_min', 'kwc_max', 'kwc_inclusive', 'kwh_min', 'kwh_max', 'kwh_inclusive', 'threshold') as $key) {
+	$bandValues[$key] = in_array($action, array('savepolicy', 'addband'), true) ? GETPOST($key, 'alphanohtml') : '';
 }
 $policies = array();
 $q = $db->query("SELECT rowid, ref, label, policy_context, policy_effect, active FROM ".MAIN_DB_PREFIX."lmdbsalescommissions_rule WHERE rule_type = 'margin_policy' AND entity = ".((int) $conf->entity).' ORDER BY ref');

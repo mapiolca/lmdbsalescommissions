@@ -358,6 +358,7 @@ LscEnableMarginControl=Activer le contrôle des marges
 LscConfirmDeletePolicy=Supprimer le contrôle « %s » et ses tranches ? Un contrôle encore affecté ou référencé par une commission, une demande ou une dérogation ne peut pas être supprimé.
 LscPolicyInUse=Ce contrôle est encore affecté ou référencé par une commission, une demande ou une dérogation. Retirez ses affectations ou désactivez-le pour conserver son historique.
 LscPolicyDeleteDenied=Vous ne pouvez pas supprimer ce contrôle de marge dans cet environnement.
+LscPolicyContextHasBands=Supprimez les tranches enregistrées avant de changer le contexte de ce contrôle.
 LscPolicyContext=Contexte
 LscPolicyEffect=Effet
 LscGeneral=Général

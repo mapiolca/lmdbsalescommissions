@@ -5,6 +5,7 @@
  * @var LmdbSalesCommissionRule $rule
  * @var array<string,string> $formValues
  * @var list<object> $policies
+ * @var array<string,string> $bandValues Pending band fields, preserved after a failed POST
  */
 if (!defined('DOL_DOCUMENT_ROOT')) { exit; }
 print '<p>'.$langs->trans('LscPolicyHelp').'</p>';
@@ -39,20 +40,28 @@ if ($mode === 'create' || $mode === 'edit') {
 	if ($id) {
 		print '<tr><td>'.$langs->trans('Active').'</td><td><a href="'.$pageUrl.'?action=togglepolicy&amp;id='.$id.'&amp;token='.newToken().'" role="switch" aria-checked="'.($rule->active ? 'true' : 'false').'" aria-label="'.dol_escape_htmltag($langs->trans('Active')).'">'.img_picto($langs->trans($rule->active ? 'Enabled' : 'Disabled'), $rule->active ? 'switch_on' : 'switch_off').'</a></td></tr>';
 	}
-	print '</table><div class="center"><button class="button button-save" type="submit">'.$langs->trans('Save').'</button> <a class="button button-cancel" href="'.$pageUrl.'">'.$langs->trans('Cancel').'</a></div></form>';
-	if ($id && $rule->policy_context !== 'general') {
-		print '<p>'.$langs->trans('LscBandHelp').'</p><div class="div-table-responsive-no-min"><table class="noborder centpercent"><tr class="liste_titre"><td>kWc</td><td>kWh</td><td>'.$langs->trans('LscThreshold').'</td><td></td></tr>';
-		foreach ($bands as $band) {
-			print '<tr class="oddeven">';
-			foreach (array('kwc', 'kwh') as $axis) { print '<td>'.($band[$axis.'_inclusive'] ? '[' : ']').dol_escape_htmltag((string) ($band[$axis.'_min'] ?? '−∞')).' ; '.dol_escape_htmltag((string) ($band[$axis.'_max'] ?? '+∞')).']</td>'; }
-			print '<td>'.dol_escape_htmltag((string) $band['threshold']).' %</td><td><form method="POST" action="'.$pageUrl.'"><input type="hidden" name="token" value="'.newToken().'"><input type="hidden" name="action" value="deleteband"><input type="hidden" name="id" value="'.$id.'"><input type="hidden" name="band" value="'.$band['rowid'].'"><button class="button" type="submit">'.$langs->trans('Delete').'</button></form></td></tr>';
-		}
-		if (!$bands) { print '<tr class="oddeven"><td colspan="4"><span class="opacitymedium">'.$langs->trans('NoRecordFound').'</span></td></tr>'; }
-		print '</table></div><form method="POST" action="'.$pageUrl.'"><input type="hidden" name="token" value="'.newToken().'"><input type="hidden" name="action" value="addband"><input type="hidden" name="id" value="'.$id.'">';
-		foreach (array('kwc', 'kwh') as $axis) {
-			print '<p>'.($axis === 'kwc' ? 'kWc' : 'kWh').' : <input class="width75" name="'.$axis.'_min" aria-label="'.$langs->trans('LscLower').'"> '.$form->selectarray($axis.'_inclusive', array(0 => ']', 1 => '['), 0).' — <input class="width75" name="'.$axis.'_max" aria-label="'.$langs->trans('LscUpper').'"> ]</p>';
-		}
-		print '<p>'.$langs->trans('LscThreshold').' <input class="width75" name="threshold"> %</p><button class="button" type="submit">'.$langs->trans('Add').'</button></form>';
+	print '</table>';
+	// Render at creation too: JavaScript follows the selected context without a preliminary save.
+	print '<div id="lsc-policy-bands">';
+	print '<p>'.$langs->trans('LscBandHelp').'</p><div class="div-table-responsive-no-min"><table class="noborder centpercent" id="lsc-band-table"><tr class="liste_titre"><td>kWc</td><td>kWh</td><td>'.$langs->trans('LscThreshold').'</td><td></td></tr>';
+	print '<tr class="liste_titre_filter">';
+	foreach (array('kwc', 'kwh') as $axis) {
+		$unit = $axis === 'kwc' ? 'kWc' : 'kWh';
+		print '<td class="nowraponall">'.$form->selectarray($axis.'_inclusive', array(0 => ']', 1 => '['), $bandValues[$axis.'_inclusive'] ?: 0).' <input class="width50" name="'.$axis.'_min" value="'.dol_escape_htmltag($bandValues[$axis.'_min']).'" aria-label="'.dol_escape_htmltag($langs->trans('LscLower').' ('.$unit.')').'"> ; <input class="width50" name="'.$axis.'_max" value="'.dol_escape_htmltag($bandValues[$axis.'_max']).'" aria-label="'.dol_escape_htmltag($langs->trans('LscUpper').' ('.$unit.')').'"> ]</td>';
+	}
+	print '<td class="nowraponall"><input class="width75" name="threshold" value="'.dol_escape_htmltag($bandValues['threshold']).'" aria-label="'.dol_escape_htmltag($langs->trans('LscThreshold')).'"> %</td><td class="right"><button class="button" type="submit" name="add_band_continue" value="1">'.$langs->trans('Add').'</button></td></tr>';
+	foreach ($bands as $band) {
+		print '<tr class="oddeven">';
+		foreach (array('kwc', 'kwh') as $axis) { print '<td>'.($band[$axis.'_inclusive'] ? '[' : ']').dol_escape_htmltag((string) ($band[$axis.'_min'] ?? '−∞')).' ; '.dol_escape_htmltag((string) ($band[$axis.'_max'] ?? '+∞')).']</td>'; }
+		print '<td>'.dol_escape_htmltag((string) $band['threshold']).' %</td><td class="right"><button class="noborder" type="submit" form="lsc-delete-band-'.((int) $band['rowid']).'" aria-label="'.dol_escape_htmltag($langs->trans('Delete')).'">'.img_delete().'</button></td></tr>';
+	}
+	if (!$bands) { print '<tr class="oddeven"><td colspan="4"><span class="opacitymedium">'.$langs->trans('NoRecordFound').'</span></td></tr>'; }
+	print '</table></div>';
+	print '</div>';
+	// These fallback actions are replaced by the native dialog footer when JavaScript is available.
+	print '<div id="lsc-policy-form-actions" class="center"><button class="button button-save" type="submit">'.$langs->trans('Save').'</button> <a class="button button-cancel" href="'.$pageUrl.'">'.$langs->trans('Cancel').'</a></div></form>';
+	foreach ($bands as $band) {
+		print '<form id="lsc-delete-band-'.((int) $band['rowid']).'" method="POST" action="'.$pageUrl.'"><input type="hidden" name="token" value="'.newToken().'"><input type="hidden" name="action" value="deleteband"><input type="hidden" name="id" value="'.$id.'"><input type="hidden" name="band" value="'.((int) $band['rowid']).'"></form>';
 	}
 	print '</div>';
 }

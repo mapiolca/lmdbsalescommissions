@@ -78,6 +78,7 @@ $contexts = array('general' => 'General', 'pv' => 'PV'); $effects = array('sale'
 $formValues = array('ref' => $rule->ref, 'label' => 'Label', 'rate' => '30', 'policy_context' => 'general', 'policy_effect' => 'sale');
 $policies = array((object) array('rowid' => 1, 'ref' => $rule->ref, 'label' => 'Label', 'policy_context' => 'general', 'policy_effect' => 'sale', 'active' => 1));
 $bands = array(); $mode = ''; $id = 0;
+$bandValues = array_fill_keys(array('kwc_min', 'kwc_max', 'kwc_inclusive', 'kwh_min', 'kwh_max', 'kwh_inclusive', 'threshold'), '');
 $render = static function () {
 	extract($GLOBALS, EXTR_SKIP);
 	ob_start(); require __DIR__.'/../tpl/marginpolicies.tpl.php'; return ob_get_clean();
@@ -95,9 +96,23 @@ check($view->query('//form[@id="lsc-policy-form" and @method="POST"]')->length =
 check($view->query('//form[@id="lsc-policy-form"]/input[@name="token"]')->length === 1, 'Editor has CSRF token');
 check(strpos($html, '<&') === false && $view->query('//input[@name="ref"]')->item(0)->getAttribute('value') === $rule->ref, 'Field values escaped');
 check(strpos($html, 'select2') !== false, 'Native Select2 initialization present');
+check($view->query('//div[@id="lsc-policy-bands"]')->length === 1, 'Bands are available at first creation, even before selecting a technical context');
+check($view->query('//form[@id="lsc-policy-form"]//input[@name="kwc_min" or @name="kwh_min" or @name="threshold"]')->length === 3, 'Pending band submits with the policy');
+check($view->query('//table[@id="lsc-band-table"]/tr[2]/td/input')->length === 5 && $view->query('//table[@id="lsc-band-table"]/tr[2]/td/button[@name="add_band_continue"]')->length === 1, 'Creation inputs and Add are immediately below the bounds header');
+$bandValues['kwc_min'] = '1,5'; $bandValues['threshold'] = '30';
+$view = parseView($render());
+check($view->query('//input[@name="kwc_min"]')->item(0)->getAttribute('value') === '1,5', 'Failed input keeps its original decimal format');
+check($view->query('//input[@name="threshold"]')->item(0)->getAttribute('value') === '30', 'Pending threshold is preserved');
 $mode = 'edit'; $id = 1; $rule->policy_context = 'pv'; $view = parseView($render());
-check($view->query('//form/input[@value="addband"]')->length === 1, 'Technical bands stay editable');
+check($view->query('//form[@id="lsc-policy-form"]//button[@name="add_band_continue"]')->length === 1, 'Add a band and continue editing');
+check($view->query('//table[@id="lsc-band-table"]/tr[2]/td/input')->length === 5 && !$view->query('//div[@id="lsc-policy-bands"]/p//input')->length, 'Edition uses the same input row, without a separate form below the table');
 check($view->query('//form//form')->length === 0, 'No nested forms in editor');
+$bands = array(array('rowid' => 9, 'threshold' => 30, 'kwc_min' => 0, 'kwc_max' => 3, 'kwc_inclusive' => 0, 'kwh_min' => null, 'kwh_max' => null, 'kwh_inclusive' => 0));
+$view = parseView($render());
+check($view->query('//div[@id="lsc-policy-bands"]//button[@form="lsc-delete-band-9"]')->length === 1, 'Band deletion targets its own POST form');
+check($view->query('//button[@form="lsc-delete-band-9"]/span[@data-picto="delete"]')->length === 1 && trim($view->query('//button[@form="lsc-delete-band-9"]')->item(0)->textContent) === '', 'Band deletion uses the native pictogram without a text button');
+check($view->query('//form[@id="lsc-delete-band-9"]/input[@name="token"]')->length === 1 && !$view->query('//form//form')->length, 'Independent deletion form keeps token and has no nested form');
+$bands = array();
 $mode = 'delete'; $html = $render();
 check(strpos($html, 'dialog-confirm') !== false && strpos($html, 'action=confirm_delete') !== false, 'Native delete confirmation');
 check(strpos($html, 'token=test-csrf') !== false, 'Native confirmation includes token');
