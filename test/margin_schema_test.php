@@ -61,7 +61,7 @@ $policies = $service->policies(7,1);
 if (count($policies) !== 3) { throw new RuntimeException('Inclusive validity end date or owner filter'); }
 $travelPolicy = array_values(array_filter($policies, static function ($policy) { return $policy['rule_id'] === 3; }));
 if (count($travelPolicy) !== 1 || $travelPolicy[0]['travel_bands'][0]['uplift'] !== 10.0) { throw new RuntimeException('Travel tier not resolved'); }
-$decision = LmdbSalesCommissionMarginEngine::evaluate($policies,45.0,null,null);
+$decision = LmdbSalesCommissionMarginEngine::evaluate($policies,45.0,null,null,array('minutes' => 106.0, 'kilometres' => null));
 if ($decision['sale'] !== 'deny' || $decision['checks'][0]['rule_id'] !== 3) { throw new RuntimeException('User priority'); }
 $pdo->exec("UPDATE $assignments SET active = 0 WHERE entity = 1 AND assignment_type = 'user'");
 $decision = LmdbSalesCommissionMarginEngine::evaluate($service->policies(7,1),45.0,null,null);
