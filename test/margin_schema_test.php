@@ -4,7 +4,7 @@
  */
 $pdo = new PDO(getenv('LSC_TEST_DSN'), getenv('LSC_TEST_USER'), getenv('LSC_TEST_PASSWORD'), array(PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION));
 $prefix = 'long_test_prefix_';
-$tables = array('rule', 'rule_assignment', 'margin_band', 'margin_approval', 'margin_revision', 'margin_snapshot');
+$tables = array('rule', 'rule_assignment', 'margin_band', 'margin_approval', 'margin_request', 'margin_revision', 'margin_snapshot');
 foreach ($tables as $table) {
 	$sql = file_get_contents(__DIR__.'/../sql/llx_lmdbsalescommissions_'.$table.'.sql');
 	$pdo->exec(str_replace('llx_', $prefix, $sql));
@@ -40,6 +40,7 @@ class MarginPolicyPdo
 	public function fetch_object($result) { return $result->fetchObject(); }
 	public function free($result) { $result->closeCursor(); }
 	public function idate($date) { return gmdate('Y-m-d H:i:s', $date); }
+	public function escape($value) { return substr($this->pdo->quote($value), 1, -1); }
 }
 require_once __DIR__.'/../class/lmdbsalescommissionmarginservice.class.php';
 $rules = $prefix.'lmdbsalescommissions_rule';
@@ -64,3 +65,38 @@ if ($decision['checks'][0]['rule_id'] !== 1) { throw new RuntimeException('Defau
 $decision = LmdbSalesCommissionMarginEngine::evaluate($service->policies(7,2),45.0,null,null);
 if ($decision['sale'] !== 'deny' || $decision['checks'][0]['rule_id'] !== 4) { throw new RuntimeException('Other entity membership'); }
 echo "MariaDB policy resolution, DATE bounds and entity-scoped assignments passed.\n";
+
+// Real request persistence, simulated access/assessment: duplicate POSTs preserve the first request.
+function isModEnabled($key) { return true; }
+function getDolGlobalInt($key) { return 0; }
+function restrictedArea(...$args) { return 1; }
+class RequestSchemaService extends LmdbSalesCommissionMarginService {
+	public function assess($proposal, $frozen = true) {
+		return array(7 => array('fingerprint'=>str_repeat('a',64),'checks'=>array(
+			array('rule_id'=>1,'effect'=>'sale','state'=>'deny'),
+			array('rule_id'=>2,'effect'=>'sale','state'=>'deny'),
+			array('rule_id'=>3,'effect'=>'commission','state'=>'deny')
+		)));
+	}
+}
+class RequestSchemaUser {
+	public $id=99; public $socid=0;
+	public function hasRight(...$args) { return true; }
+}
+$conf = (object) array('entity'=>1);
+$proposal = (object) array('id'=>10,'entity'=>1,'status'=>0,'date_signature'=>0);
+$actor = new RequestSchemaUser();
+$requests = $prefix.'lmdbsalescommissions_margin_request';
+$requestService = new RequestSchemaService(new MarginPolicyPdo($pdo));
+$pdo->beginTransaction();
+$requestService->requestSaleApproval($proposal,$actor,"Client's reason",str_repeat('a',64));
+$pdo->rollBack();
+if ((int) $pdo->query("SELECT COUNT(*) FROM $requests")->fetchColumn() !== 0) { throw new RuntimeException('Request rollback'); }
+$requestService->requestSaleApproval($proposal,$actor,"Client's reason",str_repeat('a',64));
+$requestService->requestSaleApproval($proposal,$actor,'Duplicate reason',str_repeat('a',64));
+if ((int) $pdo->query("SELECT COUNT(*) FROM $requests")->fetchColumn() !== 2) { throw new RuntimeException('Request duplicate or commission requested'); }
+if ($pdo->query("SELECT reason FROM $requests LIMIT 1")->fetchColumn() !== "Client's reason") { throw new RuntimeException('Request overwritten'); }
+$conf->entity = $proposal->entity = 2;
+$requestService->requestSaleApproval($proposal,$actor,'Other entity',str_repeat('a',64));
+if ((int) $pdo->query("SELECT COUNT(*) FROM $requests WHERE entity = 2")->fetchColumn() !== 2) { throw new RuntimeException('Request entity isolation'); }
+echo "MariaDB sale requests, atomic persistence, rollback and duplicate protection passed.\n";

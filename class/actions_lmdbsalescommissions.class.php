@@ -67,6 +67,48 @@ class ActionsLmdbSalesCommissions
 		return 0;
 	}
 
+	/** Replace native validation confirmation only when the sale is blocked.
+	 * @param array<string,mixed> $parameters Hook parameters
+	 * @param Propal $object Current proposal
+	 * @param string $action Native action
+	 * @param HookManager $hookmanager Native manager
+	 * @return int */
+	public function formConfirm($parameters, &$object, &$action, $hookmanager)
+	{
+		global $user, $langs;
+		if (!in_array('propalcard', explode(':', (string) ($parameters['context'] ?? '')), true)
+			|| $action !== 'validate' || !isModEnabled('lmdbsalescommissions')
+			|| !empty($user->socid) || !is_object($object) || (int) $object->id <= 0
+			|| (int) ($object->status ?? $object->statut ?? -1) !== 0) { return 0; }
+		if (!$user->hasRight('propal', 'lire')
+			|| (!getDolGlobalInt('MAIN_USE_ADVANCED_PERMS') && !$user->hasRight('propal', 'creer'))
+			|| (getDolGlobalInt('MAIN_USE_ADVANCED_PERMS') && !$user->hasRight('propal', 'propal_advance', 'validate'))) { return 0; }
+		if (!restrictedArea($user, 'propal', $object->id, 'propal', '', 'fk_soc', 'rowid', 0, 1, 'write')) { return 0; }
+		$langs->load('lmdbsalescommissions@lmdbsalescommissions');
+		$blocked = false; $requestable = false; $fingerprint = '';
+		try {
+			foreach ((new LmdbSalesCommissionMarginService($this->db))->assess($object) as $decision) {
+				$blocked = $blocked || $decision['sale'] !== 'allow';
+				foreach ($decision['checks'] as $check) {
+					if ($check['effect'] === 'sale' && $check['state'] === 'deny') {
+						$requestable = true; $fingerprint = $decision['fingerprint'];
+					}
+				}
+			}
+		} catch (Exception $e) { $blocked = true; $requestable = false; }
+		if (!$blocked) { return 0; }
+		require_once DOL_DOCUMENT_ROOT.'/core/class/html.form.class.php';
+		$form = new Form($this->db);
+		$page = $requestable
+			? dol_buildpath('/lmdbsalescommissions/proposal_margin_request.php', 1).'?id='.(int) $object->id.'&fingerprint='.urlencode($fingerprint)
+			: DOL_URL_ROOT.'/comm/propal/card.php?id='.(int) $object->id;
+		// Both choices are navigation only. The request itself uses a separate CSRF-protected POST.
+		$this->resprints = $form->formconfirm($page, $langs->trans('LscSaleBlockedTitle'),
+			$langs->trans($requestable ? 'LscSaleBlockedChoice' : 'LscSaleUnknownChoice'), '', '', 'no', 2, 260, 650, 0,
+			$requestable ? 'LscRequestApproval' : 'LscModifyProposal', $requestable ? 'LscModifyProposal' : 'Cancel');
+		return 1;
+	}
+
 	/**
 	 * Add estimated commission block under native margin table on proposal card.
 	 *

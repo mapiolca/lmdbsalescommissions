@@ -91,6 +91,27 @@ class LmdbSalesCommissionMarginView
 				if (!$n) { $html .= '<tr><td colspan="6">'.$langs->trans('NoRecordFound').'</td></tr>'; }
 				$html .= '</table></div>'; $db->free($q);
 			}
+			// Requests are immutable audit records. An actual sale approval alone grants the exception.
+			if ($saleApproval) {
+				require_once DOL_DOCUMENT_ROOT.'/core/lib/html.lib.php';
+				$q = $db->query('SELECT r.*, u.firstname, u.lastname, b.firstname AS beneficiary_firstname, b.lastname AS beneficiary_lastname, p.ref AS rule_ref, EXISTS (SELECT 1 FROM '.MAIN_DB_PREFIX."lmdbsalescommissions_margin_approval a WHERE a.entity = r.entity AND a.fk_propal = r.fk_propal AND a.fk_user = r.fk_user AND a.fk_rule = r.fk_rule AND a.fingerprint = r.fingerprint AND a.effect = 'sale') AS approved FROM ".MAIN_DB_PREFIX.'lmdbsalescommissions_margin_request r LEFT JOIN '.MAIN_DB_PREFIX.'user u ON u.rowid = r.fk_user_creat LEFT JOIN '.MAIN_DB_PREFIX.'user b ON b.rowid = r.fk_user LEFT JOIN '.MAIN_DB_PREFIX.'lmdbsalescommissions_rule p ON p.rowid = r.fk_rule AND p.entity = r.entity WHERE r.entity = '.((int) $proposal->entity).' AND r.fk_propal = '.((int) $proposal->id).' ORDER BY r.rowid DESC');
+				if (!$q) {
+					$html .= '<div class="warning">'.$langs->trans('LscRequestsUnavailable').'</div>';
+				} else {
+					$html .= '<h3>'.$langs->trans('LscSaleRequests').'</h3><p>'.$langs->trans('LscSaleRequestsHelp').'</p><div class="div-table-responsive-no-min"><table class="noborder centpercent"><tr class="liste_titre">';
+					foreach (array('Status', 'SalesRepresentative', 'LscAppliedRules', 'User', 'Date', 'Reason') as $key) { $html .= '<th scope="col">'.$langs->trans($key).'</th>'; }
+					$html .= '</tr>'; $n = 0;
+					while (is_object($row = $db->fetch_object($q))) {
+						$n++;
+						$current = isset($decisions[(int) $row->fk_user]) && hash_equals($decisions[(int) $row->fk_user]['fingerprint'], $row->fingerprint);
+						$statusKey = !$current ? 'LscRequestExpired' : ((int) $row->approved > 0 ? 'LscRequestApproved' : 'LscRequestPending');
+						$html .= '<tr class="oddeven"><td>'.dolGetStatus($langs->trans($statusKey), $langs->trans($statusKey), '', !$current ? 'status6' : ((int) $row->approved > 0 ? 'status4' : 'status1'), 5).'</td>';
+						$html .= '<td>'.dol_escape_htmltag(trim($row->beneficiary_firstname.' '.$row->beneficiary_lastname)).'</td><td>'.dol_escape_htmltag($row->rule_ref ?? ('#'.(int) $row->fk_rule)).'</td><td>'.dol_escape_htmltag(trim($row->firstname.' '.$row->lastname)).'</td><td>'.dol_print_date($db->jdate($row->date_creation), 'dayhour').'</td><td>'.dol_nl2br(dol_escape_htmltag($row->reason)).'</td></tr>';
+					}
+					if (!$n) { $html .= '<tr class="oddeven"><td colspan="6"><span class="opacitymedium">'.$langs->trans('NoRecordFound').'</span></td></tr>'; }
+					$html .= '</table></div>'; $db->free($q);
+				}
+			}
 		}
 		return $html;
 	}

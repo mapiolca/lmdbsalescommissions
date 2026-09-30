@@ -232,6 +232,41 @@ class LmdbSalesCommissionMarginService
 		return isset($decisions[$beneficiary]) ? $decisions[$beneficiary]['commission'] : 'unknown';
 	}
 
+	/** Record a request for every currently denied sale check, without granting any approval.
+	 * One atomic INSERT and a unique key make double submissions harmless.
+	 * @param Propal $proposal Loaded draft proposal
+	 * @param User $user Authenticated requester
+	 * @param string $reason Plain-text reason
+	 * @param string $fingerprint Fingerprint shown before submission
+	 * @return void */
+	public function requestSaleApproval($proposal, $user, $reason, $fingerprint)
+	{
+		global $conf;
+		if (!isModEnabled('lmdbsalescommissions') || !empty($user->socid) || (int) $user->id <= 0
+			|| !$user->hasRight('propal', 'lire')
+			|| (!getDolGlobalInt('MAIN_USE_ADVANCED_PERMS') && !$user->hasRight('propal', 'creer'))
+			|| (getDolGlobalInt('MAIN_USE_ADVANCED_PERMS') && !$user->hasRight('propal', 'propal_advance', 'validate'))
+			|| (int) $proposal->id <= 0 || (int) $proposal->entity !== (int) $conf->entity
+			|| (int) ($proposal->status ?? $proposal->statut ?? -1) !== 0
+			|| LmdbSalesCommissionProposalService::getSignatureDate($proposal) > 0
+			|| !restrictedArea($user, 'propal', $proposal->id, 'propal', '', 'fk_soc', 'rowid', 0, 1, 'write')) {
+			throw new RuntimeException('LscApprovalDenied');
+		}
+		if (trim($reason) === '') { throw new RuntimeException('LscRequestReasonRequired'); }
+		$values = array();
+		foreach ($this->assess($proposal, false) as $beneficiary => $decision) {
+			if (!hash_equals($decision['fingerprint'], $fingerprint)) { throw new RuntimeException('LscApprovalStale'); }
+			foreach ($decision['checks'] as $check) {
+				if ($check['effect'] !== 'sale' || $check['state'] !== 'deny') { continue; }
+				$values[] = '('.((int) $proposal->entity).','.((int) $proposal->id).','.((int) $beneficiary).','.((int) $check['rule_id'])
+					.",'".$this->db->escape($fingerprint)."','".$this->db->escape(trim($reason))."',".((int) $user->id).",'".$this->db->idate(dol_now())."')";
+			}
+		}
+		if (!$values) { throw new RuntimeException('LscRequestNoDeniedSale'); }
+		$sql = 'INSERT INTO '.MAIN_DB_PREFIX.'lmdbsalescommissions_margin_request (entity,fk_propal,fk_user,fk_rule,fingerprint,reason,fk_user_creat,date_creation) VALUES '.implode(',', $values).' ON DUPLICATE KEY UPDATE rowid = rowid';
+		if (!$this->db->query($sql)) { throw new RuntimeException('LscPolicyUnavailable'); }
+	}
+
 	/** Approve one exact rule and beneficiary; clients must supply the displayed fingerprint.
 	 * Object access is additionally checked by the secured page before this method.
 	 * @return void */

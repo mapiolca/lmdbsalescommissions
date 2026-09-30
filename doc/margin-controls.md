@@ -40,6 +40,12 @@ Depuis **Répartition commissions / CA**, chaque accord vise un bénéficiaire, 
 
 Sur la fiche devis et dans **Répartition commissions / CA**, la colonne **Règles appliquées** affiche une loupe et **Consulter**. La modale native Dolibarr présente, pour le bénéficiaire concerné, la source, la règle, le contexte, l'effet, le seuil et le résultat. Les accords existants et les formulaires de dérogation autorisés restent dans ce détail. Si JavaScript est désactivé dans Dolibarr, le tableau reste accessible dans un bloc dépliable.
 
+Au clic sur **Valider**, une vente bloquée sous son minimum affiche une confirmation native proposant **Demander une dérogation** ou **Modifier ma proposition**. Le second choix revient au devis brouillon sans mutation. Le premier ouvre un formulaire avec motif obligatoire, puis enregistre par POST protégé une demande pour chaque règle de vente non atteinte et son bénéficiaire. Le droit natif de validation du devis (y compris les permissions avancées), son accès commercial et son entité propriétaire sont contrôlés. Une cible de commission seule ne déclenche pas cette modale. Un contrôle de vente indéterminé sans seuil non atteint propose uniquement de corriger le devis.
+
+Les demandes sont des traces immuables dans `lmdbsalescommissions_margin_request`, liées au devis, à la règle et au bénéficiaire ; elles ne constituent jamais un accord. L'insertion de toutes les lignes est atomique et les doublons d'un même demandeur sur le même état sont ignorés sans écraser le premier motif. L'empreinte rend les demandes caduques après modification. Les approbateurs de vente les voient dans **Répartition commissions / CA** avec motif, demandeur, date et état (en attente, accordée ou caduque), et accordent chaque exception via **Consulter**. Aucun email automatique n'est envoyé. Le devis reste brouillon jusqu'à une nouvelle validation autorisée ; les contrôles serveur existants continuent de couvrir les appels directs.
+
+Après déploiement de cette évolution, réactiver le module par le mécanisme natif pour créer la table des demandes. Les règles, répartitions et accords existants sont conservés. La version publiée et son `ChangeLog.md` ne sont pas modifiés par cette branche de développement.
+
 L'empreinte comprend les données économiques, les coûts résolus, les réglages de marge, les données techniques utiles, les bénéficiaires, les politiques et leurs révisions. Les mutations natives de devis/lignes et les mutations des règles/affectations/répartitions invalident les anciens accords. Un formulaire ouvert avant une modification ne peut pas approuver le nouvel état.
 
 Les décisions sont figées dans la transaction de signature, par devis et bénéficiaire, avec règles, valeurs et accords. Les commissions acquises existantes et les versements ne sont pas recalculés. Un devis signé avant activation reste historique ; un devis validé mais non signé est recontrôlé à sa signature. Une signature postérieure à l'activation sans décision conservée est signalée, sans fabrication rétroactive d'un instantané.
@@ -99,6 +105,7 @@ Sources : dépôt officiel [Dolibarr](https://github.com/Dolibarr/dolibarr), fic
 python3 test/fetch_native_contracts.py 20.0.0
 php test/native_margin_contract_test.php test/.core-cache/20.0.0/htdocs 20.0.0
 php test/margin_guard_test.php test/.core-cache/20.0.0/htdocs 20.0.0
+php test/margin_validation_test.php test/.core-cache/20.0.0/htdocs 20.0.0
 php test/tier_calculator_test.php
 ```
 
@@ -109,6 +116,10 @@ PHPStan n'est pas installé/configuré dans cet environnement : analyse non exé
 Recette complémentaire du 30 septembre 2026 : après déploiement de la branche par l'utilisateur, six devis brouillons ont été préparés dans l'entité TEST de develop (Dolibarr 25 alpha, Multicompany 24.0.2). Les décisions affichées ont été vérifiées pour les marges générales de 25/40/65 %, PV 9 kWc, stockage utile 10 kWh et mixte 9 kWc + 10 kWh à 65 %. Aucun de ces devis n'a été validé ou signé pendant cette recette ; les canaux de mutation ci-dessous restent à vérifier.
 
 Pour le lien **Consulter**, le rendu PHP de `Form::textwithpicto()` a été exécuté avec les six révisions natives ci-dessus sous PHP 8.4.22, avec données simulées et identifiants distincts pour deux bénéficiaires dans deux blocs. Le tableau compact a été observé dans Chrome sur un aperçu HTTP local utilisant le JavaScript natif v25 alpha. Le pilotage des clics a échoué avant leur exécution : l'ouverture, la fermeture et la réouverture de la modale restent à vérifier après redéploiement sur develop. Ce dernier changement d'interface n'a pas été déployé pendant cette vérification.
+
+Pour le parcours **Valider → demande de dérogation**, `margin_validation_test.php` exécute le hook avec `HookManager`, `Form::formconfirm()` et `FormMargin` natifs : 121 assertions cumulées réussies sur chacune des six révisions sous PHP 8.4.22. Sont notamment couverts le seuil exact, la cible de commission seule, l'accord déjà obtenu, le coût inconnu, deux bénéficiaires, les droits avancés, le périmètre commercial, l'entité, l'empreinte périmée, l'erreur d'écriture et le formulaire natif sans JavaScript avec token. La CI MariaDB ajoute l'insertion réelle, le rollback et la protection contre les doublons des demandes ; son résultat doit être vérifié sur le commit publié. SQL et autorisations restent simulés dans la suite PHP locale.
+
+Dans Chrome, la modale avec ses deux boutons et le focus initial sur **Modifier ma proposition** a été observée après ouverture directe de l'URL de validation de l'aperçu local (JavaScript natif v25 alpha, données simulées). Le pilotage des clics n'a pas abouti ; le parcours HTTP réel (CSRF, enregistrement, retour au brouillon et traitement par l'approbateur) et le rendu des demandes sur develop restent à recetter après déploiement et réactivation du module.
 
 ## Recette d'instance avant activation
 

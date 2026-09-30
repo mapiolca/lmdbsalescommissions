@@ -15,7 +15,7 @@ REVISIONS = {
 }
 FILES = [
     "core/ajax/onlineSign.php", "core/class/hookmanager.class.php",
-    "core/class/html.formmargin.class.php", "core/class/commonobject.class.php",
+    "core/class/html.formmargin.class.php", "core/class/html.form.class.php", "core/class/commonobject.class.php",
     "comm/propal/card.php", "comm/propal/list.php", "comm/propal/class/propal.class.php",
     "comm/propal/class/api_proposals.class.php", "api/index.php",
 ] + ["includes/restler/framework/Luracast/Restler/" + name + ".php"
