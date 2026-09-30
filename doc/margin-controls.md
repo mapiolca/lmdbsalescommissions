@@ -1,6 +1,6 @@
-# Contrôle des marges — développement en cours
+# Contrôle des marges — version 1.3.0
 
-Cette évolution prolonge la version publiée 1.2.0. Elle ne constitue pas une nouvelle release ni une activation sur le parc. Les lots chantier, déplacements et bonus de 25 % sur le dépassement sont exclus.
+Cette évolution prépare la version 1.3.0, après la version publiée 1.2.0. Le descripteur, l’onglet À propos (alimenté par le descripteur), le README et le changelog sont alignés. Cette préparation ne constitue pas une release GitHub ni une activation sur le parc. Les lots chantier, déplacements et bonus de 25 % sur le dépassement sont exclus.
 
 ## Fonctionnement livré dans la branche
 
@@ -38,13 +38,15 @@ L'identifiant de module existant 450024 est conservé ; aucun nouvel ID de modul
 
 Depuis **Répartition commissions / CA**, chaque accord vise un bénéficiaire, une règle et un effet. Motif obligatoire, auteur de l'accord et horodatage serveur sont conservés. Une décision indéterminée exige de corriger les données ou le conflit ; elle n'est pas dérogeable. Une dérogation de vente ne rétablit pas la commission.
 
-Sur la fiche devis et dans **Répartition commissions / CA**, la colonne **Règles appliquées** affiche une loupe et **Consulter**. La modale native Dolibarr présente, pour le bénéficiaire concerné, la source, la règle, le contexte, l'effet, le seuil et le résultat. Les accords existants et les formulaires de dérogation autorisés restent dans ce détail. Si JavaScript est désactivé dans Dolibarr, le tableau reste accessible dans un bloc dépliable.
+Sur la fiche devis, un seul tableau réunit **Commercial**, **Com. estimée**, **État** de la commission et **Règles appliquées**, avec le total dans la colonne des montants lorsque le périmètre global est autorisé et tous les calculs sont disponibles. La loupe **Consulter** ouvre deux tableaux dans la même modale native : le calcul de commission (formule, modalités ou règle automatique, base et taux) et les contrôles de marge (vente, commission, taux réel, sources, contextes, seuils et résultats). Le rapprochement se fait par identifiant de bénéficiaire, jamais par position. Une commission refusée ou indéterminée est distinguée d’une commission autorisée mais non acquise. Le calcul habituel reste visible lorsque les contrôles sont désactivés ou ne s’appliquent pas ; un montant indisponible n’est pas présenté comme zéro.
+
+Dans **Répartition commissions / CA**, la vue détaillée et les formulaires de dérogation autorisés restent accessibles via **Consulter**. Les périmètres de lecture s’appliquent aussi au HTML des modales, sans élévation implicite de l’administrateur ; le seul droit d’approbation ne donne pas accès aux montants de commission. Si JavaScript est désactivé dans Dolibarr, les détails restent accessibles dans un bloc dépliable.
 
 Au clic sur **Valider**, une vente bloquée sous son minimum affiche une confirmation native proposant **Demander une dérogation** ou **Modifier ma proposition**. Le second choix revient au devis brouillon sans mutation. Le premier ouvre un formulaire avec motif obligatoire, puis enregistre par POST protégé une demande pour chaque règle de vente non atteinte et son bénéficiaire. Le droit natif de validation du devis (y compris les permissions avancées), son accès commercial et son entité propriétaire sont contrôlés. Une cible de commission seule ne déclenche pas cette modale. Un contrôle de vente indéterminé sans seuil non atteint propose uniquement de corriger le devis.
 
 Les demandes sont des traces immuables dans `lmdbsalescommissions_margin_request`, liées au devis, à la règle et au bénéficiaire ; elles ne constituent jamais un accord. L'insertion de toutes les lignes est atomique et les doublons d'un même demandeur sur le même état sont ignorés sans écraser le premier motif. L'empreinte rend les demandes caduques après modification. Les approbateurs de vente les voient dans **Répartition commissions / CA** avec motif, demandeur, date et état (en attente, accordée ou caduque), et accordent chaque exception via **Consulter**. Aucun email automatique n'est envoyé. Le devis reste brouillon jusqu'à une nouvelle validation autorisée ; les contrôles serveur existants continuent de couvrir les appels directs.
 
-Après déploiement de cette évolution, réactiver le module par le mécanisme natif pour créer la table des demandes. Les règles, répartitions et accords existants sont conservés. La version publiée et son `ChangeLog.md` ne sont pas modifiés par cette branche de développement.
+Après déploiement de la version 1.3.0, réactiver le module par le mécanisme natif pour créer les tables additives, dont celle des demandes. Les règles, répartitions et accords existants sont conservés.
 
 L'empreinte comprend les données économiques, les coûts résolus, les réglages de marge, les données techniques utiles, les bénéficiaires, les politiques et leurs révisions. Les mutations natives de devis/lignes et les mutations des règles/affectations/répartitions invalident les anciens accords. Un formulaire ouvert avant une modification ne peut pas approuver le nouvel état.
 
@@ -106,6 +108,7 @@ python3 test/fetch_native_contracts.py 20.0.0
 php test/native_margin_contract_test.php test/.core-cache/20.0.0/htdocs 20.0.0
 php test/margin_guard_test.php test/.core-cache/20.0.0/htdocs 20.0.0
 php test/margin_validation_test.php test/.core-cache/20.0.0/htdocs 20.0.0
+php test/margin_summary_test.php test/.core-cache/20.0.0/htdocs
 php test/tier_calculator_test.php
 ```
 
@@ -116,6 +119,8 @@ PHPStan n'est pas installé/configuré dans cet environnement : analyse non exé
 Recette complémentaire du 30 septembre 2026 : après déploiement de la branche par l'utilisateur, six devis brouillons ont été préparés dans l'entité TEST de develop (Dolibarr 25 alpha, Multicompany 24.0.2). Les décisions affichées ont été vérifiées pour les marges générales de 25/40/65 %, PV 9 kWc, stockage utile 10 kWh et mixte 9 kWc + 10 kWh à 65 %. Aucun de ces devis n'a été validé ou signé pendant cette recette ; les canaux de mutation ci-dessous restent à vérifier.
 
 Pour le lien **Consulter**, le rendu PHP de `Form::textwithpicto()` a été exécuté avec les six révisions natives ci-dessus sous PHP 8.4.22, avec données simulées et identifiants distincts pour deux bénéficiaires dans deux blocs. Le tableau compact a été observé dans Chrome sur un aperçu HTTP local utilisant le JavaScript natif v25 alpha. Le pilotage des clics a échoué avant leur exécution : l'ouverture, la fermeture et la réouverture de la modale restent à vérifier après redéploiement sur develop. Ce dernier changement d'interface n'a pas été déployé pendant cette vérification.
+
+Pour la synthèse unique, `margin_summary_test.php` ajoute 35 assertions réussies sur les six révisions natives sous PHP 8.4.22 : rapprochement de bénéficiaires présentés dans un ordre différent, deux tableaux par modale sans modale imbriquée, échappement HTML, total, droits propre/groupe/global, administrateur sans droit, utilisateur externe, approbateur sans droit aux montants, absence de règle, erreur de lecture, règle automatique, état indéterminé et repli sans JavaScript. SQL, utilisateurs et estimations sont simulés ; `Form::textwithpicto()` et le rendu du module sont exécutés sans modification. Les quatre colonnes et les montants ont été observés dans le DOM de l’aperçu local Chrome avec deux bénéficiaires et deux blocs indépendants. Le clic et la capture n’ont pas abouti dans l’outil navigateur ; ouverture/fermeture, rendu visuel sur téléphone et recette develop restent à exécuter après déploiement.
 
 Pour le parcours **Valider → demande de dérogation**, `margin_validation_test.php` exécute le hook avec `HookManager`, `Form::formconfirm()` et `FormMargin` natifs : 121 assertions cumulées réussies sur chacune des six révisions sous PHP 8.4.22. Sont notamment couverts le seuil exact, la cible de commission seule, l'accord déjà obtenu, le coût inconnu, deux bénéficiaires, les droits avancés, le périmètre commercial, l'entité, l'empreinte périmée, l'erreur d'écriture et le formulaire natif sans JavaScript avec token. La CI MariaDB ajoute l'insertion réelle, le rollback et la protection contre les doublons des demandes ; son résultat doit être vérifié sur le commit publié. SQL et autorisations restent simulés dans la suite PHP locale.
 

@@ -1,5 +1,13 @@
 # ChangeLog
 
+## 1.3.0 - 2026-09-30
+
+- Contrôles distincts du minimum de marge autorisant la validation/signature et de la cible donnant droit aux commissions directes. Règles générales autonomes, grilles PV en kWc, stockage utile en kWh et mixtes ; affectations utilisateur/groupe/défaut et cumul par contexte et effet.
+- Dérogations de vente et de commission indépendantes, motivées et horodatées, invalidées après modification ; décisions figées à la signature sans recalcul automatique des devis historiques ni réduction du CA et des paliers.
+- Sur vente bloquée, le bouton **Valider** propose de demander une dérogation ou de modifier le devis. Les demandes restent en attente, visibles aux approbateurs, protégées contre les doublons et caduques après modification ; elles n’accordent aucune autorisation implicite.
+- Synthèse unique des commissions sur la fiche devis, avec montant, état et loupe **Consulter** ouvrant les deux tableaux de détail par commercial dans la modale native. Précontrôles serveur fiche/liste/signature publique/API, suivi et exports enrichis, traductions françaises et anglaises.
+- Mise à niveau : réactiver le module pour les migrations additives et les nouveaux droits/hooks, puis configurer et activer les contrôles par entité après recette. Socle PHP 8.0 conservé ; cible Dolibarr v20–v25, v25 vérifiée sur une révision alpha uniquement. Les canaux tiers et les écritures SQL directes exigent une intégration explicite ; voir `doc/margin-controls.md` pour les environnements testés et les limites.
+
 ## 1.2.0 - 2026-07-23
 
 ### Nouveautés et évolutions
