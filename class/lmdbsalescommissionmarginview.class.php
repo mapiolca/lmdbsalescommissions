@@ -41,7 +41,7 @@ class LmdbSalesCommissionMarginView
 			$db->free($q);
 		}
 		$policyError = '';
-		try { $decisions = (new LmdbSalesCommissionMarginService($db))->assess($proposal); }
+		try { $decisions = (new LmdbSalesCommissionMarginService($db))->assess($proposal, true, $user); }
 		catch (Exception $e) {
 			$policyError = '<span class="warning">'.$langs->trans($e->getMessage() === 'LscOwnerContext' ? 'LscOwnerContext' : 'LscPolicyUnavailable').'</span>';
 			if (!$summary) { return $policyError; }
@@ -85,7 +85,12 @@ class LmdbSalesCommissionMarginView
 			}
 			foreach ($decision['checks'] ?? array() as $check) {
 				$originLabel = array('user' => 'User', 'group' => 'Group', 'default' => 'Default')[$check['origin_type'] ?? ''] ?? '';
-				$cells = array($originLabel !== '' ? $langs->trans($originLabel) : '—', dol_escape_htmltag($check['origin']), $langs->trans('LscContext_'.$check['context']), $langs->trans('LscEffect_'.$check['effect']), $check['threshold'] === null ? '—' : dol_escape_htmltag((string) $check['threshold']).' %', $langs->trans('LscReason_'.$check['reason']));
+				$thresholdLabel = $check['threshold'] === null ? '—' : dol_escape_htmltag((string) $check['threshold']).' %';
+				if (($check['travel_metric'] ?? '') !== '' && ($check['travel_value'] ?? null) !== null) {
+					$unit = $langs->trans($check['travel_metric'] === 'minutes' ? 'LscTravelMinutes' : 'LscTravelKilometres');
+					$thresholdLabel .= '<br><span class="opacitymedium">'.dol_escape_htmltag($langs->trans('LscTravelApplied', (string) $check['base_threshold'], (string) $check['travel_uplift'], (string) $check['travel_value'], $unit)).'</span>';
+				}
+				$cells = array($originLabel !== '' ? $langs->trans($originLabel) : '—', dol_escape_htmltag($check['origin']), $langs->trans('LscContext_'.$check['context']), $langs->trans('LscEffect_'.$check['effect']), $thresholdLabel, $langs->trans('LscReason_'.$check['reason']));
 				$rulesHtml .= $summary ? '<p>'.implode(' · ', $cells) : '<tr class="oddeven"><td>'.implode('</td><td>', $cells);
 				if (isset($check['approval_id'])) { $rulesHtml .= '<br>'.$langs->trans('LscApproval').' #'.((int) $check['approval_id']); }
 				if ($forms && !$summary && !$decision['frozen'] && $check['state'] === 'deny' && (($check['effect'] === 'sale' && $saleApproval) || ($check['effect'] === 'commission' && $commissionApproval))) {

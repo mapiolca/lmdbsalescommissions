@@ -48,4 +48,19 @@ $r=LmdbSalesCommissionMarginEngine::evaluate($general,25.0,null,null);
 $r['checks'][0]['state']='allow'; $r['checks'][0]['reason']='approved';
 $r=LmdbSalesCommissionMarginEngine::aggregate($r);
 expect($r['sale'],'allow','sale approval'); expect($r['commission'],'deny','sale approval never pays commission');
+$travelPolicy = policy(8, 'general', 'sale', 50.0);
+$travelPolicy['travel_bands'] = array(array('metric' => 'minutes', 'min_value' => 105.0, 'uplift' => 10.0));
+expect(LmdbSalesCommissionMarginEngine::validTravelBands($travelPolicy['travel_bands']), true, 'valid journey threshold');
+foreach (array(array(105.0, 'allow', 50.0), array(106.0, 'deny', 60.0), array(120.0, 'deny', 60.0)) as $case) {
+	$decision = LmdbSalesCommissionMarginEngine::evaluate(array($travelPolicy), 50.0, null, null, array('minutes' => $case[0], 'kilometres' => null));
+	expect($decision['sale'], $case[1], 'round-trip threshold is strict');
+	expect($decision['checks'][0]['threshold'], $case[2], 'uplift adds percentage points');
+}
+expect(LmdbSalesCommissionMarginEngine::evaluate(array($travelPolicy), 60.0, null, null, array('minutes' => 106.0, 'kilometres' => null))['sale'], 'allow', 'effective threshold is accepted');
+expect(LmdbSalesCommissionMarginEngine::evaluate(array($travelPolicy), 60.0, null, null)['sale'], 'unknown', 'missing route cannot waive uplift');
+$travelPolicy['travel_bands'] = array(array('metric' => 'kilometres', 'min_value' => 80.0, 'uplift' => 10.0), array('metric' => 'kilometres', 'min_value' => 150.0, 'uplift' => 20.0));
+expect(LmdbSalesCommissionMarginEngine::evaluate(array($travelPolicy), 65.0, null, null, array('minutes' => null, 'kilometres' => 151.0))['checks'][0]['threshold'], 70.0, 'highest crossed distance tier wins');
+expect(LmdbSalesCommissionMarginEngine::validTravelBands(array(array('metric' => 'minutes', 'min_value' => 105.0, 'uplift' => 10.0), array('metric' => 'kilometres', 'min_value' => 80.0, 'uplift' => 10.0))), false, 'one metric per policy');
+expect(LmdbSalesCommissionMarginEngine::validTravelBands(array(array('metric' => 'minutes', 'min_value' => 0.0, 'uplift' => -0.5))), false, 'negative uplift rejected');
+expect(LmdbSalesCommissionMarginEngine::validTravelBands(array(array('metric' => 'minutes', 'min_value' => 105.0, 'uplift' => 10.0), array('metric' => 'minutes', 'min_value' => 120.0, 'uplift' => 5.0))), false, 'higher tier cannot reduce required margin');
 print "Margin engine: $tests assertions passed.\n";

@@ -7,7 +7,8 @@ $settings = array('LMDBSALESCOMMISSIONS_MARGIN_ENABLED' => 1, 'LMDBSALESCOMMISSI
 $conf = (object) array('entity' => 1, 'global' => (object) array(), 'modules_parts' => array('hooks' => array('lmdbsalescommissions' => array('propalcard', 'propallist', 'api', 'ajaxonlinesign'))));
 function getDolGlobalInt($key, $default = 0) { global $settings; return (int) ($settings[$key] ?? $default); }
 function getDolGlobalString($key, $default = '') { global $settings; return (string) ($settings[$key] ?? $default); }
-function isModEnabled($key) { return $key === 'lmdbsalescommissions'; }
+function isModEnabled($key) { global $zoningEnabled; return $key === 'lmdbsalescommissions' || ($key === 'lmdbzoning' && !empty($zoningEnabled)); }
+if (!function_exists('dol_include_once')) { function dol_include_once($path) { return 1; } }
 function dol_now() { return 2000; }
 function dol_syslog($message, $level = 0) {}
 require_once __DIR__.'/../class/lmdbsalescommissionmarginservice.class.php';
@@ -52,7 +53,7 @@ class PolicyDb {
 	public function rollback() { list($this->snapshots, $this->approvals) = $this->transaction; }
 }
 class PolicyProposal {
-	public $id=10; public $entity=1; public $user_author_id=7; public $date_signature=0; public $status=1; public $statut=1; public $element='propal'; public $context=array();
+	public $id=10; public $entity=1; public $socid=15; public $user_author_id=7; public $date_signature=0; public $status=1; public $statut=1; public $element='propal'; public $context=array();
 	public $array_options=array(); public $lines; public $total_ht=125.0; public $optionReads=0;
 	public function __construct() { $this->lines = array((object) array('id'=>1,'total_ht'=>125.0,'subprice'=>125.0,'pa_ht'=>100.0,'qty'=>1.0,'remise_percent'=>0,'product_type'=>0,'fk_product_type'=>0)); }
 	public function fetch_lines() { return 1; }
@@ -65,6 +66,16 @@ class PolicyUser {
 class PolicyService extends LmdbSalesCommissionMarginService {
 	public $rules; public $owners=array();
 	public function policies($beneficiary, $entity) { $this->owners[] = $entity; return $this->rules[$beneficiary] ?? array(); }
+}
+class LmdbZoningCompatibility { public static function isTravelAvailable($type = '') { return $type === 'societe'; } }
+class LmdbZoningTravelService {
+	public static $response = array(); public static $source = array();
+	public function __construct($db) {}
+	public function read($type, $id, $profile, $actor) {
+		self::$source = array($type, $id, $profile);
+		if (!$actor->hasRight('lmdbzoning', 'lmdbzoning', 'read')) { throw new RuntimeException('TravelForbidden'); }
+		return self::$response;
+	}
 }
 $db = new PolicyDb(); $service = new PolicyService($db); $proposal = new PolicyProposal(); $actor = new PolicyUser();
 $service->rules = array(7 => $general);
@@ -118,4 +129,29 @@ catch (RuntimeException $e) { expect($e->getMessage(),'LscPolicyUnavailable','SQ
 $db->fail=false; $conf->entity=2; $proposal->entity=2; $db->dispatch=array(); $service->rules=array(7=>$general);
 expect($service->assess($proposal)[7]['sale'],'deny','second entity works in owner context');
 expect(end($service->owners),2,'resolver receives proposal owner');
+$conf->entity=1; $db = new PolicyDb(); $service = new PolicyService($db); $proposal = new PolicyProposal();
+$zoningEnabled = false; $settings['LMDBZONING_DEFAULT_PROFILE'] = 'HQ'; $user = $actor; $actor->rightsList = array('read', 'approvesale');
+$travelPolicy = policy(20, 'general', 'sale', 20.0);
+$travelPolicy['travel_bands'] = array(array('metric' => 'minutes', 'min_value' => 105.0, 'uplift' => 10.0));
+$service->rules = array(7 => array($travelPolicy));
+expect($service->assess($proposal)[7]['sale'], 'unknown', 'disabled zoning cannot waive route uplift');
+$zoningEnabled = true;
+LmdbZoningTravelService::$response = array('state' => 'ready', 'profile_ref' => 'HQ', 'date_calculation' => '2026-09-30 12:00:00', 'provider' => 'ign', 'optimization' => 'fastest', 'total' => array('round_trip' => array('duration_s' => 6360.0, 'distance_m' => 50000.0)));
+$travelDecision = $service->assess($proposal)[7];
+expect(LmdbZoningTravelService::$source, array('societe', 15, 'HQ'), 'client third party journey from default HQ profile');
+expect($travelDecision['sale'], 'deny', '106-minute journey adds ten points to 20% base');
+expect($travelDecision['checks'][0]['threshold'], 30.0, 'effective margin threshold');
+expect($travelDecision['inputs']['travel']['kilometres'], 50.0, 'stored round-trip metres converted to kilometres');
+$service->approve($proposal, $actor, 7, 20, 'sale', 'Travel exception', $travelDecision['fingerprint']);
+expect($service->assess($proposal)[7]['sale'], 'allow', 'exact-route exception is accepted');
+LmdbZoningTravelService::$response['total']['round_trip']['duration_s'] = 6420.0;
+expect($service->assess($proposal)[7]['sale'], 'deny', 'new stored journey expires previous exception');
+LmdbZoningTravelService::$response['total']['round_trip']['duration_s'] = 6300.0;
+$boundaryDecision = $service->assess($proposal)[7];
+expect($boundaryDecision['sale'], 'allow', 'exactly 105 minutes does not cross strict breakpoint');
+expect($boundaryDecision['fingerprint'] === $travelDecision['fingerprint'], false, 'new route invalidates previous fingerprint');
+LmdbZoningTravelService::$response['state'] = 'stale';
+expect($service->assess($proposal)[7]['sale'], 'unknown', 'stale route cannot grant sale');
+$actor->rightsList = array();
+expect($service->assess($proposal)[7]['sale'], 'unknown', 'unreadable route cannot grant sale');
 print "Service + native FormMargin: $tests assertions passed using ".DOL_DOCUMENT_ROOT.".\n";

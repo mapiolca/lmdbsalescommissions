@@ -115,7 +115,7 @@ class InterfaceLmdbSalesCommissionsTriggers
 				if ($current->fetch((int) $object->id) <= 0) { throw new RuntimeException('LscPolicyUnavailable'); }
 				$current->context['lmdb_margin_signing'] = $action === 'PROPAL_CLOSE_SIGNED';
 				$policy = new LmdbSalesCommissionMarginService($this->db);
-				if (!$policy->saleAllowed($current)) { throw new RuntimeException('LscSaleBlocked'); }
+				if (!$policy->saleAllowed($current, $user)) { throw new RuntimeException('LscSaleBlocked'); }
 				if ($action === 'PROPAL_CLOSE_SIGNED') { $policy->freeze($current, $user); $object = $current; }
 			} catch (Exception $e) { $this->error = $langs->trans($e->getMessage()); return -1; }
 		}

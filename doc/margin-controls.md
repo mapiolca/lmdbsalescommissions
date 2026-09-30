@@ -1,6 +1,6 @@
 # Contrôle des marges — version 1.3.0
 
-Cette évolution prépare la version 1.3.0, après la version publiée 1.2.0. Le descripteur, l’onglet À propos (alimenté par le descripteur), le README et le changelog sont alignés. Cette préparation ne constitue pas une release GitHub ni une activation sur le parc. Les lots chantier, déplacements et bonus de 25 % sur le dépassement sont exclus.
+Cette évolution prépare la version 1.3.0, après la version publiée 1.2.0. Le descripteur, l’onglet À propos (alimenté par le descripteur), le README et le changelog sont alignés. Cette préparation ne constitue pas une release GitHub ni une activation sur le parc. Les lots chantier et le bonus de 25 % sur le dépassement sont exclus.
 
 ## Fonctionnement livré dans la branche
 
@@ -20,6 +20,14 @@ Le calcul utilise `FormMargin::getMarginInfosArray()` sur une copie des lignes :
 Ces valeurs sont lues sur le devis ; Centrale PV reste responsable de leur calcul. Un zéro explicite signifie absence de cet équipement. Une valeur absente, négative, non numérique ou une erreur de lecture reste inconnue. Si aucune règle technique n'est affectée, les extrafields ne sont pas lus. Si une règle technique est affectée mais que le contexte ne peut pas être déterminé, sa décision est indéterminée. Aucun repli d'une grille mixte vers une grille PV n'est effectué.
 
 Les bornes supérieures sont incluses, les bornes inférieures peuvent être ouvertes ou fermées ; une borne vide est illimitée. Les chevauchements, y compris en deux dimensions, sont refusés. Le parent est verrouillé pendant l'édition d'une grille. Les seuils supérieurs à 100 % sont admis.
+
+### Majoration selon le trajet
+
+Chaque règle de marge peut recevoir des paliers de trajet, soit en **minutes aller-retour**, soit en **kilomètres aller-retour**. Un palier s'applique si la valeur calculée est **strictement supérieure** à sa borne. Les majorations s'ajoutent en **points de pourcentage** au seuil de la règle, sans se cumuler entre paliers : seul le palier le plus élevé franchi s'applique. Une règle ne mélange pas les deux unités et les paliers supérieurs ne peuvent pas réduire la majoration. Exemple : au-delà de 105 minutes aller-retour, +10 points porte un minimum de 50 % à 60 % ; exactement 105 minutes conserve 50 %.
+
+La source est `LmdbZoningTravelService::read('societe', <id du tiers client>, <profil par défaut>, <utilisateur>)` dans **lmdbzoning 1.3.0**. Le profil par défaut de l'entité doit référencer le siège social ; le type de trajet **Tiers** doit être actif. Le service lit les deux sens du trajet routier déjà stockés et vérifie leur fraîcheur, le profil, les adresses et le fournisseur de calcul. Le module de commissions convertit les secondes en minutes et les mètres en kilomètres sans arrondir avant comparaison. Il ne déclenche ni calcul d'itinéraire, ni appel réseau pendant la validation ou la signature.
+
+Si le module, le profil, les droits de lecture de lmdbzoning ou du tiers, ou un trajet frais manquent, le contrôle qui dépend du trajet est **indéterminé** : aucune majoration de zéro n'est supposée. Le trajet doit alors être calculé depuis lmdbzoning ou par son travail planifié. Pour une signature publique, l'utilisateur ayant validé le devis sert d'acteur à la lecture, comme dans le trigger natif ; ses droits doivent permettre cette lecture. L'empreinte des accords inclut l'état, les deux métriques et la provenance du trajet : une modification des métriques ou de la date de calcul rend les accords précédents caducs. Le détail affiche le seuil de base, les points ajoutés, la valeur du trajet et le seuil effectif. Les décisions déjà figées ne sont pas recalculées.
 
 Pour chaque contexte et effet : utilisateur > groupe > défaut. Plusieurs règles distinctes de même rang constituent un conflit ; les priorités numériques des anciennes commissions ne départagent pas les politiques de marge. Une même règle atteinte par plusieurs affectations n'est appliquée qu'une fois. Général et contexte technique applicable se cumulent.
 
@@ -59,13 +67,13 @@ La liste de suivi expose les deux décisions figées et un filtre de droit à co
 1. Installer toute la branche sur une instance de recette, dans la seule racine du module.
 2. Actualiser le module par son mécanisme natif d'activation, pour installer les tables, les deux colonnes de règle, les droits et les contextes de hooks. Les migrations ajoutent les colonnes absentes et ne purgent aucune donnée.
 3. Attribuer explicitement le droit de configuration et, séparément, les droits d'approbation nécessaires.
-4. Créer les règles désactivées, compléter les grilles, effectuer leurs affectations puis activer les règles.
+4. Créer les règles désactivées, compléter les grilles et les éventuels paliers de trajet, effectuer leurs affectations puis activer les règles. Pour les paliers de trajet, installer lmdbzoning 1.3.0, activer le trajet des tiers, définir le profil du siège et calculer les trajets avant l'activation des règles.
 5. Exécuter la recette des canaux utilisés et vérifier **Compatibilité**. L'activation refuse une version hors v20–v25, des fichiers core ne contenant plus les points d'extension attendus ou des contextes de hooks non actualisés.
 6. Activer volontairement le contrôle dans chaque entité depuis l'onglet dédié. L'horodatage est celui du serveur.
 
 Une désactivation/réactivation du module conserve les réglages. Désactiver puis réactiver volontairement **le contrôle** ouvre une nouvelle période d'activation ; les instantanés déjà conservés restent prioritaires. Aucun seuil issu des anciennes pièces jointes n'est préchargé automatiquement.
 
-Tables internes ajoutées : `margin_band`, `margin_approval`, `margin_snapshot`, `margin_revision`, préfixées par `lmdbsalescommissions_` et le préfixe SQL natif. Toutes sont rattachées à l'entité ; les liaisons et instantanés sont explicites, sans cascade métier. Ces paramètres ne sont pas partageables indépendamment du devis. La lecture des paramètres d'une autre entité est explicite et distingue une erreur SQL d'une configuration désactivée.
+Tables internes ajoutées : `margin_band`, `margin_travel_band`, `margin_approval`, `margin_snapshot`, `margin_revision`, préfixées par `lmdbsalescommissions_` et le préfixe SQL natif. Toutes sont rattachées à l'entité ; les liaisons et instantanés sont explicites, sans cascade métier. Seuls les paliers sont stockés par le module : la durée et la distance restent dans lmdbzoning. Ces paramètres ne sont pas partageables indépendamment du devis. La lecture des paramètres d'une autre entité est explicite et distingue une erreur SQL d'une configuration désactivée.
 
 Les contrôles de devis partagés nécessitant un calcul vivant sont actuellement exécutés **dans l'entité propriétaire** : `FormMargin` lit les réglages du contexte actif. Depuis une autre entité, un calcul nécessaire est refusé plutôt que d'appliquer ses réglages de coûts. Les décisions déjà figées restent consultables selon les droits. Aucune élévation ni bascule globale d'entité n'est effectuée.
 

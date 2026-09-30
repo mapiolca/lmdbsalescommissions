@@ -56,7 +56,7 @@ class ActionsLmdbSalesCommissions
 			foreach ($ids as $id) {
 				$proposal = new Propal($this->db);
 				if ($proposal->fetch($id) <= 0 || !restrictedArea($user, 'propal', $id, 'propal', '', 'fk_soc', 'rowid', 0, 1, 'write')) { throw new RuntimeException('LscSaleBlocked'); }
-				if (!$service->saleAllowed($proposal)) { throw new RuntimeException('LscSaleBlocked'); }
+				if (!$service->saleAllowed($proposal, $user)) { throw new RuntimeException('LscSaleBlocked'); }
 			}
 		} catch (Exception $e) {
 			$langs->load('lmdbsalescommissions@lmdbsalescommissions');
@@ -88,7 +88,7 @@ class ActionsLmdbSalesCommissions
 		$langs->load('lmdbsalescommissions@lmdbsalescommissions');
 		$blocked = false; $requestable = false; $fingerprint = '';
 		try {
-			foreach ((new LmdbSalesCommissionMarginService($this->db))->assess($object) as $decision) {
+			foreach ((new LmdbSalesCommissionMarginService($this->db))->assess($object, true, $user) as $decision) {
 				$blocked = $blocked || $decision['sale'] !== 'allow';
 				foreach ($decision['checks'] as $check) {
 					if ($check['effect'] === 'sale' && $check['state'] === 'deny') {

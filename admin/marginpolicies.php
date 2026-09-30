@@ -20,6 +20,7 @@ $contexts = array('general' => $langs->trans('LscGeneral'), 'pv' => $langs->tran
 $effects = array('sale' => $langs->trans('LscSale'), 'commission' => $langs->trans('LscCommission'), 'both' => $langs->trans('LscBoth'));
 $form = new Form($db);
 $bands = array();
+$travelBands = array();
 if ($id) {
 	$q = $db->query('SELECT * FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_margin_band WHERE entity = '.((int) $conf->entity).' AND fk_rule = '.$id.' ORDER BY rowid');
 	if (!$q) { dol_print_error($db); exit; }
@@ -32,6 +33,10 @@ if ($id) {
 		}
 		$bands[] = $band;
 	}
+	$db->free($q);
+	$q = $db->query('SELECT rowid, metric, min_value, uplift FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_margin_travel_band WHERE entity = '.((int) $conf->entity).' AND fk_rule = '.$id.' ORDER BY min_value');
+	if (!$q) { dol_print_error($db); exit; }
+	while (is_object($row = $db->fetch_object($q))) { $travelBands[] = array('rowid' => (int) $row->rowid, 'metric' => (string) $row->metric, 'min_value' => (float) $row->min_value, 'uplift' => (float) $row->uplift); }
 	$db->free($q);
 }
 if ($action !== '') {
@@ -55,6 +60,11 @@ if ($action !== '') {
 				}
 				$bands[] = $band;
 			}
+			$db->free($q);
+			$q = $db->query('SELECT rowid, metric, min_value, uplift FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_margin_travel_band WHERE entity = '.((int) $conf->entity).' AND fk_rule = '.$id.' ORDER BY min_value');
+			if (!$q) { throw new RuntimeException('LscPolicyUnavailable'); }
+			$travelBands = array();
+			while (is_object($row = $db->fetch_object($q))) { $travelBands[] = array('rowid' => (int) $row->rowid, 'metric' => (string) $row->metric, 'min_value' => (float) $row->min_value, 'uplift' => (float) $row->uplift); }
 			$db->free($q);
 		}
 		if ($action === 'activate') {
@@ -102,6 +112,19 @@ if ($action !== '') {
 		} elseif ($action === 'deleteband' && $id) {
 			if (!$db->query('DELETE FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_margin_band WHERE entity = '.((int) $conf->entity).' AND fk_rule = '.$id.' AND rowid = '.GETPOSTINT('band'))) { throw new RuntimeException('LscInvalidBand'); }
 			if ($rule->update($user) <= 0) { throw new RuntimeException('LscInvalidPolicy'); }
+		} elseif ($action === 'addtravelband' && $id) {
+			$metric = GETPOST('metric', 'aZ09');
+			$minimum = str_replace(',', '.', trim(GETPOST('min_value', 'alphanohtml')));
+			$uplift = str_replace(',', '.', trim(GETPOST('uplift', 'alphanohtml')));
+			if (!in_array($metric, array('minutes', 'kilometres'), true) || !is_numeric($minimum) || !is_numeric($uplift)) { throw new RuntimeException('LscInvalidTravelBand'); }
+			$band = array('metric' => $metric, 'min_value' => (float) $minimum, 'uplift' => (float) $uplift);
+			if (!LmdbSalesCommissionMarginEngine::validTravelBands(array_merge($travelBands, array($band)))) { throw new RuntimeException('LscInvalidTravelBand'); }
+			$sql = 'INSERT INTO '.MAIN_DB_PREFIX.'lmdbsalescommissions_margin_travel_band (entity,fk_rule,metric,min_value,uplift) VALUES ('.((int) $conf->entity).','.$id.",'".$db->escape($metric)."',".$band['min_value'].','.$band['uplift'].')';
+			if (!$db->query($sql)) { throw new RuntimeException('LscInvalidTravelBand'); }
+			if ($rule->update($user) <= 0) { throw new RuntimeException('LscInvalidPolicy'); }
+		} elseif ($action === 'deletetravelband' && $id) {
+			if (!$db->query('DELETE FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_margin_travel_band WHERE entity = '.((int) $conf->entity).' AND fk_rule = '.$id.' AND rowid = '.GETPOSTINT('band'))) { throw new RuntimeException('LscInvalidTravelBand'); }
+			if ($rule->update($user) <= 0) { throw new RuntimeException('LscInvalidPolicy'); }
 		} else { throw new RuntimeException('LscInvalidPolicy'); }
 		if (!$db->commit()) { throw new RuntimeException('LscPolicyUnavailable'); }
 		setEventMessages($langs->trans('RecordSaved'), null, 'mesgs');
@@ -145,5 +168,18 @@ if ($id && $rule->policy_context !== 'general') {
 		print ajax_combobox($axis.'_inclusive');
 	}
 	print '<p>'.$langs->trans('LscThreshold').' <input class="width75" name="threshold"> %</p><button class="button">'.$langs->trans('Add').'</button></form>';
+}
+if ($id) {
+	print '<h3>'.$langs->trans('LscTravelMargin').'</h3><p>'.$langs->trans('LscTravelHelp').'</p>';
+	print '<div class="div-table-responsive-no-min"><table class="noborder centpercent"><tr class="liste_titre"><td>'.$langs->trans('LscTravelMetric').'</td><td>'.$langs->trans('LscTravelMinimum').'</td><td>'.$langs->trans('LscTravelUplift').'</td><td></td></tr>';
+	foreach ($travelBands as $band) {
+		$metricLabel = $band['metric'] === 'minutes' ? 'LscTravelMinutes' : 'LscTravelKilometres';
+		print '<tr class="oddeven"><td>'.$langs->trans($metricLabel).'</td><td>&gt; '.dol_escape_htmltag((string) $band['min_value']).'</td><td>+'.dol_escape_htmltag((string) $band['uplift']).' '.$langs->trans('LscPercentagePoints').'</td><td><form method="POST"><input type="hidden" name="token" value="'.newToken().'"><input type="hidden" name="action" value="deletetravelband"><input type="hidden" name="id" value="'.$id.'"><input type="hidden" name="band" value="'.$band['rowid'].'"><button class="button">'.$langs->trans('Delete').'</button></form></td></tr>';
+	}
+	if (!$travelBands) { print '<tr class="oddeven"><td colspan="4"><span class="opacitymedium">'.$langs->trans('NoRecordFound').'</span></td></tr>'; }
+	print '</table></div><form method="POST"><input type="hidden" name="token" value="'.newToken().'"><input type="hidden" name="action" value="addtravelband"><input type="hidden" name="id" value="'.$id.'">';
+	print '<p>'.$langs->trans('LscTravelMetric').' '.$form->selectarray('metric', array('minutes' => $langs->trans('LscTravelMinutes'), 'kilometres' => $langs->trans('LscTravelKilometres')), $travelBands ? $travelBands[0]['metric'] : 'minutes').'</p>';
+	print '<p>'.$langs->trans('LscTravelMinimum').' <input class="width75" name="min_value" required> '.$langs->trans('LscTravelUplift').' <input class="width75" name="uplift" required> '.$langs->trans('LscPercentagePoints').'</p><button class="button">'.$langs->trans('Add').'</button></form>';
+	print ajax_combobox('metric');
 }
 print dol_get_fiche_end(); llxFooter(); $db->close();
