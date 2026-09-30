@@ -8,6 +8,7 @@ require_once __DIR__.'/lmdbsalescommissioncommon.class.php';
  */
 class LmdbSalesCommissionLine extends LmdbSalesCommissionCommon
 {
+	public $TRIGGER_PREFIX = 'LMDBSALESCOMMISSIONS_LINE';
 	public $element = 'lmdbsalescommissions_line';
 	public $table_element = 'lmdbsalescommissions_line';
 

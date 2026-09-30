@@ -4,6 +4,8 @@ Module Dolibarr externe `lmdbsalescommissions` pour gérer les commissions, prim
 
 Version actuelle : **1.2.0**.
 
+Développement non publié : [contrôle des marges, grilles kWc/kWh et dérogations](doc/margin-controls.md). Cette documentation précise la migration, l’activation volontaire par entité, les contrôles couverts et la recette restante.
+
 ## Nouveautés de la version 1.2.0
 
 - Ajout du mode de grille **Pourcentage progressif par tranche** pour les périodes mensuelles, trimestrielles et annuelles.

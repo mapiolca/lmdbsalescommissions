@@ -52,7 +52,7 @@ class modLmdbSalesCommissions extends DolibarrModules
 		$this->module_parts = array(
 			'triggers' => 1,
 			'hooks' => array(
-				'propalcard',
+				'propalcard', 'propallist', 'api', 'ajaxonlinesign',
 				'notification',
 			),
 			'substitutions' => 1,
@@ -71,8 +71,8 @@ class modLmdbSalesCommissions extends DolibarrModules
 		$this->warnings_activation_ext = array();
 		$this->const = array();
 		$this->tabs = array(
-			'user:+lmdbsalescommissions:LmdbSalesCommissions:lmdbsalescommissions@lmdbsalescommissions:$user->admin || $user->hasRight("lmdbsalescommissions", "commission", "readown") || $user->hasRight("lmdbsalescommissions", "commission", "readall") || $user->hasRight("lmdbsalescommissions", "commission", "readgroup"):/lmdbsalescommissions/user_commissions.php?id=__ID__',
-			'propal:+lmdbsalescommissions_dispatch:LmdbSalesCommissionsProposalDispatch:lmdbsalescommissions@lmdbsalescommissions:$user->admin || $user->hasRight("lmdbsalescommissions", "commission", "dispatch") || $user->hasRight("lmdbsalescommissions", "commission", "readown") || $user->hasRight("lmdbsalescommissions", "commission", "readall") || $user->hasRight("lmdbsalescommissions", "commission", "readgroup"):/lmdbsalescommissions/proposal_dispatch.php?id=__ID__',
+			'user:+lmdbsalescommissions:LmdbSalesCommissions:lmdbsalescommissions@lmdbsalescommissions:$user->hasRight("lmdbsalescommissions", "commission", "readown") || $user->hasRight("lmdbsalescommissions", "commission", "readall") || $user->hasRight("lmdbsalescommissions", "commission", "readgroup"):/lmdbsalescommissions/user_commissions.php?id=__ID__',
+			'propal:+lmdbsalescommissions_dispatch:LmdbSalesCommissionsProposalDispatch:lmdbsalescommissions@lmdbsalescommissions:$user->hasRight("lmdbsalescommissions", "marginpolicy", "approvesale") || $user->hasRight("lmdbsalescommissions", "marginpolicy", "approvecommission") || $user->hasRight("lmdbsalescommissions", "commission", "dispatch") || $user->hasRight("lmdbsalescommissions", "commission", "readown") || $user->hasRight("lmdbsalescommissions", "commission", "readall") || $user->hasRight("lmdbsalescommissions", "commission", "readgroup"):/lmdbsalescommissions/proposal_dispatch.php?id=__ID__',
 		);
 		$this->boxes = array(
 			array(
@@ -260,12 +260,23 @@ class modLmdbSalesCommissions extends DolibarrModules
 		$this->rights[$r][4] = 'commission';
 		$this->rights[$r][5] = 'dispatch';
 
+		$r++;
+		$this->rights[$r][0] = $this->numero * 100 + $r;
+		$this->rights[$r][1] = 'LscPermissionApproveSale';
+		$this->rights[$r][4] = 'marginpolicy';
+		$this->rights[$r][5] = 'approvesale';
+		$r++;
+		$this->rights[$r][0] = $this->numero * 100 + $r;
+		$this->rights[$r][1] = 'LscPermissionApproveCommission';
+		$this->rights[$r][4] = 'marginpolicy';
+		$this->rights[$r][5] = 'approvecommission';
+
 		$this->menu = array();
 		$r = 0;
 
-		$readperms = '$user->admin || $user->hasRight("lmdbsalescommissions", "commission", "readown") || $user->hasRight("lmdbsalescommissions", "commission", "readall") || $user->hasRight("lmdbsalescommissions", "commission", "readgroup")';
-		$dueperms = '$user->admin || $user->hasRight("lmdbsalescommissions", "due", "read")';
-		$exportperms = '$user->admin || $user->hasRight("lmdbsalescommissions", "export", "own") || $user->hasRight("lmdbsalescommissions", "export", "all")';
+		$readperms = '$user->hasRight("lmdbsalescommissions", "commission", "readown") || $user->hasRight("lmdbsalescommissions", "commission", "readall") || $user->hasRight("lmdbsalescommissions", "commission", "readgroup")';
+		$dueperms = '$user->hasRight("lmdbsalescommissions", "due", "read")';
+		$exportperms = '$user->hasRight("lmdbsalescommissions", "export", "own") || $user->hasRight("lmdbsalescommissions", "export", "all")';
 
 		$this->menu[$r++] = array(
 			'fk_menu' => 'fk_mainmenu=billing',
@@ -391,6 +402,14 @@ class modLmdbSalesCommissions extends DolibarrModules
 			return -1;
 		}
 
+		$table = MAIN_DB_PREFIX.'lmdbsalescommissions_rule';
+		foreach (array('policy_context', 'policy_effect') as $column) {
+			$resql = $this->db->query("SHOW COLUMNS FROM ".$table." LIKE '".$column."'");
+			if (!$resql) { return -1; }
+			$exists = $this->db->num_rows($resql) > 0;
+			$this->db->free($resql);
+			if (!$exists && !$this->db->query("ALTER TABLE ".$table." ADD ".$column." varchar(16) DEFAULT NULL")) { return -1; }
+		}
 		return $this->_init($sql, $options);
 	}
 

@@ -157,7 +157,7 @@ class LmdbSalesCommissionRuleResolver
 		$sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_rule_assignment AS a';
 		$sql .= ' INNER JOIN '.MAIN_DB_PREFIX.'lmdbsalescommissions_rule AS r ON r.rowid = a.fk_rule AND r.entity = a.entity';
 		$sql .= ' WHERE a.entity = '.((int) $entity);
-		$sql .= ' AND a.active = 1 AND r.active = 1';
+		$sql .= " AND a.active = 1 AND r.active = 1 AND r.rule_type <> 'margin_policy'";
 		$sql .= ' AND (a.date_start IS NULL OR a.date_start <= '.$dateSql.')';
 		$sql .= ' AND (a.date_end IS NULL OR a.date_end >= '.$dateSql.')';
 		$sql .= ' AND (r.date_start IS NULL OR r.date_start <= '.$dateSql.')';

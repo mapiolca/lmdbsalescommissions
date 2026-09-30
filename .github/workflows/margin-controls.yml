@@ -1,0 +1,53 @@
+name: Margin controls
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  native-contracts:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { dolibarr: '20.0.0', php: '8.0' }
+          - { dolibarr: '20.0.0', php: '8.4' }
+          - { dolibarr: '21.0.0', php: '8.2' }
+          - { dolibarr: '22.0.0', php: '8.2' }
+          - { dolibarr: '23.0.0', php: '8.2' }
+          - { dolibarr: '24.0.0', php: '8.4' }
+          - { dolibarr: '25.0.0-alpha', php: '8.4' }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '${{ matrix.php }}'
+          coverage: none
+      - run: git ls-files -z '*.php' | xargs -0 -n1 php -l
+      - run: python3 test/fetch_native_contracts.py '${{ matrix.dolibarr }}'
+      - run: php test/native_margin_contract_test.php 'test/.core-cache/${{ matrix.dolibarr }}/htdocs' '${{ matrix.dolibarr }}'
+      - run: php test/margin_guard_test.php 'test/.core-cache/${{ matrix.dolibarr }}/htdocs' '${{ matrix.dolibarr }}'
+      - run: php test/tier_calculator_test.php
+  schema:
+    runs-on: ubuntu-latest
+    services:
+      mariadb:
+        image: mariadb:11.4
+        env:
+          MARIADB_ROOT_PASSWORD: test_only
+          MARIADB_DATABASE: module_test
+        ports: ['3306:3306']
+        options: --health-cmd="healthcheck.sh --connect --innodb_initialized" --health-interval=10s --health-timeout=5s --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: pdo_mysql
+          coverage: none
+      - run: php test/margin_schema_test.php
+        env:
+          LSC_TEST_DSN: mysql:host=127.0.0.1;port=3306;dbname=module_test
+          LSC_TEST_USER: root
+          LSC_TEST_PASSWORD: test_only

@@ -56,7 +56,7 @@ function lmdbsalescommissions_fetch_rule_for_admin($db, $id)
 
 	$rule = new LmdbSalesCommissionRule($db);
 	$result = $rule->fetch($id);
-	if ($result <= 0) {
+	if ($result <= 0 || $rule->rule_type === 'margin_policy') {
 		return null;
 	}
 
@@ -258,6 +258,7 @@ if ($mode === 'create' || $mode === 'edit') {
 $sql = 'SELECT t.rowid, t.ref, t.label, t.rule_type, t.rate, t.fk_tier_grid, t.source_type, t.period_type, t.cumulative, t.priority, t.active, t.date_start, t.date_end';
 $sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_rule AS t';
 $sql .= ' WHERE t.entity IN ('.$db->sanitize(getEntity('lmdbsalescommissions_rule')).')';
+$sql .= " AND t.rule_type <> 'margin_policy'";
 $sql .= ' ORDER BY t.active DESC, t.priority DESC, t.label ASC';
 
 $resql = $db->query($sql);

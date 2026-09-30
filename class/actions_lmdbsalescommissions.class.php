@@ -35,6 +35,36 @@ class ActionsLmdbSalesCommissions
 	public function __construct($db)
 	{
 		$this->db = $db;
+		require_once __DIR__.'/lmdbsalescommissionmarginguard.class.php';
+		LmdbSalesCommissionMarginGuard::initialize($db);
+	}
+
+	/** Native UI precheck; no commission permissions are required for this mandatory invariant.
+	 * @param array<string,mixed> $parameters @return int */
+	public function doActions($parameters, &$object, &$action, $hookmanager)
+	{
+		global $user, $langs, $toselect, $massaction;
+		$contexts = explode(':', (string) ($parameters['context'] ?? ''));
+		$card = in_array('propalcard', $contexts, true) && ($action === 'confirm_validate' || ($action === 'confirm_closeas' && GETPOSTINT('statut') === 2));
+		$list = in_array('propallist', $contexts, true) && (in_array($action, array('validate', 'sign'), true) || $massaction === 'validate');
+		if (!$card && !$list) { return 0; }
+		if (!class_exists('Propal')) { require_once DOL_DOCUMENT_ROOT.'/comm/propal/class/propal.class.php'; }
+		$ids = $card ? array((int) $object->id) : (is_array($toselect) ? array_map('intval', $toselect) : array());
+		$service = new LmdbSalesCommissionMarginService($this->db);
+		try {
+			foreach ($ids as $id) {
+				$proposal = new Propal($this->db);
+				if ($proposal->fetch($id) <= 0 || !restrictedArea($user, 'propal', $id, 'propal', '', 'fk_soc', 'rowid', 0, 1, 'write')) { throw new RuntimeException('LscSaleBlocked'); }
+				if (!$service->saleAllowed($proposal)) { throw new RuntimeException('LscSaleBlocked'); }
+			}
+		} catch (Exception $e) {
+			$langs->load('lmdbsalescommissions@lmdbsalescommissions');
+			setEventMessages($langs->trans($e->getMessage()), null, 'errors');
+			// Native list actions are outside the empty($reshook) block: clear both selectors.
+			$action = ''; $massaction = ''; $toselect = array();
+			return 1;
+		}
+		return 0;
 	}
 
 	/**
@@ -60,9 +90,7 @@ class ActionsLmdbSalesCommissions
 
 		$marginInfo = isset($parameters['marginInfo']) && is_array($parameters['marginInfo']) ? $parameters['marginInfo'] : array();
 		$commissionData = $this->buildProposalEstimatedCommissionData($object, $marginInfo);
-		if (empty($commissionData)) {
-			return 0;
-		}
+		if (empty($commissionData)) { $commissionData = array('message' => ''); }
 
 		$columnCount = 4;
 		if (getDolGlobalString('DISPLAY_MARGIN_RATES')) {
@@ -140,6 +168,11 @@ class ActionsLmdbSalesCommissions
 		$this->resprints .= '</table>';
 		$this->resprints .= '</td>';
 		$this->resprints .= '</tr>';
+
+		global $user;
+		require_once __DIR__.'/lmdbsalescommissionmarginview.class.php';
+		$policyHtml = LmdbSalesCommissionMarginView::render($this->db, $object, $user);
+		if ($policyHtml !== '') { $this->resprints .= '<tr><td colspan="'.$columnCount.'">'.$policyHtml.'</td></tr>'; }
 
 		return 0;
 	}
@@ -243,6 +276,10 @@ class ActionsLmdbSalesCommissions
 		$base = max(0, $commissionableMargin);
 		$rate = (float) ($marginRule['rate'] ?? 0);
 		$amount = price2num($base * $rate / 100, 'MT');
+		try {
+			if ((new LmdbSalesCommissionMarginService($this->db))->commissionState($object, $salesUserId) !== 'allow') { $amount = 0.0; }
+		} catch (Exception $e) { return array('message' => $langs->trans('LscPolicyUnavailable')); }
+
 
 		return array(
 			'amount' => lmdbsalescommissionsFormatTotalAmount($amount),

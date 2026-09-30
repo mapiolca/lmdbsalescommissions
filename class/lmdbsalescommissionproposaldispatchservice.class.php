@@ -253,6 +253,11 @@ class LmdbSalesCommissionProposalDispatchService
 		$base = (string) $dispatch->base_type === self::BASE_MARGIN ? (float) $margin : max(0, $turnover);
 		$value = (float) $dispatch->value;
 		$commission = (string) $dispatch->value_type === self::VALUE_PERCENTAGE ? (float) price2num($base * $value / 100, 'MT') : (float) price2num($value, 'MT');
+		require_once __DIR__.'/lmdbsalescommissionmarginservice.class.php';
+		try {
+			$state = (new LmdbSalesCommissionMarginService($this->db))->commissionState($proposal, (int) $dispatch->fk_user);
+			if ($state !== 'allow') { $commission = 0.0; }
+		} catch (Exception $e) { $this->error = $e->getMessage(); return null; }
 		$paymentTermId = $this->resolvePaymentTermId($dispatch, $date);
 		if ($paymentTermId < 0) {
 			return null;

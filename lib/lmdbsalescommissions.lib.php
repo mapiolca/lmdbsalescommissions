@@ -31,6 +31,8 @@ function lmdbsalescommissionsAdminPrepareHead()
 	$head[$h][2] = 'rules';
 	$h++;
 
+	$head[$h++] = array(dol_buildpath('/lmdbsalescommissions/admin/marginpolicies.php', 1), $langs->trans('LscPolicies'), 'marginpolicies');
+
 	$head[$h][0] = dol_buildpath('/lmdbsalescommissions/admin/paymentterms.php', 1);
 	$head[$h][1] = $langs->trans('LmdbSalesCommissionsPaymentTerms');
 	$head[$h][2] = 'paymentterms';

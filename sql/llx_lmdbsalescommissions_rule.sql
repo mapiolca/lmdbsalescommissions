@@ -5,6 +5,8 @@ CREATE TABLE llx_lmdbsalescommissions_rule
 	ref varchar(128) NOT NULL,
 	label varchar(255) NOT NULL,
 	rule_type varchar(32) NOT NULL,
+	policy_context varchar(16) DEFAULT NULL,
+	policy_effect varchar(16) DEFAULT NULL,
 	rate double(10,4) DEFAULT NULL,
 	fk_tier_grid integer DEFAULT NULL,
 	fk_payment_term integer DEFAULT NULL,

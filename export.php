@@ -40,20 +40,16 @@ if (!isModEnabled('lmdbsalescommissions')) {
 	accessforbidden();
 }
 
-if (!lmdbsalescommissionsCanExport($user)) {
-	accessforbidden();
-}
-
-if (!lmdbsalescommissionsCanExportUserScope($user, $fk_user)) {
-	accessforbidden();
-}
+$canExportAll = $user->hasRight('lmdbsalescommissions', 'export', 'all');
+$canExportOwn = $user->hasRight('lmdbsalescommissions', 'export', 'own');
+if (!empty($user->socid) || (!$canExportAll && !$canExportOwn) || (!$canExportAll && $fk_user > 0 && $fk_user !== (int) $user->id)) { accessforbidden(); }
 
 if ($action === 'export') {
 	if (GETPOST('token', 'alpha') === '') {
 		accessforbidden($langs->trans('ErrorBadToken'));
 	}
 
-	$scope = lmdbsalescommissionsBuildExportScopeSql($user, 'l');
+	$scope = $canExportAll ? '' : ' AND l.fk_user = '.((int) $user->id);
 	$userfilter = $fk_user > 0 ? ' AND l.fk_user = '.((int) $fk_user) : '';
 	$groupfilter = '';
 	if ($fk_usergroup > 0) {
@@ -104,12 +100,13 @@ if ($action === 'export') {
 	}
 
 	if ($dataset === 'lines') {
-		fputcsv($output, array('date', 'agent', 'client', 'source_type', 'source_ref', 'mode', 'tier_calculation_mode', 'dispatch_base_type', 'dispatch_value_type', 'dispatch_value', 'amount_base', 'margin_base', 'rate', 'commission_total', 'payable_total', 'paid_total', 'status'), ';');
+		fputcsv($output, array('date', 'agent', 'client', 'source_type', 'source_ref', 'mode', 'tier_calculation_mode', 'dispatch_base_type', 'dispatch_value_type', 'dispatch_value', 'amount_base', 'margin_base', 'rate', 'commission_total', 'payable_total', 'paid_total', 'status', 'sale_control', 'commission_control', 'margin_decision'), ';');
 		$sql = 'SELECT l.date_acquired, l.source_type, l.source_ref, l.mode, l.snapshot_tier_calculation_mode, l.snapshot_base_type, l.snapshot_value_type, l.snapshot_value, l.amount_base, l.margin_base, l.rate, l.commission_total, l.payable_total, l.paid_total, l.status,';
-		$sql .= ' u.lastname, u.firstname, u.login, s.nom AS thirdparty_name';
+		$sql .= ' u.lastname, u.firstname, u.login, s.nom AS thirdparty_name, ms.sale_state, ms.commission_state, ms.snapshot_payload';
 		$sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_line AS l';
 		$sql .= ' LEFT JOIN '.MAIN_DB_PREFIX.'user AS u ON u.rowid = l.fk_user';
 		$sql .= ' LEFT JOIN '.MAIN_DB_PREFIX.'societe AS s ON s.rowid = l.fk_soc';
+		$sql .= " LEFT JOIN ".MAIN_DB_PREFIX."lmdbsalescommissions_margin_snapshot ms ON ms.entity = l.entity AND ms.fk_propal = l.fk_source AND ms.fk_user = l.fk_user AND l.source_type = 'proposal' AND l.mode IN ('margin','dispatch')";
 		$sql .= ' WHERE l.entity IN ('.$db->sanitize(getEntity('lmdbsalescommissions_line')).')'.$scope.$userfilter.$groupfilter.$linePeriodFilter.$lineExtraFilter;
 		$sql .= ' ORDER BY l.date_acquired DESC, l.rowid DESC';
 		$resql = $db->query($sql);
@@ -122,7 +119,7 @@ if ($action === 'export') {
 				$tierCalculationMode = $obj->snapshot_tier_calculation_mode !== null
 					? (string) $obj->snapshot_tier_calculation_mode
 					: ((string) $obj->mode === 'tier' ? 'fixed_bonus' : '');
-				fputcsv($output, array(dol_print_date($db->jdate($obj->date_acquired), 'day'), $agent, (string) $obj->thirdparty_name, lmdbsalescommissionsGetSourceTypeLabel($langs, (string) $obj->source_type), (string) $obj->source_ref, lmdbsalescommissionsGetModeLabel($langs, (string) $obj->mode), $tierCalculationMode, (string) $obj->snapshot_base_type, (string) $obj->snapshot_value_type, $obj->snapshot_value !== null ? (float) $obj->snapshot_value : '', price2num($obj->amount_base, 'MT'), price2num($obj->margin_base, 'MT'), price2num($obj->rate, 'MT'), price2num($obj->commission_total, 'MT'), price2num($obj->payable_total, 'MT'), price2num($obj->paid_total, 'MT'), lmdbsalescommissionsGetLineStatusLabel($langs, (int) $obj->status)), ';');
+				fputcsv($output, array(dol_print_date($db->jdate($obj->date_acquired), 'day'), $agent, (string) $obj->thirdparty_name, lmdbsalescommissionsGetSourceTypeLabel($langs, (string) $obj->source_type), (string) $obj->source_ref, lmdbsalescommissionsGetModeLabel($langs, (string) $obj->mode), $tierCalculationMode, (string) $obj->snapshot_base_type, (string) $obj->snapshot_value_type, $obj->snapshot_value !== null ? (float) $obj->snapshot_value : '', price2num($obj->amount_base, 'MT'), price2num($obj->margin_base, 'MT'), price2num($obj->rate, 'MT'), price2num($obj->commission_total, 'MT'), price2num($obj->payable_total, 'MT'), price2num($obj->paid_total, 'MT'), lmdbsalescommissionsGetLineStatusLabel($langs, (int) $obj->status), (string) $obj->sale_state, (string) $obj->commission_state, (string) $obj->snapshot_payload), ';');
 			}
 			$db->free($resql);
 		}
@@ -156,7 +153,7 @@ if ($action === 'export') {
 		$sql .= ' LEFT JOIN '.MAIN_DB_PREFIX.'user AS u ON u.rowid = o.fk_user';
 		$sql .= ' LEFT JOIN '.MAIN_DB_PREFIX.'usergroup AS g ON g.rowid = o.fk_usergroup';
 		$sql .= ' WHERE o.entity IN ('.$db->sanitize(getEntity('lmdbsalescommissions_objective')).')';
-		if (empty($user->admin) && !$user->hasRight('lmdbsalescommissions', 'export', 'all')) {
+		if (!$canExportAll) {
 			$sql .= " AND o.assignment_type = 'user' AND o.fk_user = ".((int) $user->id);
 		}
 		if ($fk_user > 0) {
@@ -192,7 +189,7 @@ if ($action === 'export') {
 		$sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_objective_archive AS a';
 		$sql .= ' LEFT JOIN '.MAIN_DB_PREFIX.'user AS u ON u.rowid = a.fk_user';
 		$sql .= ' WHERE a.entity IN ('.$db->sanitize(getEntity('lmdbsalescommissions_objective_archive')).')';
-		if (empty($user->admin) && !$user->hasRight('lmdbsalescommissions', 'export', 'all')) {
+		if (!$canExportAll) {
 			$sql .= ' AND a.fk_user = '.((int) $user->id);
 		}
 		if ($fk_user > 0) {
@@ -293,8 +290,8 @@ print load_fiche_titre($langs->trans('LmdbSalesCommissionsExports'), '', 'fa-per
 print '<form method="GET" action="'.dol_escape_htmltag($_SERVER['PHP_SELF']).'">';
 print '<table class="noborder liste centpercent">';
 print '<tr class="liste_titre"><td colspan="2">'.$langs->trans('Filters').'</td></tr>';
-$canChooseUser = !empty($user->admin) || $user->hasRight('lmdbsalescommissions', 'export', 'all') || $user->hasRight('lmdbsalescommissions', 'commission', 'readgroup');
-$exportUserOptions = (!empty($user->admin) || $user->hasRight('lmdbsalescommissions', 'export', 'all')) ? lmdbsalescommissionsGetUserOptions($db, true) : lmdbsalescommissionsGetAccessibleUserOptions($db, $user, $canChooseUser);
+$canChooseUser = $canExportAll;
+$exportUserOptions = $canExportAll ? lmdbsalescommissionsGetUserOptions($db, true) : array((int) $user->id => $user->getFullName($langs));
 print '<tr class="oddeven"><td>'.$langs->trans('SalesRepresentative').'</td><td>'.$form->selectarray('fk_user', $exportUserOptions, $fk_user, $canChooseUser ? 1 : 0, 0, 0, '', 0, 0, 0, '', 'minwidth200', 1).'</td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('Group').'</td><td>'.$form->selectarray('fk_usergroup', lmdbsalescommissionsGetAccessibleUserGroupOptions($db, $user, true), $fk_usergroup, 1, 0, 0, '', 0, 0, 0, '', 'minwidth200', 1).'</td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('Year').'</td><td><input type="text" class="flat width75 right" name="year" value="'.($year > 0 ? (int) $year : '').'"></td></tr>';

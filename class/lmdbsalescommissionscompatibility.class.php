@@ -59,6 +59,7 @@ class LmdbSalesCommissionsCompatibility
 	public static function getCompatibilityFeatures()
 	{
 		return array(
+			'margin_policy_guards' => array('label' => 'LscPolicies', 'description' => 'LscCoverageDescription', 'min_dolibarr' => '20.0.0', 'min_php' => '8.0.0', 'compatibility_check' => 'nativeMarginGuardCoverage()', 'available' => self::nativeMarginGuardCoverage(), 'reason' => 'LscCoverageUnavailable'),
 			'module_skeleton' => array(
 				'label' => 'LmdbSalesCommissionsCompatibilitySkeleton',
 				'description' => 'LmdbSalesCommissionsCompatibilitySkeletonDesc',
@@ -104,6 +105,33 @@ class LmdbSalesCommissionsCompatibility
 				'reason' => 'LmdbSalesCommissionsProposalDispatchUnavailable',
 			),
 		);
+	}
+
+	/** Check the actual installed entrypoints, not only the declared major version.
+	 * Static source coverage is not an instance integration test. @return bool */
+	public static function nativeMarginGuardCoverage()
+	{
+		if (!defined('DOL_DOCUMENT_ROOT') || !defined('DOL_VERSION') || version_compare(DOL_VERSION, '20.0.0', '<') || version_compare(DOL_VERSION, '26.0.0', '>=')) { return false; }
+		global $conf;
+		$hooks = $conf->modules_parts['hooks']['lmdbsalescommissions'] ?? array();
+		if (is_string($hooks)) { $hooks = explode(':', $hooks); }
+		if (!is_array($hooks) || array_diff(array('propalcard', 'propallist', 'api', 'ajaxonlinesign'), $hooks)) { return false; }
+		static $sourceCoverage = null;
+		if ($sourceCoverage !== null) { return $sourceCoverage; }
+		$contracts = array(
+			'/core/ajax/onlineSign.php' => array("initHooks(array('ajaxonlinesign'))", 'file_put_contents('),
+			'/comm/propal/card.php' => array("executeHooks('doActions'", '->closeProposal('),
+			'/comm/propal/list.php' => array("executeHooks('doActions'", '->closeProposal('),
+			'/api/index.php' => array("initHooks(array('api'))", 'new DolibarrApi('),
+			'/includes/restler/framework/Luracast/Restler/Restler.php' => array("\$this->dispatch('call')", 'call_user_func_array(array('),
+			'/core/class/html.formmargin.class.php' => array('function getMarginInfosArray', "'pa_total'"),
+		);
+		foreach ($contracts as $path => $needles) {
+			$text = is_readable(DOL_DOCUMENT_ROOT.$path) ? file_get_contents(DOL_DOCUMENT_ROOT.$path) : false;
+			if (!is_string($text) || strpos($text, $needles[0]) === false || strpos($text, $needles[1], strpos($text, $needles[0])) === false) { $sourceCoverage = false; return false; }
+		}
+		$sourceCoverage = true;
+		return true;
 	}
 
 	/**

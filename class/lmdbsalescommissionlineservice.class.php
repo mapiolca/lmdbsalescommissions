@@ -697,6 +697,10 @@ class LmdbSalesCommissionLineService
 		$line->margin_base = $marginBase !== null ? (float) price2num($marginBase, 'MT') : null;
 		$line->rate = $rate;
 		$line->fk_tier = null;
+		require_once __DIR__.'/lmdbsalescommissionmarginservice.class.php';
+		try {
+			if ($mode === self::MODE_MARGIN && (new LmdbSalesCommissionMarginService($this->db))->commissionState($proposal, (int) $salesUserId) !== 'allow') { $amount = 0.0; }
+		} catch (Exception $e) { $this->error = $e->getMessage(); return -1; }
 		$line->commission_total = (float) price2num($amount, 'MT');
 		$line->payable_total = 0.0;
 		$line->paid_total = 0.0;
