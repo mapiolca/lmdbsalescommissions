@@ -206,7 +206,7 @@ if ($action === 'addrule' || $action === 'updaterule') {
 llxHeader('', $langs->trans('LmdbSalesCommissionsRules'), '', '', 0, 0, array(), lmdbsalescommissionsGetCssFiles(), '', lmdbsalescommissionsGetBodyClass());
 
 $head = lmdbsalescommissionsAdminPrepareHead();
-print dol_get_fiche_head($head, 'rules', $langs->trans('LmdbSalesCommissionsSetup'), -1, 'fa-percent');
+print dol_get_fiche_head($head, 'rules', $langs->trans('LmdbSalesCommissionsSetup'), -1, 'fa-percent_fas_#f0b400');
 print load_fiche_titre($langs->trans('LmdbSalesCommissionsRules'), lmdbsalescommissionsBuildModuleListLink(), 'title_setup');
 
 print '<div class="tabsAction">';

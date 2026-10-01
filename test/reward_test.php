@@ -59,6 +59,35 @@ checkReward(LmdbSalesCommissionRewardService::calculate($decision, 'fixed', 10.5
 $precision = 2;
 checkReward(LmdbSalesCommissionRewardService::calculate($decision, 'fixed', 10.555, 0.5)['amount'], 5.28, 'Changed MT setting');
 
+// Combined policy/reward regression: use the effective target produced by travel controls.
+$travelPolicy = array('rule_id' => 20, 'context' => 'general', 'effect' => 'commission', 'rank' => 3, 'origin' => 'TRAVEL', 'threshold' => 30.0, 'bands' => array(), 'travel_bands' => array(
+	array('metric' => 'minutes', 'min_value' => 105.0, 'uplift' => 15.0),
+	array('metric' => 'minutes', 'min_value' => 150.0, 'uplift' => 20.0),
+));
+$pvPolicy = array('rule_id' => 21, 'context' => 'pv', 'effect' => 'commission', 'rank' => 3, 'origin' => 'PV', 'threshold' => null, 'bands' => array(
+	array('kwc_min' => 0.0, 'kwc_max' => null, 'kwc_inclusive' => 0, 'kwh_min' => null, 'kwh_max' => null, 'kwh_inclusive' => 0, 'threshold' => 40.0),
+));
+$travelDecision = static function ($minutes, $sale = 15000.0) use ($travelPolicy, $pvPolicy) {
+	$result = LmdbSalesCommissionMarginEngine::evaluate(array($travelPolicy, $pvPolicy), ($sale - 10000.0) / 10000.0 * 100, 6.0, 0.0, array('minutes' => $minutes, 'kilometres' => null));
+	$result['inputs'] = array('cost' => 10000.0, 'sale' => $sale);
+	return $result;
+};
+$r = LmdbSalesCommissionRewardService::calculate($travelDecision(106.0), 'percentage', 25.0, 0.6);
+checkReward($r['threshold'], 45.0, 'Travel uplift can raise the general target above the PV target');
+checkReward($r['surplus'], 500.0, 'Surplus excludes the full travel uplift');
+checkReward($r['amount'], 75.0, 'Reward percentage uses effective travel target and CA share');
+checkReward(LmdbSalesCommissionRewardService::calculate($travelDecision(106.0), 'fixed', 200.0, 0.6)['amount'], 120.0, 'Fixed reward retained above uplifted target');
+checkReward(LmdbSalesCommissionRewardService::calculate($travelDecision(105.0), 'percentage', 25.0, 0.6)['amount'], 150.0, 'Exact travel boundary keeps highest applicable unraised target');
+checkReward(LmdbSalesCommissionRewardService::calculate($travelDecision(105.00001), 'percentage', 25.0, 0.6)['amount'], 75.0, 'Travel comparison is not rounded for the reward');
+foreach (array('fixed', 'percentage') as $mode) {
+	checkReward(LmdbSalesCommissionRewardService::calculate($travelDecision(151.0), $mode, 25.0, 1.0)['amount'], 0.0, 'Equality with uplifted target earns no reward');
+	checkReward(LmdbSalesCommissionRewardService::calculate($travelDecision(null), $mode, 25.0, 1.0)['amount'], 0.0, 'Unavailable or stale travel decision cannot earn a reward');
+}
+$approved = $travelDecision(106.0, 14200.0);
+$approved['checks'][0]['state'] = 'allow'; $approved['checks'][0]['reason'] = 'approved';
+$approved = LmdbSalesCommissionMarginEngine::aggregate($approved);
+checkReward(LmdbSalesCommissionRewardService::calculate($approved, 'fixed', 200.0, 1.0)['amount'], 0.0, 'Commission approval never removes the travel uplift from reward target');
+
 class RewardDb {
 	public $rules = array(); public $allocations = array(); public $fail = false; public $queries = array();
 	public function query($sql) {

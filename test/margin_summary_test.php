@@ -2,12 +2,20 @@
 /** Actual view, policy snapshots and native Form; SQL, users and estimates are fixtures. */
 $lscNativeRoot = realpath($argv[1] ?? __DIR__.'/.core-cache/20.0.0/htdocs');
 if (!$lscNativeRoot) { throw new RuntimeException('Fetch native contracts first'); }
+// Execute the native display formatter; keep the surrounding ERP environment simulated.
+$nativeFunctions = file_get_contents($lscNativeRoot.'/core/lib/functions.lib.php');
+if (!preg_match('/^function price\(.*?^\}/ms', $nativeFunctions, $nativePrice)) { throw new RuntimeException('Native price formatter missing'); }
+eval($nativePrice[0]);
+if (!preg_match('/^function price2num\(.*?^\}/ms', $nativeFunctions, $nativeNormalizer)) { throw new RuntimeException('Native price normalizer missing'); }
+eval($nativeNormalizer[0]);
+function dol_strlen($value) { return strlen($value); }
 define('DOL_DOCUMENT_ROOT', __DIR__.'/fixtures/margin-summary');
 define('MAIN_DB_PREFIX', 'summary_test_');
 $conf = (object) array('entity' => 1, 'use_javascript_ajax' => 1);
 function getDolGlobalInt($key, $default = 0) { return $default; }
-function getDolGlobalString($key, $default = '') { return $default; }
-function isModEnabled($key) { return $key === 'lmdbsalescommissions'; }
+function getDolGlobalString($key, $default = '') { return array('MAIN_MAX_DECIMALS_TOT' => '2', 'MAIN_MAX_DECIMALS_UNIT' => '5', 'MAIN_MAX_DECIMALS_SHOWN' => '2')[$key] ?? $default; }
+$summaryModules = array('lmdbsalescommissions');
+function isModEnabled($key) { global $summaryModules; return in_array($key, $summaryModules, true); }
 function dol_now() { return 2000; }
 function dol_syslog($message, $level = 0) {}
 function dol_escape_htmltag($value, ...$args) { return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8'); }
@@ -15,7 +23,7 @@ function img_picto($alt, $key) { return '<span class="fa fa-search" aria-hidden=
 class SummaryLangs
 {
 	public function loadLangs($keys) {}
-	public function trans($key) { return $key; }
+	public function trans($key, ...$values) { return $key === 'LscTravelApplied' ? implode('|', $values) : $key; }
 	public function transnoentitiesnoconv($key) { return $key; }
 }
 class SummaryDb
@@ -45,7 +53,7 @@ require __DIR__.'/../class/lmdbsalescommissionmarginview.class.php';
 $langs = new SummaryLangs(); $db = new SummaryDb(); $user = new User($db);
 $proposal = (object) array('id' => 41, 'entity' => 1, 'date_signature' => 100, 'status' => 2);
 $db->snapshots = array(
-	7 => array('sale' => 'allow', 'commission' => 'allow', 'inputs' => array('rate' => 65), 'checks' => array(array('origin_type' => 'user', 'origin' => 'RULE-SEVEN <unsafe>', 'context' => 'general', 'effect' => 'commission', 'threshold' => 60, 'reason' => 'met'))),
+	7 => array('sale' => 'allow', 'commission' => 'allow', 'inputs' => array('rate' => 65), 'checks' => array(array('origin_type' => 'user', 'origin' => 'RULE-SEVEN <unsafe>', 'context' => 'general', 'effect' => 'commission', 'threshold' => 60, 'base_threshold' => 50, 'travel_uplift' => 10, 'travel_metric' => 'minutes', 'travel_value' => 106, 'reason' => 'met'))),
 	8 => array('sale' => 'allow', 'commission' => 'deny', 'inputs' => array('rate' => 40), 'checks' => array(array('origin_type' => 'default', 'origin' => 'RULE-EIGHT', 'context' => 'general', 'effect' => 'commission', 'threshold' => 60, 'reason' => 'below'))),
 );
 // Deliberately reverse the order: position-based matching would disclose the wrong rule.
@@ -71,11 +79,17 @@ foreach ($dialogs as $dialog) {
 	$id = strpos($dialog->getAttribute('id'), 'user7view') !== false ? 7 : 8;
 	check($xpath->query('.//table', $dialog)->length === 2, 'Two detail tables in each dialog');
 	check($xpath->query('.//a[@aria-haspopup="dialog"]', $dialog)->length === 0, 'No nested Consulter dialog');
+	check($xpath->query('.//a[contains(@href,"/user/card.php")]', $dialog)->length === 1, 'Beneficiary link retained inside dialog');
+	check($xpath->query('.//*[@title or contains(@class,"classfortooltip")]', $dialog)->length === 0, 'Dialog autofocus cannot trigger a user tooltip');
 	check(strpos($dialog->textContent, $id === 7 ? 'RULE-SEVEN' : 'RULE-EIGHT') !== false, 'Matching beneficiary policy');
 	check(strpos($dialog->textContent, $id === 7 ? 'RULE-EIGHT' : 'RULE-SEVEN') === false, 'No other beneficiary policy');
 	check(strpos($dialog->textContent, $id === 7 ? 'TERMS-SEVEN' : 'TERMS-EIGHT') !== false, 'Matching payment term');
 }
 check(strpos($html, '<unsafe>') === false && strpos($html, '<margin>') === false, 'Rule and payment text escaped');
+check(strpos($html, '50|10|106,00|LscTravelMinutes') !== false, 'Effective margin formats round trip with two decimals');
+$db->snapshots[7]['checks'][0]['travel_value'] = 1275.9533333333;
+check(strpos($render($estimates), '1 275,95|LscTravelMinutes') !== false, 'Fractional duration uses native French separators and two decimals');
+$db->snapshots[7]['checks'][0]['travel_value'] = 106;
 check($xpath->query('//tr[@class="liste_total"]/td[2]')->item(0)->textContent === '195', 'Total kept in amount column');
 $summaryRows = $xpath->query('//table[not(ancestor::table)]/tr[@class="oddeven"]');
 check($summaryRows->item(0)->childNodes->item(2)->textContent === 'LscState_commission_deny', 'Denied commission shown as null');
@@ -122,18 +136,59 @@ $user->permissions = array();
 $controller->displayMarginInfos(array('context' => 'propalcard'), $proposal, $action, $manager);
 check($controller->resprints === '', 'Successive unauthorized hook clears prior output');
 // The same visible summary now includes the supplementary frozen reward.
-function price($amount) { return (string) $amount; }
-function price2num($amount, $mode = '') { return (float) $amount; }
 $user->permissions = array('readall');
 $db->snapshots[7]['reward'] = array('amount'=>50.0,'mode'=>'fixed','value'=>100.0,'rule_label'=>'BONUS-SEVEN <unsafe>','threshold'=>60.0,'surplus'=>1000.0,'share'=>0.5,'reason'=>'earned');
 $estimates['rows'][0]['amount_value'] = 0.0;
 $estimates['rows'][1]['amount_value'] = 195.0;
 $html=$render($estimates); $xpath=parseView($html);
-check($xpath->query('//tr[@class="liste_total"]/td[2]')->item(0)->textContent === '245', 'Summary total includes bonus exactly once');
+check($xpath->query('//tr[@class="liste_total"]/td[2]')->item(0)->textContent === '245,00', 'Summary total includes bonus exactly once');
 check(strpos($html,'LscBaseCommission')!==false && strpos($html,'LscRewardSurplus')!==false, 'Base, reward and surplus explained');
 check(strpos($html,'BONUS-SEVEN &lt;unsafe&gt;')!==false, 'Reward label escaped');
 $user->permissions=array('readown'); $user->id=8;
 check(strpos($render($estimates),'BONUS-SEVEN')===false, 'Reward outside own scope hidden');
 $user->permissions=array('approvesale');
 check(strpos(LmdbSalesCommissionMarginView::render($db,$proposal,$user),'BONUS-SEVEN')===false, 'Approver alone cannot read reward');
-print "Commission summary: $tests assertions passed using native Form from $lscNativeRoot.\n";
+
+// Native initialization, natural priority sort, concatenation and reset; sibling renderers are fixtures.
+require $lscNativeRoot.'/core/class/hookmanager.class.php';
+function dol_include_once($path) {
+	if ($path === '/lmdbsalescommissions/class/actions_lmdbsalescommissions.class.php') {
+		require_once __DIR__.'/../class/actions_lmdbsalescommissions.class.php';
+		return 1;
+	}
+	return in_array($path, array('/powerplantpv/class/actions_powerplantpv.class.php', '/zzzmarginfixture/class/actions_zzzmarginfixture.class.php'), true) ? 1 : 0;
+}
+class ActionsPowerplantpv
+{
+	public $error = '';
+	public $errors = array();
+	public $results = array();
+	public $resprints;
+	public function __construct($db) {}
+	public function displayMarginInfos($parameters, &$object, &$action, $hookmanager) {
+		$this->resprints = '<tr class="powerplantpv-price-per-wattpeak"><td>Price per watt-peak</td></tr>';
+		return 0;
+	}
+}
+class ActionsZzzmarginfixture extends ActionsPowerplantpv
+{
+	public $priority = 1000;
+	public function displayMarginInfos($parameters, &$object, &$action, $hookmanager) {
+		$this->resprints = '<tr class="another-margin-contribution"><td>Another margin contribution</td></tr>';
+		return 0;
+	}
+}
+$user->permissions = array('approvesale');
+foreach (array(array('lmdbsalescommissions', 'powerplantpv', 'zzzmarginfixture'), array('zzzmarginfixture', 'powerplantpv', 'lmdbsalescommissions'), array('lmdbsalescommissions')) as $summaryModules) {
+	$conf->modules_parts = array('hooks' => array_fill_keys($summaryModules, array('propalcard')));
+	$hookmanager = new HookManager($db);
+	$hookmanager->initHooks(array('propalcard'));
+	for ($pass = 0; $pass < 2; $pass++) {
+		check($hookmanager->executeHooks('displayMarginInfos', array(), $proposal, $action) === 0, 'Margin contributions preserve native rendering');
+		$table = parseView('<table id="native-margin-table">'.$hookmanager->resPrint.'</table>');
+		$rows = $table->query('//table[@id="native-margin-table"]/tr');
+		check($rows->length === count($summaryModules), 'Each active contribution is preserved exactly once');
+		check(strpos($rows->item($rows->length - 1)->getAttribute('class'), 'lmdbsalescommissions-estimated-commission') !== false, 'Commission summary is the final margin row');
+	}
+}
+print "Commission summary: $tests assertions passed using native Form and HookManager from $lscNativeRoot.\n";

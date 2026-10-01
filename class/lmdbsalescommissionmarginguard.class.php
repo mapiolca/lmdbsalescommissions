@@ -32,7 +32,14 @@ class LmdbSalesCommissionMarginGuard
 			$allowed = false;
 			try {
 				if ($proposal->fetch(0, GETPOST('ref', 'alpha')) > 0 && (int) $proposal->entity === (int) $conf->entity) {
-					$allowed = (new LmdbSalesCommissionMarginService($db))->saleAllowed($proposal);
+					// The native signature trigger uses the validating user as actor as well.
+					$actor = null;
+					if ((int) ($proposal->user_validation_id ?? 0) > 0) {
+						if (!class_exists('User')) { require_once DOL_DOCUMENT_ROOT.'/user/class/user.class.php'; }
+						$validator = new User($db);
+						if ($validator->fetch((int) $proposal->user_validation_id) > 0) { $actor = $validator; }
+					}
+					$allowed = (new LmdbSalesCommissionMarginService($db))->saleAllowed($proposal, $actor);
 				}
 			} catch (Exception $e) { $allowed = false; }
 			if (!$allowed) { $langs->load('lmdbsalescommissions@lmdbsalescommissions'); httponly_accessforbidden($langs->trans('LscPublicBlocked'), 403); exit; }
@@ -72,7 +79,7 @@ class LmdbSalesCommissionMarginGuard
 			}
 			if (!empty($args['notrigger']) || !empty($data['notrigger'])) { throw new RuntimeException('LscApiLifecycle'); }
 			$method = strtolower($info->methodName);
-			if ($proposal && ($method === 'validate' || ($method === 'close' && (int) ($args['status'] ?? 0) === 2)) && !$service->saleAllowed($proposal)) { throw new RuntimeException('LscSaleBlocked'); }
+			if ($proposal && ($method === 'validate' || ($method === 'close' && (int) ($args['status'] ?? 0) === 2)) && !$service->saleAllowed($proposal, $actor)) { throw new RuntimeException('LscSaleBlocked'); }
 		} catch (Exception $e) {
 			throw new \Luracast\Restler\RestException(409, $e->getMessage());
 		}

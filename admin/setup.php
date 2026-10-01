@@ -72,7 +72,7 @@ if ($action === 'savegeneralsettings') {
 llxHeader('', $langs->trans('LmdbSalesCommissionsSetup'), '', '', 0, 0, array(), lmdbsalescommissionsGetCssFiles(), '', lmdbsalescommissionsGetBodyClass());
 
 $head = lmdbsalescommissionsAdminPrepareHead();
-print dol_get_fiche_head($head, 'settings', $langs->trans('LmdbSalesCommissionsSetup'), -1, 'fa-percent');
+print dol_get_fiche_head($head, 'settings', $langs->trans('LmdbSalesCommissionsSetup'), -1, 'fa-percent_fas_#f0b400');
 print load_fiche_titre($langs->trans('LmdbSalesCommissionsGeneralSettings'), lmdbsalescommissionsBuildModuleListLink(), 'title_setup');
 print '<form method="POST" action="'.dol_escape_htmltag($pageUrl).'" name="lmdbsalescommissionssetupform">';
 print '<input type="hidden" name="token" value="'.newToken().'">';

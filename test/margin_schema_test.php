@@ -1,10 +1,10 @@
 <?php
 /** Real DDL and uniqueness checks on a disposable CI database only.
-	* This does not claim a full Dolibarr activation or a native transaction test.
-	*/
+ * This does not claim a full Dolibarr activation or a native transaction test.
+ */
 $pdo = new PDO(getenv('LSC_TEST_DSN'), getenv('LSC_TEST_USER'), getenv('LSC_TEST_PASSWORD'), array(PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION));
 $prefix = 'long_test_prefix_';
-$tables = array('rule', 'rule_assignment', 'margin_band', 'margin_approval', 'margin_request', 'margin_revision', 'margin_snapshot', 'line', 'due');
+$tables = array('rule', 'rule_assignment', 'margin_band', 'margin_travel_band', 'margin_approval', 'margin_request', 'margin_revision', 'margin_snapshot', 'line', 'due');
 foreach ($tables as $table) {
 	$sql = file_get_contents(__DIR__.'/../sql/llx_lmdbsalescommissions_'.$table.'.sql');
 	$pdo->exec(str_replace('llx_', $prefix, $sql));
@@ -53,10 +53,16 @@ foreach (array(1 => 30, 2 => 40, 3 => 50, 4 => 99) as $id => $threshold) {
 	$pdo->exec("INSERT INTO $rules (rowid,entity,ref,label,rule_type,policy_context,policy_effect,rate,date_end,date_creation) VALUES ($id,$entity,'R$id','Rule $id','margin_policy','general','sale',$threshold,'1970-01-01',NOW())");
 }
 $pdo->exec("INSERT INTO $assignments (entity,assignment_type,fk_rule,fk_user,fk_usergroup,date_creation) VALUES (1,'default',1,NULL,NULL,NOW()),(1,'group',2,NULL,3,NOW()),(1,'user',3,7,NULL,NOW()),(2,'group',4,NULL,4,NOW())");
+$travelBands = $prefix.'lmdbsalescommissions_margin_travel_band';
+$pdo->exec("INSERT INTO $travelBands (entity,fk_rule,metric,min_value,uplift) VALUES (1,3,'minutes',105,10)");
+try { $pdo->exec("INSERT INTO $travelBands (entity,fk_rule,metric,min_value,uplift) VALUES (1,3,'minutes',105,20)"); throw new RuntimeException('Duplicate travel tier accepted'); }
+catch (PDOException $error) { if ($error->errorInfo[1] !== 1062) { throw $error; } }
 $service = new LmdbSalesCommissionMarginService(new MarginPolicyPdo($pdo));
 $policies = $service->policies(7,1);
 if (count($policies) !== 3) { throw new RuntimeException('Inclusive validity end date or owner filter'); }
-$decision = LmdbSalesCommissionMarginEngine::evaluate($policies,45.0,null,null);
+$travelPolicy = array_values(array_filter($policies, static function ($policy) { return $policy['rule_id'] === 3; }));
+if (count($travelPolicy) !== 1 || $travelPolicy[0]['travel_bands'][0]['uplift'] !== 10.0) { throw new RuntimeException('Travel tier not resolved'); }
+$decision = LmdbSalesCommissionMarginEngine::evaluate($policies,45.0,null,null,array('minutes' => 106.0, 'kilometres' => null));
 if ($decision['sale'] !== 'deny' || $decision['checks'][0]['rule_id'] !== 3) { throw new RuntimeException('User priority'); }
 $pdo->exec("UPDATE $assignments SET active = 0 WHERE entity = 1 AND assignment_type = 'user'");
 $decision = LmdbSalesCommissionMarginEngine::evaluate($service->policies(7,1),45.0,null,null);
@@ -72,7 +78,7 @@ function isModEnabled($key) { return true; }
 function getDolGlobalInt($key) { return 0; }
 function restrictedArea(...$args) { return 1; }
 class RequestSchemaService extends LmdbSalesCommissionMarginService {
-	public function assess($proposal, $frozen = true) {
+	public function assess($proposal, $frozen = true, $actor = null) {
 		return array(7 => array('fingerprint'=>str_repeat('a',64),'checks'=>array(
 			array('rule_id'=>1,'effect'=>'sale','state'=>'deny'),
 			array('rule_id'=>2,'effect'=>'sale','state'=>'deny'),

@@ -31,7 +31,7 @@ if ($action !== '') {
 
 llxHeader('', $langs->trans('LmdbSalesCommissionsCompatibility'), '', '', 0, 0, array(), lmdbsalescommissionsGetCssFiles(), '', lmdbsalescommissionsGetBodyClass());
 $head = lmdbsalescommissionsAdminPrepareHead();
-print dol_get_fiche_head($head, 'compatibility', $langs->trans('LmdbSalesCommissionsSetup'), -1, 'fa-percent');
+print dol_get_fiche_head($head, 'compatibility', $langs->trans('LmdbSalesCommissionsSetup'), -1, 'fa-percent_fas_#f0b400');
 print load_fiche_titre($langs->trans('LmdbSalesCommissionsCompatibility'), lmdbsalescommissionsBuildModuleListLink(), 'title_setup');
 
 print '<table class="noborder liste centpercent">';

@@ -4,7 +4,7 @@
 
 La prime s’ajoute à la commission habituelle d’un devis. Elle concerne les bénéficiaires de la répartition des commissions ou, sans répartition, l’auteur du devis. Un bénéficiaire sans CA attribué ne reçoit aucune prime. Une répartition de CA absente conserve l’attribution native du module de 100 % à l’auteur ; une répartition explicite incomplète empêche la signature.
 
-Le taux de marge reste celui de Dolibarr : `(vente HT − coût) / coût × 100`. Le seuil retenu est le plus élevé des objectifs **de commission** applicables (général, PV, stockage ou mixte). Le minimum autorisant la vente n’entre pas dans ce calcul. Une dérogation autorise la commission mais n’abaisse jamais l’objectif utilisé pour la prime.
+Le taux de marge reste celui de Dolibarr : `(vente HT − coût) / coût × 100`. Le seuil retenu est le plus élevé des objectifs **de commission** applicables (général, PV, stockage ou mixte). Les majorations de trajet configurées dans les contrôles de marge sont incluses dans chaque seuil avant de retenir le plus élevé. Un trajet requis indisponible ou périmé rend la décision indéterminée et ne donne aucune prime. Le minimum autorisant la vente n’entre pas dans ce calcul. Une dérogation autorise la commission mais n’abaisse jamais l’objectif utilisé pour la prime.
 
 - Marge cible = coût natif × objectif / 100.
 - Surplus = marge native réalisée − marge cible, uniquement s’il est strictement positif.
@@ -27,6 +27,8 @@ La prime est estimée avant signature. Le tableau de synthèse de la fiche affic
 
 ## Historique et intégration
 
+Les réglages en modale, les paliers de trajet, le recalcul après chaque mutation de ligne et la position finale de la synthèse dans le bloc de marge sont conservés. Le gel utilise l’acteur de la signature pour lire le trajet autorisé, puis ajoute la prime au même instantané. La CI conserve les tests de la branche de base et ceux de la prime.
+
 À la signature native, la décision de marge fige aussi la prime ou son absence explicite. La ligne conserve un instantané de calcul et `fk_reward_rule`, tandis que sa clé d’acquisition reste stable par entité/devis/bénéficiaire. Un rejeu, un rattrapage ou un changement ultérieur de règle n’accorde pas une seconde prime et ne modifie pas une prime acquise, même annulée. Les échéances et versements utilisent le service existant ; les versements déjà effectués restent conservés.
 
 Les anciennes décisions sans information de prime et les devis antérieurs à l’activation ne reçoivent aucune prime rétroactive. La réouverture d’un devis déjà acquis ne relance pas son calcul de prime. Aucun nouvel endpoint API, événement Agenda/Notification, modèle documentaire, catégorie, numérotation ou cron n’est ajouté. Les chemins natifs de signature déjà couverts par les contrôles de marge appellent le même gel et le même service d’acquisition.
@@ -35,15 +37,16 @@ Les règles et lignes restent rattachées à leur entité propriétaire. Les lec
 
 ## Vérifications et limites
 
-Validation locale du 30 septembre 2026, PHP **8.4.22**, code de cette branche :
+Validation locale du 1er octobre 2026, après intégration de `fix/margin-policy-controls` (`3be67d4`), PHP **8.4.22**, code de cette branche :
 
 | Contrôle | Résultat local |
 |---|---|
 | Lint PHP, diff sans erreurs d’espacement | Réussite |
-| `reward_test.php` : calcul, arrondi natif, affectations, CA, conflits, gel et absence historique | 43 assertions sur chaque révision native v20 à v25 alpha |
+| `reward_test.php` : calcul, arrondi natif, affectations, CA, conflits, gel et absence historique | 54 assertions sur chaque révision native v20 à v25 alpha, dont majorations de trajet, bornes et dérogations |
 | `reward_lifecycle_test.php` : estimation/acquisition, échéances, rejeu, versements conservés, erreurs et transaction imbriquée | 19 assertions ; persistance et transactions simulées |
-| `margin_summary_test.php` : DOM avec `Form` natif, totaux, détail, droits, absence de JavaScript | 40 assertions par révision ; données et sessions simulées |
-| Contrats natifs, contrôles de marge et demandes de dérogation | Régressions réussies sur les six révisions |
+| `margin_summary_test.php` : DOM avec `Form` natif, totaux, détail, droits, absence de JavaScript | 64 assertions par révision, dont ordre final des hooks et absence d’infobulle imbriquée ; données et sessions simulées |
+| Contrats natifs, contrôles de marge et demandes de dérogation | Réussite sur les six révisions ; 108 assertions moteur/service, 166 en incluant les gardes et demandes |
+| Réglages des contrôles et événements de lignes | 64 assertions de réglages et 6 assertions d’événements par révision |
 | Calculateur des paliers | Réussite |
 | MariaDB locale | Non exécuté : serveur/client indisponibles ; test SQL étendu dans la CI |
 | PHPStan | Non exécuté : outil/configuration absents ; aucune dépendance ajoutée |
