@@ -125,7 +125,7 @@ class LmdbSalesCommissionMarginView
 			$html .= '<tr class="oddeven"><td>'.$beneficiaryHtml.'</td>';
 			$html .= $summary ? '<td class="right">'.($estimate['amount'] ?? '—').'</td><td>'.$status.'</td><td>' : '<td>'.implode('</td><td>', array_slice($policyValues, 1)).'</td><td>';
 			$rulesHtml = !empty($decision['frozen']) ? '<p>'.$langs->trans('LscFrozen').'</p>' : '';
-			$rulesHtml .= '<div class="div-table-responsive-no-min"><table class="noborder centpercent"><tr class="liste_titre">';
+			$rulesHtml .= '<div class="div-table-responsive-no-min"><table class="noborder centpercent"><tbody><tr class="liste_titre">';
 			$ruleHeaders = $summary ? array('LscRules', 'Status') : array('LmdbSalesCommissionsProposalEstimateTableRuleSource', 'LmdbSalesCommissionsProposalEstimateTableRule', 'LscPolicyContext', 'LscPolicyEffect', 'LscThreshold', 'Result');
 			foreach ($ruleHeaders as $key) { $rulesHtml .= '<th scope="col">'.$langs->trans($key).'</th>'; }
 			$rulesHtml .= '</tr>';
@@ -160,14 +160,15 @@ class LmdbSalesCommissionMarginView
 				$notice = $policyError !== '' ? $policyError : '<span class="opacitymedium">'.$langs->trans($decision === null ? 'LscNoMarginControl' : 'LscNoRule').'</span>';
 				$rulesHtml .= '<tr class="oddeven"><td colspan="'.count($ruleHeaders).'">'.$notice.'</td></tr>';
 			}
-			$rulesHtml .= '</table></div>';
+			$rulesHtml .= '</tbody></table></div>';
 			if ($summary) {
 				// Native dialogs focus the first link; do not open a nested user tooltip on focus.
 				$dialogBeneficiaryHtml = $personLoaded ? $person->getNomUrl(1, '', 0, 1) : dol_escape_htmltag($label);
 				$details = self::renderEstimateDetails($estimate, $dialogBeneficiaryHtml, $status);
 				$details .= '<h3>'.$langs->trans('LscMarginDetails').'</h3><div class="div-table-responsive-no-min"><table class="noborder centpercent"><tr class="liste_titre">';
-				foreach ($policyHeaders as $key) { $details .= '<th scope="col">'.$langs->trans($key).'</th>'; }
-				$details .= '</tr><tr class="oddeven"><td>'.implode('</td><td>', $policyValues).'</td><td>'.$rulesHtml.'</td></tr></table></div>';
+				foreach (array_slice($policyHeaders, 0, 4) as $key) { $details .= '<th scope="col">'.$langs->trans($key).'</th>'; }
+				$details .= '</tr><tr class="oddeven"><td>'.implode('</td><td>', $policyValues).'</td></tr></table></div>';
+				$details .= '<h3>'.$langs->trans('LscAppliedRules').'</h3>'.$rulesHtml;
 			} else {
 				$details = '<p><strong>'.$langs->trans('LscAppliedRules').' — '.dol_escape_htmltag($label).'</strong></p>'.$rulesHtml;
 			}
@@ -264,19 +265,23 @@ class LmdbSalesCommissionMarginView
 	 * @return string */
 	public static function renderRewardDetails(array $reward): string
 	{
-		global $langs;
+		global $langs, $conf;
+		$currency = dol_escape_htmltag($conf->currency);
 		$values = array(
-			'LscRewardRule' => dol_escape_htmltag($reward['rule_label']),
-			'LscRewardMode' => $langs->trans($reward['mode'] === 'fixed' ? 'LscRewardFixed' : 'LscRewardPercentage'),
-			'LscRewardValue' => $reward['mode'] === 'fixed' ? price($reward['value']) : price($reward['value']).' %',
-			'LscThreshold' => $reward['threshold'] === null ? '—' : price($reward['threshold']).' %',
-			'LscRewardSurplus' => price($reward['surplus']),
-			'LscRewardShare' => price($reward['share'] * 100).' %',
-			'LscReward' => price($reward['amount']),
-			'Result' => $langs->trans('LscRewardReason_'.$reward['reason']),
+			'LscRewardRule' => array(dol_escape_htmltag($reward['rule_label']), ''),
+			'LscRewardMode' => array($langs->trans($reward['mode'] === 'fixed' ? 'LscRewardFixed' : 'LscRewardPercentage'), ''),
+			'LscRewardValue' => array(price($reward['value']), $reward['mode'] === 'fixed' ? $currency : '%'),
+			'LscThreshold' => array($reward['threshold'] === null ? '—' : price($reward['threshold']), '%'),
+			'LscRewardSurplus' => array(price($reward['surplus']), $currency),
+			'LscRewardShare' => array(price($reward['share'] * 100), '%'),
+			'LscReward' => array(price($reward['amount']), $currency),
 		);
-		$html = '<h3>'.$langs->trans('LscReward').'</h3><div class="div-table-responsive-no-min"><table class="border centpercent">';
-		foreach ($values as $key => $value) { $html .= '<tr><td>'.$langs->trans($key).'</td><td>'.$value.'</td></tr>'; }
-		return $html.'</table></div>';
+		$badgeType = array('earned' => 'success', 'not_exceeded' => 'warning', 'commission_blocked' => 'danger')[$reward['reason']] ?? 'secondary';
+		$values['Result'] = array(dolGetBadge(dol_escape_htmltag($langs->trans('LscRewardReason_'.$reward['reason'])), '', $badgeType), '');
+		$html = '<h3>'.$langs->trans('LscReward').'</h3><div class="div-table-responsive-no-min"><table class="noborder centpercent"><tbody><tr class="liste_titre">';
+		foreach (array('Label', 'Value', 'Unit') as $key) { $html .= '<th scope="col">'.$langs->trans($key).'</th>'; }
+		$html .= '</tr>';
+		foreach ($values as $key => $value) { $html .= '<tr class="oddeven"><td>'.$langs->trans($key).'</td><td>'.$value[0].'</td><td>'.$value[1].'</td></tr>'; }
+		return $html.'</tbody></table></div>';
 	}
 }

@@ -15,7 +15,7 @@ function dolPrintHTMLForAttribute($value) { return dol_escape_htmltag($value); }
 function dol_strlen($value) { return strlen($value); }
 define('DOL_DOCUMENT_ROOT', __DIR__.'/fixtures/margin-summary');
 define('MAIN_DB_PREFIX', 'summary_test_');
-$conf = (object) array('entity' => 1, 'use_javascript_ajax' => 1);
+$conf = (object) array('entity' => 1, 'currency' => 'EUR', 'use_javascript_ajax' => 1);
 function getDolGlobalInt($key, $default = 0) { return $default; }
 function getDolGlobalString($key, $default = '') { return array('MAIN_MAX_DECIMALS_TOT' => '2', 'MAIN_MAX_DECIMALS_UNIT' => '5', 'MAIN_MAX_DECIMALS_SHOWN' => '2')[$key] ?? $default; }
 $summaryModules = array('lmdbsalescommissions');
@@ -91,8 +91,8 @@ foreach ($dialogs as $dialog) {
 	check(strpos($dialog->textContent, $id === 7 ? 'LABEL-SEVEN' : 'LABEL-EIGHT') !== false, 'Matching beneficiary policy');
 	check(strpos($dialog->textContent, $id === 7 ? 'LABEL-EIGHT' : 'LABEL-SEVEN') === false, 'No other beneficiary policy');
 	check(strpos($dialog->textContent, $id === 7 ? 'TERMS-SEVEN' : 'TERMS-EIGHT') !== false, 'Matching payment term');
-	$ruleTable = $xpath->query('.//table[tr[1]/th[1][text()="LscRules"]]', $dialog)->item(0);
-	check($xpath->query('./tr[1]/th', $ruleTable)->length === 2 && $xpath->query('./tr[1]/th[1]', $ruleTable)->item(0)->textContent === 'LscRules', 'Applied rules have only Rules and Status columns');
+	$ruleTable = $xpath->query('.//table[tbody/tr[1]/th[1][text()="LscRules"]]', $dialog)->item(0);
+	check($xpath->query('./tbody/tr[1]/th', $ruleTable)->length === 2 && $xpath->query('./tbody/tr[1]/th[1]', $ruleTable)->item(0)->textContent === 'LscRules', 'Applied rules have only Rules and Status columns');
 	$tooltip = $xpath->query('.//span[contains(@class,"classforajaxtooltip")]', $ruleTable)->item(0);
 	$params = json_decode($tooltip->getAttribute('data-params'), true);
 	check($params === array('id'=>41,'objecttype'=>'lmdbsalescommissionpolicytooltip@lmdbsalescommissions','option'=>$id.':'.($id === 7 ? 71 : 81).':commission'), 'Ajax parameters bind the correct proposal, beneficiary, rule and effect');
@@ -159,6 +159,11 @@ $html=$render($estimates); $xpath=parseView($html);
 check($xpath->query('//tr[@class="liste_total"]/td[2]')->item(0)->textContent === '245,00', 'Summary total includes bonus exactly once');
 check(strpos($html,'LscBaseCommission')!==false && strpos($html,'LscRewardSurplus')!==false, 'Base, reward and surplus explained');
 check(strpos($html,'BONUS-SEVEN &lt;unsafe&gt;')!==false, 'Reward label escaped');
+$rewardTable = $xpath->query('//table[tbody/tr/td[text()="BONUS-SEVEN <unsafe>"]]')->item(0);
+check($rewardTable !== null && $xpath->query('./tbody/tr[@class="oddeven"]', $rewardTable)->length === 8, 'Reward uses native table body and alternating rows');
+check($xpath->query('./tbody/tr/td[text()="EUR"]', $rewardTable)->length === 3, 'Fixed value, surplus and reward use configured currency');
+check($xpath->query('.//span[contains(@class,"badge-success")]', $rewardTable)->length === 1, 'Exceeded target has a green native badge');
+
 $user->permissions=array('readown'); $user->id=8;
 check(strpos($render($estimates),'BONUS-SEVEN')===false, 'Reward outside own scope hidden');
 $user->permissions=array('approvesale');
