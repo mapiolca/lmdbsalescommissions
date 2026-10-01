@@ -8,6 +8,10 @@ if (!preg_match('/^function price\(.*?^\}/ms', $nativeFunctions, $nativePrice)) 
 eval($nativePrice[0]);
 if (!preg_match('/^function price2num\(.*?^\}/ms', $nativeFunctions, $nativeNormalizer)) { throw new RuntimeException('Native price normalizer missing'); }
 eval($nativeNormalizer[0]);
+$nativeBadgeSource = $nativeFunctions.(is_file($lscNativeRoot.'/core/lib/html.lib.php') ? file_get_contents($lscNativeRoot.'/core/lib/html.lib.php') : '');
+if (!preg_match('/^function dolGetBadge\(.*?^\}/ms', $nativeBadgeSource, $nativeBadge)) { throw new RuntimeException('Native badge missing'); }
+eval($nativeBadge[0]);
+function dolPrintHTMLForAttribute($value) { return dol_escape_htmltag($value); }
 function dol_strlen($value) { return strlen($value); }
 define('DOL_DOCUMENT_ROOT', __DIR__.'/fixtures/margin-summary');
 define('MAIN_DB_PREFIX', 'summary_test_');
@@ -38,6 +42,9 @@ class SummaryDb
 		if (strpos($sql, 'usergroup_user') !== false) {
 			if (strpos($sql, 'a.entity = 1') === false) { throw new RuntimeException('Unscoped group query'); }
 			$rows = array_map(static function ($id) { return (object) array('fk_user' => $id); }, $this->groupUsers);
+		} elseif (strpos($sql, "SELECT rowid, label") === 0) {
+			if (strpos($sql, "entity = 1 AND rule_type = 'margin_policy'") === false) { throw new RuntimeException('Unscoped labels'); }
+			$rows = array((object) array('rowid'=>71,'label'=>'LABEL-SEVEN <unsafe>'), (object) array('rowid'=>81,'label'=>'LABEL-EIGHT'));
 		} elseif (strpos($sql, '_margin_snapshot WHERE entity = 1 AND fk_propal = 41') !== false) {
 			$rows = array();
 			foreach ($this->snapshots as $id => $decision) { $rows[] = (object) array('fk_user' => $id, 'snapshot_payload' => json_encode($decision)); }
@@ -53,8 +60,8 @@ require __DIR__.'/../class/lmdbsalescommissionmarginview.class.php';
 $langs = new SummaryLangs(); $db = new SummaryDb(); $user = new User($db);
 $proposal = (object) array('id' => 41, 'entity' => 1, 'date_signature' => 100, 'status' => 2);
 $db->snapshots = array(
-	7 => array('sale' => 'allow', 'commission' => 'allow', 'inputs' => array('rate' => 65), 'checks' => array(array('origin_type' => 'user', 'origin' => 'RULE-SEVEN <unsafe>', 'context' => 'general', 'effect' => 'commission', 'threshold' => 60, 'base_threshold' => 50, 'travel_uplift' => 10, 'travel_metric' => 'minutes', 'travel_value' => 106, 'reason' => 'met'))),
-	8 => array('sale' => 'allow', 'commission' => 'deny', 'inputs' => array('rate' => 40), 'checks' => array(array('origin_type' => 'default', 'origin' => 'RULE-EIGHT', 'context' => 'general', 'effect' => 'commission', 'threshold' => 60, 'reason' => 'below'))),
+	7 => array('sale' => 'allow', 'commission' => 'allow', 'inputs' => array('rate' => 65), 'checks' => array(array('rule_id' => 71, 'origin_type' => 'user', 'origin' => 'RULE-SEVEN <unsafe>', 'context' => 'general', 'effect' => 'commission', 'threshold' => 60, 'base_threshold' => 50, 'travel_uplift' => 10, 'travel_metric' => 'minutes', 'travel_value' => 106, 'reason' => 'met'))),
+	8 => array('sale' => 'allow', 'commission' => 'deny', 'inputs' => array('rate' => 40), 'checks' => array(array('rule_id' => 81, 'origin_type' => 'default', 'origin' => 'RULE-EIGHT', 'context' => 'general', 'effect' => 'commission', 'threshold' => 60, 'reason' => 'below'))),
 );
 // Deliberately reverse the order: position-based matching would disclose the wrong rule.
 $estimates = array('rows' => array(
@@ -77,18 +84,26 @@ $dialogs = $xpath->query('//div[starts-with(@id,"idfortooltiponclick_")]');
 check($dialogs->length === 2, 'One native dialog per beneficiary');
 foreach ($dialogs as $dialog) {
 	$id = strpos($dialog->getAttribute('id'), 'user7view') !== false ? 7 : 8;
-	check($xpath->query('.//table', $dialog)->length === 2, 'Two detail tables in each dialog');
+	check($xpath->query('.//table', $dialog)->length === 3, 'Three detail tables in each dialog');
 	check($xpath->query('.//a[@aria-haspopup="dialog"]', $dialog)->length === 0, 'No nested Consulter dialog');
 	check($xpath->query('.//a[contains(@href,"/user/card.php")]', $dialog)->length === 1, 'Beneficiary link retained inside dialog');
-	check($xpath->query('.//*[@title or contains(@class,"classfortooltip")]', $dialog)->length === 0, 'Dialog autofocus cannot trigger a user tooltip');
-	check(strpos($dialog->textContent, $id === 7 ? 'RULE-SEVEN' : 'RULE-EIGHT') !== false, 'Matching beneficiary policy');
-	check(strpos($dialog->textContent, $id === 7 ? 'RULE-EIGHT' : 'RULE-SEVEN') === false, 'No other beneficiary policy');
+	check($xpath->query('.//a[@title or contains(@class,"classfortooltip")]', $dialog)->length === 0, 'Dialog autofocus cannot trigger a user tooltip');
+	check(strpos($dialog->textContent, $id === 7 ? 'LABEL-SEVEN' : 'LABEL-EIGHT') !== false, 'Matching beneficiary policy');
+	check(strpos($dialog->textContent, $id === 7 ? 'LABEL-EIGHT' : 'LABEL-SEVEN') === false, 'No other beneficiary policy');
 	check(strpos($dialog->textContent, $id === 7 ? 'TERMS-SEVEN' : 'TERMS-EIGHT') !== false, 'Matching payment term');
+	$ruleTable = $xpath->query('.//table[tr[1]/th[1][text()="LscRules"]]', $dialog)->item(0);
+	check($xpath->query('./tr[1]/th', $ruleTable)->length === 2 && $xpath->query('./tr[1]/th[1]', $ruleTable)->item(0)->textContent === 'LscRules', 'Applied rules have only Rules and Status columns');
+	$tooltip = $xpath->query('.//span[contains(@class,"classforajaxtooltip")]', $ruleTable)->item(0);
+	$params = json_decode($tooltip->getAttribute('data-params'), true);
+	check($params === array('id'=>41,'objecttype'=>'lmdbsalescommissionpolicytooltip@lmdbsalescommissions','option'=>$id.':'.($id === 7 ? 71 : 81).':commission'), 'Ajax parameters bind the correct proposal, beneficiary, rule and effect');
+
 }
+check($xpath->query('//span[contains(@class,"badge-success")]')->length === 1 && $xpath->query('//span[contains(@class,"badge-warning")]')->length === 1, 'Native green and orange status badges');
+check($xpath->query('//span[contains(@class,"classforajaxtooltip")]')->length === 2, 'Native Ajax tooltip on each label');
 check(strpos($html, '<unsafe>') === false && strpos($html, '<margin>') === false, 'Rule and payment text escaped');
-check(strpos($html, '50|10|106,00|LscTravelMinutes') !== false, 'Effective margin formats round trip with two decimals');
+check(strpos(LmdbSalesCommissionMarginView::render($db, $proposal, $user), '50|10|106,00|LscTravelMinutes') !== false, 'Effective margin formats round trip with two decimals');
 $db->snapshots[7]['checks'][0]['travel_value'] = 1275.9533333333;
-check(strpos($render($estimates), '1 275,95|LscTravelMinutes') !== false, 'Fractional duration uses native French separators and two decimals');
+check(strpos(LmdbSalesCommissionMarginView::render($db, $proposal, $user), '1 275,95|LscTravelMinutes') !== false, 'Fractional duration uses native French separators and two decimals');
 $db->snapshots[7]['checks'][0]['travel_value'] = 106;
 check($xpath->query('//tr[@class="liste_total"]/td[2]')->item(0)->textContent === '195', 'Total kept in amount column');
 $summaryRows = $xpath->query('//table[not(ancestor::table)]/tr[@class="oddeven"]');
@@ -97,12 +112,12 @@ check($summaryRows->item(1)->childNodes->item(2)->textContent === 'Not acquired'
 $second = parseView($render($estimates));
 check($dialogs->item(0)->getAttribute('id') !== $second->query('//div[starts-with(@id,"idfortooltiponclick_")]')->item(0)->getAttribute('id'), 'Repeated renders have distinct dialog IDs');
 $user->permissions = array('readown'); $own = $render($estimates);
-check(strpos($own, 'RULE-EIGHT') === false && strpos($own, 'TERMS-EIGHT') === false, 'Own scope also hides modal content');
+check(strpos($own, 'LABEL-EIGHT') === false && strpos($own, 'TERMS-EIGHT') === false, 'Own scope also hides modal content');
 check(strpos($own, 'liste_total') === false, 'No global total outside global scope');
 $user->permissions = array('readgroup'); $db->groupUsers = array(8);
-check(strpos($render($estimates), 'RULE-EIGHT') !== false, 'Group beneficiary visible');
+check(strpos($render($estimates), 'LABEL-EIGHT') !== false, 'Group beneficiary visible');
 $db->groupUsers = array();
-check(strpos($render($estimates), 'RULE-EIGHT') === false, 'Other group hidden');
+check(strpos($render($estimates), 'LABEL-EIGHT') === false, 'Other group hidden');
 $user->permissions = array(); $db->queries = array();
 check($render($estimates) === '', 'Admin without explicit rights gets no table');
 check($db->queries === array(), 'No protected query without rights');
@@ -121,7 +136,7 @@ $db->fail = true;
 check(strpos($render($auto), 'LscPolicyUnavailable') !== false && strpos($render($auto), 'LscState_commission_unknown') !== false, 'Read error never shown as conformity');
 $db->fail = false; $db->snapshots = $saved;
 $conf->use_javascript_ajax = 0; $nojs = parseView($render($estimates));
-check($nojs->query('//details')->length === 2 && $nojs->query('//details//table')->length === 4, 'No-JS details retain both tables');
+check($nojs->query('//details')->length === 2 && $nojs->query('//details//table')->length === 6, 'No-JS details retain calculation, controls and rules tables');
 $conf->use_javascript_ajax = 1;
 $detailed = parseView(LmdbSalesCommissionMarginView::render($db, $proposal, $user));
 check($detailed->query('//table[not(ancestor::table)]/tr[1]/th')->length === 5, 'Dispatch policy view preserved');
@@ -131,7 +146,7 @@ $user->permissions = array('approvesale');
 $controller = new ActionsLmdbSalesCommissions($db); $action = ''; $manager = null;
 $controller->displayMarginInfos(array('context' => 'propalcard'), $proposal, $action, $manager);
 check(substr_count($controller->resprints, 'class="oddeven lmdbsalescommissions-estimated-commission"') === 1, 'Hook emits one outer margin row');
-check(strpos($controller->resprints, '195') === false && strpos($controller->resprints, 'RULE-SEVEN') !== false, 'Approval permission does not grant commission detail access');
+check(strpos($controller->resprints, '195') === false && strpos($controller->resprints, 'LABEL-SEVEN') !== false, 'Approval permission does not grant commission detail access');
 $user->permissions = array();
 $controller->displayMarginInfos(array('context' => 'propalcard'), $proposal, $action, $manager);
 check($controller->resprints === '', 'Successive unauthorized hook clears prior output');

@@ -14,7 +14,7 @@ Version préparée : **1.3.0**.
 - Paliers facultatifs de majoration en points de pourcentage selon la durée ou la distance aller-retour du devis stockée par `lmdbzoning` ; par exemple, 50 % devient 60 % au-delà de 1 h 45 pour un palier de +10 points.
 - Dérogations distinctes pour la vente et la commission ; décisions figées à la signature et accords invalidés après modification.
 - Au clic sur **Valider**, une vente bloquée propose une demande motivée en attente ou le retour à la proposition. Une cible de commission seule ne bloque pas ce parcours.
-- Un seul tableau de synthèse sur le devis : **Commercial**, **Com. estimée**, **État**, **Règles appliquées**. La loupe **Consulter** ouvre les tableaux détaillés du bénéficiaire dans une modale native.
+- Un seul tableau de synthèse sur le devis : **Commercial**, **Com. estimée**, **État**, **Règles appliquées**. La loupe **Consulter** ouvre les tableaux détaillés du bénéficiaire dans une modale native. Les règles de marge y sont présentées en deux colonnes **Règles** et **État**, avec badges natifs (vert : seuil atteint, orange : sous le seuil). Le survol du libellé charge une infobulle Ajax native avec contexte, effet, seuils, tranches techniques et paliers de trajet ; les devis signés conservent leurs paramètres figés.
 - Précontrôles serveur des parcours natifs fiche, liste, signature publique et API ; maintien du CA et des paliers lorsque la commission directe est nulle.
 
 ## Nouveautés de la version 1.2.0

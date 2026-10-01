@@ -474,3 +474,10 @@ LscRewardReason_not_exceeded=Target not exceeded
 LscRewardReason_commission_blocked=Commission denied or undetermined
 LscRewardReason_unavailable=Calculation unavailable: check the rule and costs
 LscRewardRollbackFailed=Reward rollback failed: check the transaction.
+
+LscRules=Rules
+LscRuleCurrentMetadata=Current rule identification
+LscRuleBaseThreshold=Base threshold (%)
+LscRuleTravelValue=Applied round trip
+LscRuleTechnicalBands=Technical bands
+LscRuleHistoricalDetailsUnavailable=Band details were not retained in this historical snapshot.

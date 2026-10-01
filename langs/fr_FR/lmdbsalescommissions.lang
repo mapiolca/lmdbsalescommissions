@@ -474,3 +474,10 @@ LscRewardReason_not_exceeded=Cible non dépassée
 LscRewardReason_commission_blocked=Droit à commission refusé ou indéterminé
 LscRewardReason_unavailable=Calcul indisponible : vérifier la règle et les coûts
 LscRewardRollbackFailed=Échec de l’annulation du traitement de prime : vérifier la transaction.
+
+LscRules=Règles
+LscRuleCurrentMetadata=Identification actuelle de la règle
+LscRuleBaseThreshold=Seuil de base (%)
+LscRuleTravelValue=Trajet aller-retour retenu
+LscRuleTechnicalBands=Tranches techniques
+LscRuleHistoricalDetailsUnavailable=Le détail des tranches n’a pas été conservé dans cet ancien instantané.
