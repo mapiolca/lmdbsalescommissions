@@ -44,7 +44,7 @@ if ($mode === 'create' || $mode === 'edit') {
 	// Render at creation too: JavaScript follows the selected context without a preliminary save.
 	print '<div id="lsc-policy-bands">';
 	print '<p>'.$langs->trans('LscBandHelp').'</p><div class="div-table-responsive-no-min"><table class="noborder centpercent" id="lsc-band-table"><tr class="liste_titre"><td>kWc</td><td>kWh</td><td>'.$langs->trans('LscThreshold').'</td><td></td></tr>';
-	print '<tr class="liste_titre_filter">';
+	print '<tr class="oddeven">';
 	foreach (array('kwc', 'kwh') as $axis) {
 		$unit = $axis === 'kwc' ? 'kWc' : 'kWh';
 		print '<td class="nowraponall">'.$form->selectarray($axis.'_inclusive', array(0 => ']', 1 => '['), $bandValues[$axis.'_inclusive'] ?: 0).' <input class="width50" name="'.$axis.'_min" value="'.dol_escape_htmltag($bandValues[$axis.'_min']).'" aria-label="'.dol_escape_htmltag($langs->trans('LscLower').' ('.$unit.')').'"> ; <input class="width50" name="'.$axis.'_max" value="'.dol_escape_htmltag($bandValues[$axis.'_max']).'" aria-label="'.dol_escape_htmltag($langs->trans('LscUpper').' ('.$unit.')').'"> ]</td>';
@@ -53,7 +53,7 @@ if ($mode === 'create' || $mode === 'edit') {
 	foreach ($bands as $band) {
 		print '<tr class="oddeven">';
 		foreach (array('kwc', 'kwh') as $axis) { print '<td>'.($band[$axis.'_inclusive'] ? '[' : ']').dol_escape_htmltag((string) ($band[$axis.'_min'] ?? '−∞')).' ; '.dol_escape_htmltag((string) ($band[$axis.'_max'] ?? '+∞')).']</td>'; }
-		print '<td>'.dol_escape_htmltag((string) $band['threshold']).' %</td><td class="right"><button class="noborder" type="submit" form="lsc-delete-band-'.((int) $band['rowid']).'" aria-label="'.dol_escape_htmltag($langs->trans('Delete')).'">'.img_delete().'</button></td></tr>';
+		print '<td>'.dol_escape_htmltag((string) $band['threshold']).' %</td><td class="right"><button class="bordertransp cursorpointer" type="submit" form="lsc-delete-band-'.((int) $band['rowid']).'" aria-label="'.dol_escape_htmltag($langs->trans('Delete')).'">'.img_delete().'</button></td></tr>';
 	}
 	if (!$bands) { print '<tr class="oddeven"><td colspan="4"><span class="opacitymedium">'.$langs->trans('NoRecordFound').'</span></td></tr>'; }
 	print '</table></div>';
