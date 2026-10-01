@@ -2,6 +2,11 @@
 /** Actual view, policy snapshots and native Form; SQL, users and estimates are fixtures. */
 $lscNativeRoot = realpath($argv[1] ?? __DIR__.'/.core-cache/20.0.0/htdocs');
 if (!$lscNativeRoot) { throw new RuntimeException('Fetch native contracts first'); }
+// Execute the native display formatter; keep the surrounding ERP environment simulated.
+$nativeFunctions = file_get_contents($lscNativeRoot.'/core/lib/functions.lib.php');
+if (!preg_match('/^function price\(.*?^\}/ms', $nativeFunctions, $nativePrice)) { throw new RuntimeException('Native price formatter missing'); }
+eval($nativePrice[0]);
+function dol_strlen($value) { return strlen($value); }
 define('DOL_DOCUMENT_ROOT', __DIR__.'/fixtures/margin-summary');
 define('MAIN_DB_PREFIX', 'summary_test_');
 $conf = (object) array('entity' => 1, 'use_javascript_ajax' => 1);
@@ -76,7 +81,10 @@ foreach ($dialogs as $dialog) {
 	check(strpos($dialog->textContent, $id === 7 ? 'TERMS-SEVEN' : 'TERMS-EIGHT') !== false, 'Matching payment term');
 }
 check(strpos($html, '<unsafe>') === false && strpos($html, '<margin>') === false, 'Rule and payment text escaped');
-check(strpos($html, '50|10|106|LscTravelMinutes') !== false, 'Effective margin explains base, uplift, and round trip');
+check(strpos($html, '50|10|106,00|LscTravelMinutes') !== false, 'Effective margin formats round trip with two decimals');
+$db->snapshots[7]['checks'][0]['travel_value'] = 1275.9533333333;
+check(strpos($render($estimates), '1 275,95|LscTravelMinutes') !== false, 'Fractional duration uses native French separators and two decimals');
+$db->snapshots[7]['checks'][0]['travel_value'] = 106;
 check($xpath->query('//tr[@class="liste_total"]/td[2]')->item(0)->textContent === '195', 'Total kept in amount column');
 $summaryRows = $xpath->query('//table[not(ancestor::table)]/tr[@class="oddeven"]');
 check($summaryRows->item(0)->childNodes->item(2)->textContent === 'LscState_commission_deny', 'Denied commission shown as null');

@@ -88,7 +88,7 @@ class LmdbSalesCommissionMarginView
 				$thresholdLabel = $check['threshold'] === null ? '—' : dol_escape_htmltag((string) $check['threshold']).' %';
 				if (($check['travel_metric'] ?? '') !== '' && ($check['travel_value'] ?? null) !== null) {
 					$unit = $langs->trans($check['travel_metric'] === 'minutes' ? 'LscTravelMinutes' : 'LscTravelKilometres');
-					$thresholdLabel .= '<br><span class="opacitymedium">'.dol_escape_htmltag($langs->trans('LscTravelApplied', (string) $check['base_threshold'], (string) $check['travel_uplift'], (string) $check['travel_value'], $unit)).'</span>';
+					$thresholdLabel .= '<br><span class="opacitymedium">'.dol_escape_htmltag($langs->trans('LscTravelApplied', (string) $check['base_threshold'], (string) $check['travel_uplift'], price($check['travel_value'], 0, $langs, 0, 2, 2), $unit)).'</span>';
 				}
 				$cells = array($originLabel !== '' ? $langs->trans($originLabel) : '—', dol_escape_htmltag($check['origin']), $langs->trans('LscContext_'.$check['context']), $langs->trans('LscEffect_'.$check['effect']), $thresholdLabel, $langs->trans('LscReason_'.$check['reason']));
 				$rulesHtml .= $summary ? '<p>'.implode(' · ', $cells) : '<tr class="oddeven"><td>'.implode('</td><td>', $cells);
