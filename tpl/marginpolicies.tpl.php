@@ -8,6 +8,7 @@
  * @var array<string,string> $bandValues Pending band fields, preserved after a failed POST
  * @var list<array{rowid:int,metric:string,min_value:float,uplift:float}> $travelBands
  * @var array{metric:string,min_value:string,uplift:string} $travelValues
+ * @var bool $travelAvailable
  */
 if (!defined('DOL_DOCUMENT_ROOT')) { exit; }
 print '<p>'.$langs->trans('LscPolicyHelp').'</p>';
@@ -62,9 +63,13 @@ if ($mode === 'create' || $mode === 'edit') {
 	print '</div>';
 	// These fallback actions are replaced by the native dialog footer when JavaScript is available.
 	print '<div id="lsc-policy-form-actions" class="center"><button class="button button-save" type="submit">'.$langs->trans('Save').'</button> <a class="button button-cancel" href="'.$pageUrl.'">'.$langs->trans('Cancel').'</a></div></form>';
-	if ($id) {
+	if ($id && $travelAvailable) {
 		print '<h3>'.$langs->trans('LscTravelMargin').'</h3><p>'.$langs->trans('LscTravelHelp').'</p>';
 		print '<div class="div-table-responsive-no-min"><table class="noborder centpercent" id="lsc-travel-bands"><tr class="liste_titre"><td>'.$langs->trans('LscTravelMetric').'</td><td>'.$langs->trans('LscTravelMinimum').'</td><td>'.$langs->trans('LscTravelUplift').'</td><td></td></tr>';
+		print '<tr class="oddeven"><td>'.$form->selectarray('metric', array('minutes' => $langs->trans('LscTravelMinutes'), 'kilometres' => $langs->trans('LscTravelKilometres')), $travelValues['metric'], 0, 0, 0, 'form="lsc-add-travel-band" aria-label="'.dol_escape_htmltag($langs->trans('LscTravelMetric')).'"').'</td>';
+		print '<td class="nowraponall">&gt; <input class="width75" name="min_value" value="'.dol_escape_htmltag($travelValues['min_value']).'" form="lsc-add-travel-band" aria-label="'.dol_escape_htmltag($langs->trans('LscTravelMinimum')).'" required></td>';
+		print '<td class="nowraponall">+ <input class="width75" name="uplift" value="'.dol_escape_htmltag($travelValues['uplift']).'" form="lsc-add-travel-band" aria-label="'.dol_escape_htmltag($langs->trans('LscTravelUplift')).'" required> '.$langs->trans('LscPercentagePoints').'</td>';
+		print '<td class="right"><button class="button" type="submit" form="lsc-add-travel-band">'.$langs->trans('Add').'</button></td></tr>';
 		foreach ($travelBands as $travelBand) {
 			$metricLabel = $travelBand['metric'] === 'minutes' ? 'LscTravelMinutes' : 'LscTravelKilometres';
 			print '<tr class="oddeven"><td>'.$langs->trans($metricLabel).'</td><td>&gt; '.dol_escape_htmltag((string) $travelBand['min_value']).'</td><td>+'.dol_escape_htmltag((string) $travelBand['uplift']).' '.$langs->trans('LscPercentagePoints').'</td><td class="right"><button class="bordertransp cursorpointer" type="submit" form="lsc-delete-travel-band-'.((int) $travelBand['rowid']).'" aria-label="'.dol_escape_htmltag($langs->trans('Delete')).'">'.img_delete().'</button></td></tr>';
@@ -72,8 +77,7 @@ if ($mode === 'create' || $mode === 'edit') {
 		if (!$travelBands) { print '<tr class="oddeven"><td colspan="4"><span class="opacitymedium">'.$langs->trans('NoRecordFound').'</span></td></tr>'; }
 		print '</table></div>';
 		print '<form method="POST" action="'.$pageUrl.'" id="lsc-add-travel-band"><input type="hidden" name="token" value="'.newToken().'"><input type="hidden" name="action" value="addtravelband"><input type="hidden" name="id" value="'.$id.'">';
-		print '<p><label for="metric">'.$langs->trans('LscTravelMetric').'</label> '.$form->selectarray('metric', array('minutes' => $langs->trans('LscTravelMinutes'), 'kilometres' => $langs->trans('LscTravelKilometres')), $travelValues['metric']).'</p>';
-		print '<p><label for="lsc-travel-minimum">'.$langs->trans('LscTravelMinimum').'</label> <input class="width75" id="lsc-travel-minimum" name="min_value" value="'.dol_escape_htmltag($travelValues['min_value']).'" required> <label for="lsc-travel-uplift">'.$langs->trans('LscTravelUplift').'</label> <input class="width75" id="lsc-travel-uplift" name="uplift" value="'.dol_escape_htmltag($travelValues['uplift']).'" required> '.$langs->trans('LscPercentagePoints').'</p><button class="button" type="submit">'.$langs->trans('Add').'</button></form>';
+		print '</form>';
 		print ajax_combobox('metric');
 		foreach ($travelBands as $travelBand) {
 			print '<form id="lsc-delete-travel-band-'.((int) $travelBand['rowid']).'" method="POST" action="'.$pageUrl.'"><input type="hidden" name="token" value="'.newToken().'"><input type="hidden" name="action" value="deletetravelband"><input type="hidden" name="id" value="'.$id.'"><input type="hidden" name="band" value="'.((int) $travelBand['rowid']).'"></form>';

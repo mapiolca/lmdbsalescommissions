@@ -13,6 +13,8 @@ require_once __DIR__.'/../class/lmdbsalescommissionscompatibility.class.php';
 $langs->loadLangs(array('admin', 'lmdbsalescommissions@lmdbsalescommissions'));
 if (!isModEnabled('lmdbsalescommissions') || !$user->admin || !empty($user->socid) || !$user->hasRight('lmdbsalescommissions', 'admin', 'configure')) { accessforbidden(); }
 $action = GETPOST('action', 'aZ09');
+$travelAvailable = LmdbSalesCommissionsCompatibility::isFeatureAvailable('travel_margin_uplift');
+if (in_array($action, array('addtravelband', 'deletetravelband'), true) && !$travelAvailable) { accessforbidden(); }
 $id = GETPOSTINT('id');
 $mode = GETPOST('mode', 'aZ09');
 if ($mode === '' && $id > 0 && $action === '') { $mode = 'edit'; }
@@ -103,6 +105,7 @@ if ($action !== '') {
 			if ($rule->delete($user) <= 0) { throw new RuntimeException($rule->error); }
 			$id = 0;
 		} elseif ($action === 'togglepolicy' && $id) {
+			if (!$rule->active && $travelBands && !$travelAvailable) { throw new RuntimeException('LscTravelCompatibilityUnavailable'); }
 			$rule->active = (int) $rule->active ? 0 : 1;
 			if ($rule->update($user) <= 0) { throw new RuntimeException('LscInvalidPolicy'); }
 		} elseif ($action === 'deleteband' && $id) {

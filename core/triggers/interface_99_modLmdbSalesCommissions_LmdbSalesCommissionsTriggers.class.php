@@ -68,12 +68,11 @@ class InterfaceLmdbSalesCommissionsTriggers
 			catch (Exception $e) { $this->error = $langs->trans($e->getMessage()); return -1; }
 			return 0;
 		}
-		$proposalUpdateActions = array('PROPAL_MODIFY', 'LINEPROPAL_INSERT', 'LINEPROPAL_UPDATE', 'LINEPROPAL_DELETE');
+		$proposalUpdateActions = array('PROPAL_MODIFY', 'LINEPROPAL_INSERT', 'LINEPROPAL_MODIFY', 'LINEPROPAL_DELETE');
 		if ($action !== 'PROPAL_VALIDATE' && $action !== 'PROPAL_CLOSE_SIGNED' && $action !== 'PROPAL_CLOSE_REFUSED' && $action !== 'PROPAL_DELETE' && !in_array($action, $proposalUpdateActions, true)) {
 			return 0;
 		}
 
-		require_once dol_buildpath('/lmdbsalescommissions/class/lmdbsalescommissionlineservice.class.php', 0);
 		if (in_array($action, $proposalUpdateActions, true)) {
 			$proposal = $object;
 			if ($action !== 'PROPAL_MODIFY') {
@@ -81,13 +80,15 @@ class InterfaceLmdbSalesCommissionsTriggers
 				if ($proposalId <= 0) {
 					return 0;
 				}
-				require_once DOL_DOCUMENT_ROOT.'/comm/propal/class/propal.class.php';
+				if (!class_exists('Propal')) { require_once DOL_DOCUMENT_ROOT.'/comm/propal/class/propal.class.php'; }
 				$proposal = new Propal($this->db);
 				if ($proposal->fetch($proposalId) <= 0) {
 					$this->error = $proposal->error ?: 'ErrorRecordNotFound';
 					return -1;
 				}
 			}
+			// Native line triggers run before the parent total is updated; deletion runs before its SQL DELETE.
+			// Invalidate here and let the next proposal view assess the committed lines and totals.
 			try { (new LmdbSalesCommissionMarginService($this->db))->invalidate((int) $proposal->entity, (int) $proposal->id); }
 			catch (Exception $e) { $this->error = $langs->trans($e->getMessage()); return -1; }
 			$status = property_exists($proposal, 'statut') ? (int) $proposal->statut : (property_exists($proposal, 'status') ? (int) $proposal->status : -1);
@@ -95,6 +96,7 @@ class InterfaceLmdbSalesCommissionsTriggers
 			if ($status !== 1 || $signatureDate > 0) {
 				return 0;
 			}
+			require_once dol_buildpath('/lmdbsalescommissions/class/lmdbsalescommissionlineservice.class.php', 0);
 			$service = new LmdbSalesCommissionLineService($this->db);
 			$result = $service->estimateFromProposal($proposal, $user);
 			if ($result < 0) {
@@ -119,6 +121,7 @@ class InterfaceLmdbSalesCommissionsTriggers
 				if ($action === 'PROPAL_CLOSE_SIGNED') { $policy->freeze($current, $user); $object = $current; }
 			} catch (Exception $e) { $this->error = $langs->trans($e->getMessage()); return -1; }
 		}
+		require_once dol_buildpath('/lmdbsalescommissions/class/lmdbsalescommissionlineservice.class.php', 0);
 		$service = new LmdbSalesCommissionLineService($this->db);
 		if ($action === 'PROPAL_VALIDATE') {
 			$result = $service->estimateFromProposal($object, $user);

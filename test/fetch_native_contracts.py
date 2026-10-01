@@ -21,7 +21,7 @@ FILES = [
     "comm/propal/class/api_proposals.class.php", "api/index.php",
 ] + ["includes/restler/framework/Luracast/Restler/" + name + ".php"
      for name in ("Restler", "EventDispatcher", "Scope", "Defaults", "RestException")]
-OPTIONAL = ["core/class/doldeprecationhandler.class.php", "core/class/commontrigger.class.php", "core/lib/html.lib.php"]
+OPTIONAL = ["core/class/doldeprecationhandler.class.php", "core/class/commontrigger.class.php", "core/lib/html.lib.php", "comm/propal/class/propaleligne.class.php"]
 
 
 def main():
