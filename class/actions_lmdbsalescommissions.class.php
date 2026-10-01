@@ -16,6 +16,9 @@ class ActionsLmdbSalesCommissions
 	/** @var DoliDB Database handler */
 	public $db;
 
+	/** @var int Native hook priority: append the summary after other margin contributions. */
+	public $priority = PHP_INT_MAX;
+
 	/** @var string Error message */
 	public $error = '';
 

@@ -7,7 +7,8 @@ define('MAIN_DB_PREFIX', 'summary_test_');
 $conf = (object) array('entity' => 1, 'use_javascript_ajax' => 1);
 function getDolGlobalInt($key, $default = 0) { return $default; }
 function getDolGlobalString($key, $default = '') { return $default; }
-function isModEnabled($key) { return $key === 'lmdbsalescommissions'; }
+$summaryModules = array('lmdbsalescommissions');
+function isModEnabled($key) { global $summaryModules; return in_array($key, $summaryModules, true); }
 function dol_syslog($message, $level = 0) {}
 function dol_escape_htmltag($value, ...$args) { return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8'); }
 function img_picto($alt, $key) { return '<span class="fa fa-search" aria-hidden="true"></span>'; }
@@ -121,4 +122,47 @@ check(strpos($controller->resprints, '195') === false && strpos($controller->res
 $user->permissions = array();
 $controller->displayMarginInfos(array('context' => 'propalcard'), $proposal, $action, $manager);
 check($controller->resprints === '', 'Successive unauthorized hook clears prior output');
-print "Commission summary: $tests assertions passed using native Form from $lscNativeRoot.\n";
+
+// Native initialization, natural priority sort, concatenation and reset; sibling renderers are fixtures.
+require $lscNativeRoot.'/core/class/hookmanager.class.php';
+function dol_include_once($path) {
+	if ($path === '/lmdbsalescommissions/class/actions_lmdbsalescommissions.class.php') {
+		require_once __DIR__.'/../class/actions_lmdbsalescommissions.class.php';
+		return 1;
+	}
+	return in_array($path, array('/powerplantpv/class/actions_powerplantpv.class.php', '/zzzmarginfixture/class/actions_zzzmarginfixture.class.php'), true) ? 1 : 0;
+}
+class ActionsPowerplantpv
+{
+	public $error = '';
+	public $errors = array();
+	public $results = array();
+	public $resprints;
+	public function __construct($db) {}
+	public function displayMarginInfos($parameters, &$object, &$action, $hookmanager) {
+		$this->resprints = '<tr class="powerplantpv-price-per-wattpeak"><td>Price per watt-peak</td></tr>';
+		return 0;
+	}
+}
+class ActionsZzzmarginfixture extends ActionsPowerplantpv
+{
+	public $priority = 1000;
+	public function displayMarginInfos($parameters, &$object, &$action, $hookmanager) {
+		$this->resprints = '<tr class="another-margin-contribution"><td>Another margin contribution</td></tr>';
+		return 0;
+	}
+}
+$user->permissions = array('approvesale');
+foreach (array(array('lmdbsalescommissions', 'powerplantpv', 'zzzmarginfixture'), array('zzzmarginfixture', 'powerplantpv', 'lmdbsalescommissions'), array('lmdbsalescommissions')) as $summaryModules) {
+	$conf->modules_parts = array('hooks' => array_fill_keys($summaryModules, array('propalcard')));
+	$hookmanager = new HookManager($db);
+	$hookmanager->initHooks(array('propalcard'));
+	for ($pass = 0; $pass < 2; $pass++) {
+		check($hookmanager->executeHooks('displayMarginInfos', array(), $proposal, $action) === 0, 'Margin contributions preserve native rendering');
+		$table = parseView('<table id="native-margin-table">'.$hookmanager->resPrint.'</table>');
+		$rows = $table->query('//table[@id="native-margin-table"]/tr');
+		check($rows->length === count($summaryModules), 'Each active contribution is preserved exactly once');
+		check(strpos($rows->item($rows->length - 1)->getAttribute('class'), 'lmdbsalescommissions-estimated-commission') !== false, 'Commission summary is the final margin row');
+	}
+}
+print "Commission summary: $tests assertions passed using native Form and HookManager from $lscNativeRoot.\n";
