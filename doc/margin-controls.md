@@ -172,3 +172,7 @@ Dans Chrome, la modale avec ses deux boutons et le focus initial sur **Modifier 
 - Rendu des grilles, accords, suivi, filtres, pagination et exports ; confronter les résultats aux valeurs affichées par la marge native.
 
 Ces essais réels restent à exécuter par environnement, notamment avec la version Multicompany du parc. Une réussite des tests isolés ne les remplace pas.
+
+### Infobulle utilisateur à l’ouverture du détail
+
+Le dialogue natif jQuery UI donne le focus au premier lien de son contenu. Le lien utilisateur avec infobulle déclenchait donc automatiquement son chargement (avec le libellé provisoire `tocomplete`). Le détail utilise désormais `User::getNomUrl(1, '', 0, 1)` ; le lien du tableau principal conserve son comportement. Aucun gestionnaire global de focus ou de tooltip n’est modifié. Le quatrième paramètre natif est présent dans les sources Dolibarr v20 à v24 et dans le checkout local v25 alpha. La suite de rendu passe 59 assertions sur les six révisions natives, avec utilisateurs et SQL simulés ; les liens du dialogue restent présents et ne portent plus d’infobulle. L’ouverture et la réouverture sur instance restent à vérifier après déploiement.

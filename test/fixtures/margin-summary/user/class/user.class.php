@@ -10,4 +10,7 @@ class User
 	public function hasRight($module, $object, $action) { return in_array($action, $this->permissions, true); }
 	public function fetch($id) { $this->id = (int) $id; return $id > 0 ? 1 : 0; }
 	public function getFullName($langs) { return 'Commercial '.$this->id; }
+	public function getNomUrl($withpicto = 0, $option = '', $infologin = 0, $notooltip = 0) {
+		return '<a href="/user/card.php?id='.$this->id.'"'.($notooltip ? '' : ' class="classfortooltip" title="tocomplete"').'>Commercial '.$this->id.'</a>';
+	}
 }

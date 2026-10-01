@@ -65,7 +65,8 @@ class LmdbSalesCommissionMarginView
 			$decision = $decisions[$beneficiary] ?? null;
 			$estimate = $estimateRows[$beneficiary] ?? array();
 			$person = new User($db);
-			$label = $person->fetch($beneficiary) > 0 ? $person->getFullName($langs) : $langs->trans('Unknown');
+			$personLoaded = $person->fetch($beneficiary) > 0;
+			$label = $personLoaded ? $person->getFullName($langs) : $langs->trans('Unknown');
 			$beneficiaryHtml = $estimate['beneficiary'] ?? dol_escape_htmltag($label);
 			$status = $estimate['status'] ?? $langs->trans('Unknown');
 			if ($policyError !== '' || (isset($decision['commission']) && $decision['commission'] !== 'allow')) {
@@ -105,7 +106,9 @@ class LmdbSalesCommissionMarginView
 				$rulesHtml .= $summary ? $notice : '<tr class="oddeven"><td colspan="6">'.$notice.'</td></tr>';
 			}
 			if ($summary) {
-				$details = self::renderEstimateDetails($estimate, $beneficiaryHtml, $status);
+				// Native dialogs focus the first link; do not open a nested user tooltip on focus.
+				$dialogBeneficiaryHtml = $personLoaded ? $person->getNomUrl(1, '', 0, 1) : dol_escape_htmltag($label);
+				$details = self::renderEstimateDetails($estimate, $dialogBeneficiaryHtml, $status);
 				$details .= '<h3>'.$langs->trans('LscMarginDetails').'</h3><div class="div-table-responsive-no-min"><table class="noborder centpercent"><tr class="liste_titre">';
 				foreach ($policyHeaders as $key) { $details .= '<th scope="col">'.$langs->trans($key).'</th>'; }
 				$details .= '</tr><tr class="oddeven"><td>'.implode('</td><td>', $policyValues).'</td><td>'.$rulesHtml.'</td></tr></table></div>';

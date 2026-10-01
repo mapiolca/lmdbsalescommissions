@@ -76,6 +76,8 @@ foreach ($dialogs as $dialog) {
 	$id = strpos($dialog->getAttribute('id'), 'user7view') !== false ? 7 : 8;
 	check($xpath->query('.//table', $dialog)->length === 2, 'Two detail tables in each dialog');
 	check($xpath->query('.//a[@aria-haspopup="dialog"]', $dialog)->length === 0, 'No nested Consulter dialog');
+	check($xpath->query('.//a[contains(@href,"/user/card.php")]', $dialog)->length === 1, 'Beneficiary link retained inside dialog');
+	check($xpath->query('.//*[@title or contains(@class,"classfortooltip")]', $dialog)->length === 0, 'Dialog autofocus cannot trigger a user tooltip');
 	check(strpos($dialog->textContent, $id === 7 ? 'RULE-SEVEN' : 'RULE-EIGHT') !== false, 'Matching beneficiary policy');
 	check(strpos($dialog->textContent, $id === 7 ? 'RULE-EIGHT' : 'RULE-SEVEN') === false, 'No other beneficiary policy');
 	check(strpos($dialog->textContent, $id === 7 ? 'TERMS-SEVEN' : 'TERMS-EIGHT') !== false, 'Matching payment term');
