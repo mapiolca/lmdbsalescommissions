@@ -100,7 +100,7 @@ class LmdbSalesCommissionMarginService
 		return $policies;
 	}
 
-	/** Read only the stored, fresh lmdbzoning journey from the entity's reference point to the client.
+	/** Read only the stored, fresh lmdbzoning journey displayed on the proposal.
 	 * No route calculation or external request belongs in a proposal validation transaction.
 	 * @param Propal $proposal Loaded proposal
 	 * @param User|null $actor User whose zoning and third-party read rights are checked
@@ -109,12 +109,12 @@ class LmdbSalesCommissionMarginService
 	protected function travelData($proposal, $actor)
 	{
 		$data = array('state' => 'unavailable', 'minutes' => null, 'kilometres' => null, 'profile_ref' => '', 'date_calculation' => null, 'provider' => '', 'optimization' => '');
-		if (!LmdbSalesCommissionsCompatibility::isFeatureAvailable('travel_margin_uplift') || !is_object($actor) || (int) ($proposal->socid ?? 0) <= 0) { return $data; }
-		$profileRef = getDolGlobalString('LMDBZONING_DEFAULT_PROFILE');
-		if ($profileRef === '') { return $data; }
-		$data['profile_ref'] = $profileRef;
+		if (!LmdbSalesCommissionsCompatibility::isFeatureAvailable('travel_margin_uplift') || !is_object($actor) || (int) ($proposal->id ?? 0) <= 0) { return $data; }
+		// Let zoning resolve the owner's standalone reference point, or its default profile.
+		// Proposal routes have their own jobs and may target linked sites instead of the client address.
+		$profileRef = '';
 		try {
-			$source = (new LmdbZoningTravelService($this->db))->read('societe', (int) $proposal->socid, $profileRef, $actor);
+			$source = (new LmdbZoningTravelService($this->db))->read('propal', (int) $proposal->id, $profileRef, $actor);
 		} catch (RuntimeException $error) {
 			if ($error->getMessage() === 'TravelDatabaseError') { throw new RuntimeException('LscPolicyUnavailable', 0, $error); }
 			return $data;

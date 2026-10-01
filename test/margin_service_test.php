@@ -67,13 +67,15 @@ class PolicyService extends LmdbSalesCommissionMarginService {
 	public $rules; public $owners=array();
 	public function policies($beneficiary, $entity) { $this->owners[] = $entity; return $this->rules[$beneficiary] ?? array(); }
 }
-class LmdbZoningCompatibility { public static function isTravelAvailable($type = '') { return $type === 'societe'; } }
+class LmdbZoningCompatibility { public static function isTravelAvailable($type = '') { return $type === 'propal'; } }
 class LmdbZoningTravelService {
 	public static $response = array(); public static $source = array();
 	public function __construct($db) {}
 	public function read($type, $id, $profile, $actor) {
 		self::$source = array($type, $id, $profile);
 		if (!$actor->hasRight('lmdbzoning', 'lmdbzoning', 'read')) { throw new RuntimeException('TravelForbidden'); }
+		// The proposal has its own stored journey; no journey was calculated on its client card.
+		if ($type !== 'propal' || $id !== 10) { return array('state' => 'not_calculated'); }
 		return self::$response;
 	}
 }
@@ -159,10 +161,17 @@ $zoningEnabled = true;
 expect(LmdbSalesCommissionsCompatibility::isFeatureAvailable('travel_margin_uplift'), true, 'travel controls available when the zoning route contract is active');
 LmdbZoningTravelService::$response = array('state' => 'ready', 'profile_ref' => 'HQ', 'date_calculation' => '2026-09-30 12:00:00', 'provider' => 'ign', 'optimization' => 'fastest', 'total' => array('round_trip' => array('duration_s' => 6360.0, 'distance_m' => 50000.0)));
 $travelDecision = $service->assess($proposal)[7];
-expect(LmdbZoningTravelService::$source, array('societe', 15, 'HQ'), 'client third party journey from default HQ profile');
+expect($travelDecision['inputs']['travel']['state'], 'ready', 'stored proposal journey used even when client journey is absent');
+expect(LmdbZoningTravelService::$source, array('propal', 10, ''), 'native source resolves the proposal reference point or default profile');
 expect($travelDecision['sale'], 'deny', '106-minute journey adds ten points to 20% base');
 expect($travelDecision['checks'][0]['threshold'], 30.0, 'effective margin threshold');
 expect($travelDecision['inputs']['travel']['kilometres'], 50.0, 'stored round-trip metres converted to kilometres');
+$settings['LMDBZONING_DEFAULT_PROFILE'] = '';
+$settings['LMDBZONING_DEFAULT_REFERENCEPOINT'] = 3;
+expect($service->assess($proposal)[7]['checks'][0]['threshold'], 30.0, 'standalone reference point works without a zoning profile');
+$settings['LMDBZONING_DEFAULT_PROFILE'] = 'OLD-PROFILE';
+expect($service->assess($proposal)[7]['checks'][0]['threshold'], 30.0, 'native source retains reference-point priority over an old profile');
+expect(LmdbZoningTravelService::$source, array('propal', 10, ''), 'no forced profile bypasses standalone reference-point selection');
 $service->approve($proposal, $actor, 7, 20, 'sale', 'Travel exception', $travelDecision['fingerprint']);
 expect($service->assess($proposal)[7]['sale'], 'allow', 'exact-route exception is accepted');
 LmdbZoningTravelService::$response['total']['round_trip']['duration_s'] = 6420.0;
