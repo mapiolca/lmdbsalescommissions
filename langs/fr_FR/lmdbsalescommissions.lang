@@ -369,6 +369,18 @@ LscSale=Validation / signature
 LscCommission=Commission directe
 LscBoth=Les deux
 LscThreshold=Seuil de marge sur coût (%)
+LscTravelMargin=Majoration des marges selon le trajet
+LscTravelCompatibilityDescription=Majoration des seuils de marge à partir du trajet aller-retour enregistré par lmdbzoning pour le devis, depuis le point de référence de l’entité vers le client ou les sites liés.
+LscTravelCompatibilityUnavailable=Le trajet du devis n’est pas disponible dans lmdbzoning ; vérifier le module, le type Devis et le point de référence ou le profil par défaut.
+LscTravelHelp=Le trajet aller-retour déjà calculé par lmdbzoning est comparé à des seuils stricts. Un seul critère (durée ou distance) par règle ; les paliers supérieurs ne peuvent pas réduire la majoration. La majoration s'ajoute en points de pourcentage au seuil de marge. Exemple : plus de 105 minutes, +10 points transforme 50 % en 60 %. Un trajet absent ou périmé rend le contrôle indéterminé.
+LscTravelMetric=Critère de trajet aller-retour
+LscTravelMinimum=Seuil strictement dépassé
+LscTravelUplift=Majoration
+LscTravelMinutes=minutes
+LscTravelKilometres=kilomètres
+LscPercentagePoints=points de pourcentage
+LscInvalidTravelBand=Palier de trajet invalide, doublon, critère mélangé ou majoration décroissante.
+LscTravelApplied=Base %s %% + %s points ; trajet aller-retour %s %s
 LscPolicyHelp=La marge globale sur coût HT est comparée aux seuils. Les profils utilisateur, groupe puis défaut sont résolus par contexte et effet. Les conditions générales et techniques se cumulent. Les grilles techniques concernent uniquement la commission. Deux règles de même rang sont un conflit, indépendamment des priorités numériques historiques. Affecter les règles depuis l’onglet Affectations.
 LscActivationHelp=Activation volontaire dans cet environnement, après recette des parcours fiche, liste, signature publique et API. Les devis déjà signés sont conservés. Une réactivation du contrôle démarre une nouvelle période ; les décisions déjà figées restent inchangées. Une désactivation/réactivation du module conserve ces réglages.
 LscBandHelp=Bornes supérieures incluses ; choisir explicitement si la borne inférieure est incluse. Vide = sans borne. Les intersections de tranches sont refusées. kWh = capacité utile. Sans tranche applicable, la commission est indéterminée.
@@ -434,6 +446,8 @@ LscReason_below=Sous le seuil
 LscReason_met=Seuil atteint
 LscReason_approved=Dérogation accordée
 LscReason_beneficiary_missing=Bénéficiaire introuvable
+LscReason_travel_missing=Trajet aller-retour absent, périmé ou inaccessible
+LscReason_travel_invalid=Configuration des paliers de trajet invalide
 LscOwnerContext=Effectuer ce contrôle depuis l’environnement propriétaire du devis pour respecter ses réglages natifs de coût.
 
 LscPublicBlocked=Ce devis ne peut pas être signé. Veuillez contacter votre interlocuteur commercial.

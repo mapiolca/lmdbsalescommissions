@@ -2,6 +2,11 @@
 /** Actual view, policy snapshots and native Form; SQL, users and estimates are fixtures. */
 $lscNativeRoot = realpath($argv[1] ?? __DIR__.'/.core-cache/20.0.0/htdocs');
 if (!$lscNativeRoot) { throw new RuntimeException('Fetch native contracts first'); }
+// Execute the native display formatter; keep the surrounding ERP environment simulated.
+$nativeFunctions = file_get_contents($lscNativeRoot.'/core/lib/functions.lib.php');
+if (!preg_match('/^function price\(.*?^\}/ms', $nativeFunctions, $nativePrice)) { throw new RuntimeException('Native price formatter missing'); }
+eval($nativePrice[0]);
+function dol_strlen($value) { return strlen($value); }
 define('DOL_DOCUMENT_ROOT', __DIR__.'/fixtures/margin-summary');
 define('MAIN_DB_PREFIX', 'summary_test_');
 $conf = (object) array('entity' => 1, 'use_javascript_ajax' => 1);
@@ -15,7 +20,7 @@ function img_picto($alt, $key) { return '<span class="fa fa-search" aria-hidden=
 class SummaryLangs
 {
 	public function loadLangs($keys) {}
-	public function trans($key) { return $key; }
+	public function trans($key, ...$values) { return $key === 'LscTravelApplied' ? implode('|', $values) : $key; }
 	public function transnoentitiesnoconv($key) { return $key; }
 }
 class SummaryDb
@@ -45,7 +50,7 @@ require __DIR__.'/../class/lmdbsalescommissionmarginview.class.php';
 $langs = new SummaryLangs(); $db = new SummaryDb(); $user = new User($db);
 $proposal = (object) array('id' => 41, 'entity' => 1, 'date_signature' => 100, 'status' => 2);
 $db->snapshots = array(
-	7 => array('sale' => 'allow', 'commission' => 'allow', 'inputs' => array('rate' => 65), 'checks' => array(array('origin_type' => 'user', 'origin' => 'RULE-SEVEN <unsafe>', 'context' => 'general', 'effect' => 'commission', 'threshold' => 60, 'reason' => 'met'))),
+	7 => array('sale' => 'allow', 'commission' => 'allow', 'inputs' => array('rate' => 65), 'checks' => array(array('origin_type' => 'user', 'origin' => 'RULE-SEVEN <unsafe>', 'context' => 'general', 'effect' => 'commission', 'threshold' => 60, 'base_threshold' => 50, 'travel_uplift' => 10, 'travel_metric' => 'minutes', 'travel_value' => 106, 'reason' => 'met'))),
 	8 => array('sale' => 'allow', 'commission' => 'deny', 'inputs' => array('rate' => 40), 'checks' => array(array('origin_type' => 'default', 'origin' => 'RULE-EIGHT', 'context' => 'general', 'effect' => 'commission', 'threshold' => 60, 'reason' => 'below'))),
 );
 // Deliberately reverse the order: position-based matching would disclose the wrong rule.
@@ -71,11 +76,17 @@ foreach ($dialogs as $dialog) {
 	$id = strpos($dialog->getAttribute('id'), 'user7view') !== false ? 7 : 8;
 	check($xpath->query('.//table', $dialog)->length === 2, 'Two detail tables in each dialog');
 	check($xpath->query('.//a[@aria-haspopup="dialog"]', $dialog)->length === 0, 'No nested Consulter dialog');
+	check($xpath->query('.//a[contains(@href,"/user/card.php")]', $dialog)->length === 1, 'Beneficiary link retained inside dialog');
+	check($xpath->query('.//*[@title or contains(@class,"classfortooltip")]', $dialog)->length === 0, 'Dialog autofocus cannot trigger a user tooltip');
 	check(strpos($dialog->textContent, $id === 7 ? 'RULE-SEVEN' : 'RULE-EIGHT') !== false, 'Matching beneficiary policy');
 	check(strpos($dialog->textContent, $id === 7 ? 'RULE-EIGHT' : 'RULE-SEVEN') === false, 'No other beneficiary policy');
 	check(strpos($dialog->textContent, $id === 7 ? 'TERMS-SEVEN' : 'TERMS-EIGHT') !== false, 'Matching payment term');
 }
 check(strpos($html, '<unsafe>') === false && strpos($html, '<margin>') === false, 'Rule and payment text escaped');
+check(strpos($html, '50|10|106,00|LscTravelMinutes') !== false, 'Effective margin formats round trip with two decimals');
+$db->snapshots[7]['checks'][0]['travel_value'] = 1275.9533333333;
+check(strpos($render($estimates), '1 275,95|LscTravelMinutes') !== false, 'Fractional duration uses native French separators and two decimals');
+$db->snapshots[7]['checks'][0]['travel_value'] = 106;
 check($xpath->query('//tr[@class="liste_total"]/td[2]')->item(0)->textContent === '195', 'Total kept in amount column');
 $summaryRows = $xpath->query('//table[not(ancestor::table)]/tr[@class="oddeven"]');
 check($summaryRows->item(0)->childNodes->item(2)->textContent === 'LscState_commission_deny', 'Denied commission shown as null');

@@ -60,6 +60,7 @@ class LmdbSalesCommissionsCompatibility
 	{
 		return array(
 			'margin_policy_guards' => array('label' => 'LscPolicies', 'description' => 'LscCoverageDescription', 'min_dolibarr' => '20.0.0', 'min_php' => '8.0.0', 'compatibility_check' => 'nativeMarginGuardCoverage()', 'available' => self::nativeMarginGuardCoverage(), 'reason' => 'LscCoverageUnavailable'),
+			'travel_margin_uplift' => array('label' => 'LscTravelMargin', 'description' => 'LscTravelCompatibilityDescription', 'min_dolibarr' => '20.0.0', 'min_php' => '8.0.0', 'compatibility_check' => 'isModEnabled("lmdbzoning") && LmdbZoningCompatibility::isTravelAvailable("propal") && LmdbZoningTravelService::read()', 'available' => self::travelMarginAvailable(), 'reason' => 'LscTravelCompatibilityUnavailable'),
 			'module_skeleton' => array(
 				'label' => 'LmdbSalesCommissionsCompatibilitySkeleton',
 				'description' => 'LmdbSalesCommissionsCompatibilitySkeletonDesc',
@@ -105,6 +106,16 @@ class LmdbSalesCommissionsCompatibility
 				'reason' => 'LmdbSalesCommissionsProposalDispatchUnavailable',
 			),
 		);
+	}
+
+	/** Optional lmdbzoning 1.3 travel read contract. The route itself may still be pending. */
+	public static function travelMarginAvailable(): bool
+	{
+		if (!self::isDolibarrVersionAtLeast(self::MIN_DOLIBARR_VERSION) || !isModEnabled('lmdbzoning') || !function_exists('dol_include_once')) { return false; }
+		if (!class_exists('LmdbZoningCompatibility') && is_file(dol_buildpath('/lmdbzoning/class/lmdbzoningcompatibility.class.php', 0))) { dol_include_once('/lmdbzoning/class/lmdbzoningcompatibility.class.php'); }
+		if (!class_exists('LmdbZoningTravelService') && is_file(dol_buildpath('/lmdbzoning/class/lmdbzoningtravelservice.class.php', 0))) { dol_include_once('/lmdbzoning/class/lmdbzoningtravelservice.class.php'); }
+		return class_exists('LmdbZoningCompatibility') && class_exists('LmdbZoningTravelService')
+			&& method_exists('LmdbZoningTravelService', 'read') && LmdbZoningCompatibility::isTravelAvailable('propal');
 	}
 
 	/** Check the actual installed entrypoints, not only the declared major version.

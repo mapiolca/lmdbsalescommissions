@@ -3,8 +3,9 @@
 
 /** Pure margin policy evaluation; no persistence, permissions or technical recalculation.
  * @phpstan-type Band array{kwc_min:?float,kwc_max:?float,kwc_inclusive:int,kwh_min:?float,kwh_max:?float,kwh_inclusive:int,threshold:float}
- * @phpstan-type Policy array{rule_id:int,context:string,effect:string,rank:int,origin:string,origin_type?:string,assignment_id?:int,threshold:?float,bands:list<Band>}
- * @phpstan-type Check array{rule_id:int,context:string,effect:string,origin:string,origin_type?:string,assignment_id?:int,threshold:?float,state:string,reason:string,approval_id?:int,approval?:array{reason:string,approver:int,date:string}}
+ * @phpstan-type TravelBand array{metric:string,min_value:float,uplift:float}
+ * @phpstan-type Policy array{rule_id:int,context:string,effect:string,rank:int,origin:string,origin_type?:string,assignment_id?:int,threshold:?float,bands:list<Band>,travel_bands?:list<TravelBand>}
+ * @phpstan-type Check array{rule_id:int,context:string,effect:string,origin:string,origin_type?:string,assignment_id?:int,threshold:?float,base_threshold:?float,travel_uplift:float,travel_metric:string,travel_value:?float,state:string,reason:string,approval_id?:int,approval?:array{reason:string,approver:int,date:string}}
  */
 class LmdbSalesCommissionMarginEngine
 {
@@ -66,12 +67,35 @@ class LmdbSalesCommissionMarginEngine
 		return true;
 	}
 
+	/** One metric per policy. Higher breakpoints may only increase the required margin.
+	 * @param list<TravelBand> $bands Travel thresholds in round-trip minutes or kilometres
+	 * @return bool */
+	public static function validTravelBands(array $bands)
+	{
+		$metric = null;
+		$seen = array();
+		$previousUplift = -1.0;
+		usort($bands, static function ($a, $b) { return $a['min_value'] <=> $b['min_value']; });
+		foreach ($bands as $band) {
+			if (!in_array($band['metric'], array('minutes', 'kilometres'), true)
+				|| ($metric !== null && $metric !== $band['metric'])
+				|| !is_finite($band['min_value']) || $band['min_value'] < 0
+				|| !is_finite($band['uplift']) || $band['uplift'] < 0 || $band['uplift'] < $previousUplift
+				|| isset($seen[(string) $band['min_value']])) { return false; }
+			$metric = $band['metric'];
+			$seen[(string) $band['min_value']] = true;
+			$previousUplift = $band['uplift'];
+		}
+		return true;
+	}
+
 	/** @param list<Policy> $policies Candidates
 	 * @param float|null $rate Global markup on cost
 	 * @param float|null $kwc Peak power
 	 * @param float|null $kwh Useful storage
+	 * @param array{minutes:?float,kilometres:?float}|null $travel Round-trip road journey, null if unavailable
 	 * @return array{sale:string,commission:string,checks:list<Check>} */
-	public static function evaluate(array $policies, $rate, $kwc, $kwh)
+	public static function evaluate(array $policies, $rate, $kwc, $kwh, ?array $travel = null)
 	{
 		$result = array('sale' => 'allow', 'commission' => 'allow', 'checks' => array());
 		$context = $kwc === null || $kwh === null ? null : ($kwc > 0 ? ($kwh > 0 ? 'mixed' : 'pv') : ($kwh > 0 ? 'storage' : 'none'));
@@ -118,11 +142,32 @@ class LmdbSalesCommissionMarginEngine
 				if ($reason === '' && ($rate === null || !is_finite($rate) || $threshold === null || !is_finite($threshold))) {
 					$reason = 'cost_missing';
 				}
+				$baseThreshold = $threshold;
+				$travelUplift = 0.0;
+				$travelMetric = '';
+				$travelValue = null;
+				$travelBands = $policy['travel_bands'] ?? array();
+				if ($reason === '' && $travelBands) {
+					if (!self::validTravelBands($travelBands)) {
+						$reason = 'travel_invalid';
+					} else {
+						$travelMetric = $travelBands[0]['metric'];
+						$travelValue = $travel[$travelMetric] ?? null;
+						if ($travelValue === null || !is_finite($travelValue) || $travelValue < 0) {
+							$reason = 'travel_missing';
+						} else {
+							foreach ($travelBands as $band) {
+								if ($travelValue > $band['min_value']) { $travelUplift = max($travelUplift, $band['uplift']); }
+							}
+							$threshold += $travelUplift;
+						}
+					}
+				}
 				// Account only for machine precision of the subtraction/division/multiplication.
 				// No monetary rounding and no tolerance on technical band boundaries.
 				$met = $reason === '' && ($rate >= $threshold || abs($rate - $threshold) <= 4 * PHP_FLOAT_EPSILON * max(1.0, abs($rate), abs($threshold)));
 				$state = $reason !== '' ? 'unknown' : ($met ? 'allow' : 'deny');
-				$result['checks'][] = array('rule_id' => $policy['rule_id'], 'context' => $policy['context'], 'effect' => $policy['effect'], 'origin' => $policy['origin'], 'origin_type' => $policy['origin_type'] ?? '', 'assignment_id' => $policy['assignment_id'] ?? 0, 'threshold' => $threshold, 'state' => $state, 'reason' => $reason !== '' ? $reason : ($state === 'deny' ? 'below' : 'met'));
+				$result['checks'][] = array('rule_id' => $policy['rule_id'], 'context' => $policy['context'], 'effect' => $policy['effect'], 'origin' => $policy['origin'], 'origin_type' => $policy['origin_type'] ?? '', 'assignment_id' => $policy['assignment_id'] ?? 0, 'threshold' => $threshold, 'base_threshold' => $baseThreshold, 'travel_uplift' => $travelUplift, 'travel_metric' => $travelMetric, 'travel_value' => $travelValue, 'state' => $state, 'reason' => $reason !== '' ? $reason : ($state === 'deny' ? 'below' : 'met'));
 			}
 		}
 		return self::aggregate($result);

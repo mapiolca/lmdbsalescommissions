@@ -16,12 +16,17 @@ class GuardDb extends PolicyDb {
 			return new PolicyRows(array(array('rowid'=>1,'assignment_type'=>'default','assignment_id'=>1,'policy_context'=>'general','policy_effect'=>'both','rate'=>30,'ref'=>'MINIMUM')));
 		}
 		if (strpos($sql, '_margin_band') !== false) { return new PolicyRows(array()); }
+		if (strpos($sql, '_margin_travel_band') !== false) { return new PolicyRows(array()); }
 		return parent::query($sql);
 	}
 }
 class Propal extends PolicyProposal {
 	public function __construct($db) { parent::__construct(); }
 	public function fetch($id, $ref = '') { $this->id = $id ?: 10; return 1; }
+}
+class User extends PolicyUser {
+	public function __construct($db) {}
+	public function fetch($id) { $this->id = $id; return $id > 0 ? 1 : 0; }
 }
 class DolibarrApiAccess { public static $user; }
 class Proposals {

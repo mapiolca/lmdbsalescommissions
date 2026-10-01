@@ -13,6 +13,8 @@ require_once __DIR__.'/../class/lmdbsalescommissionscompatibility.class.php';
 $langs->loadLangs(array('admin', 'lmdbsalescommissions@lmdbsalescommissions'));
 if (!isModEnabled('lmdbsalescommissions') || !$user->admin || !empty($user->socid) || !$user->hasRight('lmdbsalescommissions', 'admin', 'configure')) { accessforbidden(); }
 $action = GETPOST('action', 'aZ09');
+$travelAvailable = LmdbSalesCommissionsCompatibility::isFeatureAvailable('travel_margin_uplift');
+if (in_array($action, array('addtravelband', 'deletetravelband'), true) && !$travelAvailable) { accessforbidden(); }
 $id = GETPOSTINT('id');
 $mode = GETPOST('mode', 'aZ09');
 if ($mode === '' && $id > 0 && $action === '') { $mode = 'edit'; }
@@ -24,6 +26,7 @@ $contexts = array('general' => $langs->trans('LscGeneral'), 'pv' => $langs->tran
 $effects = array('sale' => $langs->trans('LscSale'), 'commission' => $langs->trans('LscCommission'), 'both' => $langs->trans('LscBoth'));
 $form = new Form($db);
 $bands = array();
+$travelBands = array();
 if ($id) {
 	$q = $db->query('SELECT * FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_margin_band WHERE entity = '.((int) $conf->entity).' AND fk_rule = '.$id.' ORDER BY rowid');
 	if (!$q) { dol_print_error($db); exit; }
@@ -36,6 +39,10 @@ if ($id) {
 		}
 		$bands[] = $band;
 	}
+	$db->free($q);
+	$q = $db->query('SELECT rowid, metric, min_value, uplift FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_margin_travel_band WHERE entity = '.((int) $conf->entity).' AND fk_rule = '.$id.' ORDER BY min_value');
+	if (!$q) { dol_print_error($db); exit; }
+	while (is_object($row = $db->fetch_object($q))) { $travelBands[] = array('rowid' => (int) $row->rowid, 'metric' => (string) $row->metric, 'min_value' => (float) $row->min_value, 'uplift' => (float) $row->uplift); }
 	$db->free($q);
 }
 if ($action !== '') {
@@ -63,6 +70,11 @@ if ($action !== '') {
 				}
 				$bands[] = $band;
 			}
+			$db->free($q);
+			$q = $db->query('SELECT rowid, metric, min_value, uplift FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_margin_travel_band WHERE entity = '.((int) $conf->entity).' AND fk_rule = '.$id.' ORDER BY min_value');
+			if (!$q) { throw new RuntimeException('LscPolicyUnavailable'); }
+			$travelBands = array();
+			while (is_object($row = $db->fetch_object($q))) { $travelBands[] = array('rowid' => (int) $row->rowid, 'metric' => (string) $row->metric, 'min_value' => (float) $row->min_value, 'uplift' => (float) $row->uplift); }
 			$db->free($q);
 		}
 		if ($action === 'activate') {
@@ -93,10 +105,24 @@ if ($action !== '') {
 			if ($rule->delete($user) <= 0) { throw new RuntimeException($rule->error); }
 			$id = 0;
 		} elseif ($action === 'togglepolicy' && $id) {
+			if (!$rule->active && $travelBands && !$travelAvailable) { throw new RuntimeException('LscTravelCompatibilityUnavailable'); }
 			$rule->active = (int) $rule->active ? 0 : 1;
 			if ($rule->update($user) <= 0) { throw new RuntimeException('LscInvalidPolicy'); }
 		} elseif ($action === 'deleteband' && $id) {
 			if (!$db->query('DELETE FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_margin_band WHERE entity = '.((int) $conf->entity).' AND fk_rule = '.$id.' AND rowid = '.GETPOSTINT('band'))) { throw new RuntimeException('LscInvalidBand'); }
+			if ($rule->update($user) <= 0) { throw new RuntimeException('LscInvalidPolicy'); }
+		} elseif ($action === 'addtravelband' && $id) {
+			$metric = GETPOST('metric', 'aZ09');
+			$minimum = str_replace(',', '.', trim(GETPOST('min_value', 'alphanohtml')));
+			$uplift = str_replace(',', '.', trim(GETPOST('uplift', 'alphanohtml')));
+			if (!in_array($metric, array('minutes', 'kilometres'), true) || !is_numeric($minimum) || !is_numeric($uplift)) { throw new RuntimeException('LscInvalidTravelBand'); }
+			$travelBand = array('metric' => $metric, 'min_value' => (float) $minimum, 'uplift' => (float) $uplift);
+			if (!LmdbSalesCommissionMarginEngine::validTravelBands(array_merge($travelBands, array($travelBand)))) { throw new RuntimeException('LscInvalidTravelBand'); }
+			$sql = 'INSERT INTO '.MAIN_DB_PREFIX.'lmdbsalescommissions_margin_travel_band (entity,fk_rule,metric,min_value,uplift) VALUES ('.((int) $conf->entity).','.$id.",'".$db->escape($metric)."',".$travelBand['min_value'].','.$travelBand['uplift'].')';
+			if (!$db->query($sql)) { throw new RuntimeException('LscInvalidTravelBand'); }
+			if ($rule->update($user) <= 0) { throw new RuntimeException('LscInvalidPolicy'); }
+		} elseif ($action === 'deletetravelband' && $id) {
+			if (!$db->query('DELETE FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_margin_travel_band WHERE entity = '.((int) $conf->entity).' AND fk_rule = '.$id.' AND rowid = '.GETPOSTINT('band'))) { throw new RuntimeException('LscInvalidTravelBand'); }
 			if ($rule->update($user) <= 0) { throw new RuntimeException('LscInvalidPolicy'); }
 		} elseif ($action !== 'addband' || !$id || $rule->policy_context === 'general') { throw new RuntimeException('LscInvalidPolicy'); }
 		// Save a pending band with the policy, including its first creation, in the same transaction.
@@ -122,7 +148,7 @@ if ($action !== '') {
 		}
 		if (!$db->commit()) { throw new RuntimeException('LscPolicyUnavailable'); }
 		setEventMessages($langs->trans('RecordSaved'), null, 'mesgs');
-		$keepEditor = $id && (in_array($action, array('togglepolicy', 'addband', 'deleteband'), true) || ($action === 'savepolicy' && GETPOSTINT('add_band_continue') === 1 && $rule->policy_context !== 'general'));
+		$keepEditor = $id && (in_array($action, array('togglepolicy', 'addband', 'deleteband', 'addtravelband', 'deletetravelband'), true) || ($action === 'savepolicy' && GETPOSTINT('add_band_continue') === 1 && $rule->policy_context !== 'general'));
 		header('Location: '.$pageUrl.($keepEditor ? '?mode=edit&id='.$id : '')); exit;
 	} catch (Exception $e) {
 		if ($transactionStarted) { $db->rollback(); }
@@ -139,6 +165,11 @@ $bandValues = array();
 foreach (array('kwc_min', 'kwc_max', 'kwc_inclusive', 'kwh_min', 'kwh_max', 'kwh_inclusive', 'threshold') as $key) {
 	$bandValues[$key] = in_array($action, array('savepolicy', 'addband'), true) ? GETPOST($key, 'alphanohtml') : '';
 }
+$travelValues = array(
+	'metric' => $action === 'addtravelband' ? GETPOST('metric', 'aZ09') : ($travelBands ? $travelBands[0]['metric'] : 'minutes'),
+	'min_value' => $action === 'addtravelband' ? GETPOST('min_value', 'alphanohtml') : '',
+	'uplift' => $action === 'addtravelband' ? GETPOST('uplift', 'alphanohtml') : '',
+);
 $policies = array();
 $q = $db->query("SELECT rowid, ref, label, policy_context, policy_effect, active FROM ".MAIN_DB_PREFIX."lmdbsalescommissions_rule WHERE rule_type = 'margin_policy' AND entity = ".((int) $conf->entity).' ORDER BY ref');
 if (!$q) { dol_print_error($db); exit; }

@@ -85,15 +85,56 @@ class LmdbSalesCommissionMarginService
 				}
 				$bands[] = $typed;
 			}
+			$travelBands = array();
+			foreach ($this->rows('SELECT metric, min_value, uplift FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_margin_travel_band WHERE entity = '.((int) $entity).' AND fk_rule = '.((int) $row['rowid']).' ORDER BY min_value') as $band) {
+				$travelBands[] = array('metric' => (string) $band['metric'], 'min_value' => (float) $band['min_value'], 'uplift' => (float) $band['uplift']);
+			}
 			$effects = $row['policy_effect'] === 'both' ? array('sale', 'commission') : array($row['policy_effect']);
 			foreach ($effects as $effect) {
 				if (!in_array($effect, array('sale', 'commission'), true) || !in_array($row['policy_context'], array('general', 'pv', 'storage', 'mixed'), true) || ($row['policy_context'] !== 'general' && $effect !== 'commission')) {
 					throw new RuntimeException('LscPolicyUnavailable');
 				}
-				$policies[] = array('rule_id' => (int) $row['rowid'], 'context' => $row['policy_context'], 'effect' => $effect, 'rank' => array('user' => 1, 'group' => 2, 'default' => 3)[$row['assignment_type']], 'origin' => $row['ref'], 'origin_type' => $row['assignment_type'], 'assignment_id' => (int) $row['assignment_id'], 'threshold' => $row['rate'] === null ? null : (float) $row['rate'], 'bands' => $bands);
+				$policies[] = array('rule_id' => (int) $row['rowid'], 'context' => $row['policy_context'], 'effect' => $effect, 'rank' => array('user' => 1, 'group' => 2, 'default' => 3)[$row['assignment_type']], 'origin' => $row['ref'], 'origin_type' => $row['assignment_type'], 'assignment_id' => (int) $row['assignment_id'], 'threshold' => $row['rate'] === null ? null : (float) $row['rate'], 'bands' => $bands, 'travel_bands' => $travelBands);
 			}
 		}
 		return $policies;
+	}
+
+	/** Read only the stored, fresh lmdbzoning journey displayed on the proposal.
+	 * No route calculation or external request belongs in a proposal validation transaction.
+	 * @param Propal $proposal Loaded proposal
+	 * @param User|null $actor User whose zoning and third-party read rights are checked
+	 * @return array{state:string,minutes:?float,kilometres:?float,profile_ref:string,date_calculation:?string,provider:string,optimization:string}
+	 */
+	protected function travelData($proposal, $actor)
+	{
+		$data = array('state' => 'unavailable', 'minutes' => null, 'kilometres' => null, 'profile_ref' => '', 'date_calculation' => null, 'provider' => '', 'optimization' => '');
+		if (!LmdbSalesCommissionsCompatibility::isFeatureAvailable('travel_margin_uplift') || !is_object($actor) || (int) ($proposal->id ?? 0) <= 0) { return $data; }
+		// Let zoning resolve the owner's standalone reference point, or its default profile.
+		// Proposal routes have their own jobs and may target linked sites instead of the client address.
+		$profileRef = '';
+		try {
+			$source = (new LmdbZoningTravelService($this->db))->read('propal', (int) $proposal->id, $profileRef, $actor);
+		} catch (RuntimeException $error) {
+			if ($error->getMessage() === 'TravelDatabaseError') { throw new RuntimeException('LscPolicyUnavailable', 0, $error); }
+			return $data;
+		}
+		$data['state'] = is_string($source['state'] ?? null) ? $source['state'] : 'invalid';
+		$data['profile_ref'] = is_string($source['profile_ref'] ?? null) ? $source['profile_ref'] : $profileRef;
+		$data['date_calculation'] = is_string($source['date_calculation'] ?? null) ? $source['date_calculation'] : null;
+		$data['provider'] = is_string($source['provider'] ?? null) ? $source['provider'] : '';
+		$data['optimization'] = is_string($source['optimization'] ?? null) ? $source['optimization'] : '';
+		$roundTrip = $source['total']['round_trip'] ?? null;
+		if ($data['state'] !== 'ready' || !is_array($roundTrip)) { return $data; }
+		$seconds = $roundTrip['duration_s'] ?? null;
+		$metres = $roundTrip['distance_m'] ?? null;
+		if (!is_numeric($seconds) || !is_numeric($metres) || !is_finite((float) $seconds) || !is_finite((float) $metres) || (float) $seconds < 0 || (float) $metres < 0) {
+			$data['state'] = 'invalid';
+			return $data;
+		}
+		$data['minutes'] = (float) $seconds / 60;
+		$data['kilometres'] = (float) $metres / 1000;
+		return $data;
 	}
 
 	/** Fetch current input once for all beneficiaries. Native margin works on cloned lines:
@@ -137,9 +178,14 @@ class LmdbSalesCommissionMarginService
 		return array('cost' => $cost, 'sale' => $sale, 'rate' => $rate, 'kwc' => $tech['kwc'], 'kwh' => $tech['kwh'], 'lines' => $lineData, 'resolved_costs' => $resolvedCosts, 'cost_settings' => $costSettings, 'total_ht' => $copy->total_ht, 'discount' => $copy->remise_percent ?? null, 'currency' => $copy->multicurrency_code ?? null, 'currency_rate' => $copy->multicurrency_tx ?? null);
 	}
 
-	/** @return array<int,array<string,mixed>> Beneficiary => evaluated/frozen decision */
-	public function assess($proposal, $frozen = true)
+	/** @param Propal $proposal Loaded proposal
+	 * @param bool $frozen Return existing signed snapshot when available
+	 * @param User|null $actor Authenticated actor, or the current Dolibarr user
+	 * @return array<int,array<string,mixed>> Beneficiary => evaluated/frozen decision */
+	public function assess($proposal, $frozen = true, $actor = null)
 	{
+		global $user;
+		if ($actor === null) { $actor = $user ?? null; }
 		$entity = (int) $proposal->entity;
 		$activation = $this->activation($entity);
 		$signature = LmdbSalesCommissionProposalService::getSignatureDate($proposal);
@@ -168,11 +214,13 @@ class LmdbSalesCommissionMarginService
 		if (!$beneficiaries) { $beneficiaries[] = LmdbSalesCommissionProposalService::resolveProposalAuthorId($this->db, $proposal); }
 		$policies = array();
 		foreach ($beneficiaries as $id) { $policies[$id] = $this->policies($id, $entity); }
-		$technicalNeeded = false; $hasRules = false;
+		$technicalNeeded = false; $travelNeeded = false; $hasRules = false;
 		foreach ($policies as $rules) {
-			foreach ($rules as $rule) { $hasRules = true; $technicalNeeded = $technicalNeeded || $rule['context'] !== 'general'; }
+			foreach ($rules as $rule) { $hasRules = true; $technicalNeeded = $technicalNeeded || $rule['context'] !== 'general'; $travelNeeded = $travelNeeded || !empty($rule['travel_bands']); }
 		}
 		$inputs = $hasRules ? $this->inputs($proposal, $technicalNeeded) : array('cost' => null, 'sale' => null, 'rate' => null, 'kwc' => null, 'kwh' => null);
+		$travel = $travelNeeded ? $this->travelData($proposal, $actor) : null;
+		if ($travelNeeded) { $inputs['travel'] = $travel; }
 
 		// All selected profiles and all commercial data participate: a distribution change also expires approvals.
 		$revisions = $this->rows('SELECT object_id, revision FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_margin_revision WHERE entity = '.$entity.' AND object_id IN (0,'.((int) $proposal->id).') ORDER BY object_id');
@@ -181,7 +229,7 @@ class LmdbSalesCommissionMarginService
 		$approvals = $this->rows('SELECT rowid, fk_user, fk_rule, effect, reason, fk_user_creat, date_creation FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_margin_approval WHERE '.$where." AND fingerprint = '".$this->db->escape($fingerprint)."'");
 		$result = array();
 		foreach ($policies as $id => $rules) {
-			$decision = LmdbSalesCommissionMarginEngine::evaluate($rules, $inputs['rate'], $inputs['kwc'], $inputs['kwh']);
+			$decision = LmdbSalesCommissionMarginEngine::evaluate($rules, $inputs['rate'], $inputs['kwc'], $inputs['kwh'], $travel);
 			foreach ($decision['checks'] as &$check) {
 				if ($id <= 0) { $check['state'] = 'unknown'; $check['reason'] = 'beneficiary_missing'; }
 				foreach ($approvals as $approval) {
@@ -203,10 +251,12 @@ class LmdbSalesCommissionMarginService
 	}
 
 	/** Mandatory invariant, independent of commission read permission.
+	 * @param Propal $proposal Loaded proposal
+	 * @param User|null $actor Authenticated actor
 	 * @return bool */
-	public function saleAllowed($proposal)
+	public function saleAllowed($proposal, $actor = null)
 	{
-		foreach ($this->assess($proposal) as $decision) {
+		foreach ($this->assess($proposal, true, $actor) as $decision) {
 			if ($decision['sale'] !== 'allow') { return false; }
 		}
 		return true;
@@ -216,7 +266,7 @@ class LmdbSalesCommissionMarginService
 	 * @return void */
 	public function freeze($proposal, $user)
 	{
-		foreach ($this->assess($proposal) as $beneficiary => $decision) {
+		foreach ($this->assess($proposal, true, $user) as $beneficiary => $decision) {
 			if ($decision['frozen']) { continue; }
 			$sql = 'INSERT INTO '.MAIN_DB_PREFIX.'lmdbsalescommissions_margin_snapshot (entity,fk_propal,fk_user,fingerprint,sale_state,commission_state,snapshot_payload,fk_user_creat,date_creation) VALUES (';
 			$sql .= ((int) $proposal->entity).','.((int) $proposal->id).','.$beneficiary.",'".$this->db->escape($decision['fingerprint'])."','".$decision['sale']."','".$decision['commission']."','".$this->db->escape(json_encode($decision, JSON_THROW_ON_ERROR | JSON_PRESERVE_ZERO_FRACTION))."',".((int) $user->id).",'".$this->db->idate(dol_now())."')";
@@ -254,7 +304,7 @@ class LmdbSalesCommissionMarginService
 		}
 		if (trim($reason) === '') { throw new RuntimeException('LscRequestReasonRequired'); }
 		$values = array();
-		foreach ($this->assess($proposal, false) as $beneficiary => $decision) {
+		foreach ($this->assess($proposal, false, $user) as $beneficiary => $decision) {
 			if (!hash_equals($decision['fingerprint'], $fingerprint)) { throw new RuntimeException('LscApprovalStale'); }
 			foreach ($decision['checks'] as $check) {
 				if ($check['effect'] !== 'sale' || $check['state'] !== 'deny') { continue; }
@@ -275,7 +325,7 @@ class LmdbSalesCommissionMarginService
 		if (!empty($user->socid) || ($effect === 'sale' && !$user->hasRight('lmdbsalescommissions', 'marginpolicy', 'approvesale')) || ($effect === 'commission' && !$user->hasRight('lmdbsalescommissions', 'marginpolicy', 'approvecommission')) || !in_array($effect, array('sale', 'commission'), true) || trim($reason) === '' || (int) ($proposal->status ?? $proposal->statut) >= 2 || LmdbSalesCommissionProposalService::getSignatureDate($proposal) > 0) {
 			throw new RuntimeException('LscApprovalDenied');
 		}
-		$decisions = $this->assess($proposal, false);
+		$decisions = $this->assess($proposal, false, $user);
 		$decision = $decisions[$beneficiary] ?? null;
 		if (!$decision || !hash_equals($decision['fingerprint'], $fingerprint)) { throw new RuntimeException('LscApprovalStale'); }
 		$found = false;

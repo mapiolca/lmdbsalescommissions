@@ -41,7 +41,7 @@ class LmdbSalesCommissionMarginView
 			$db->free($q);
 		}
 		$policyError = '';
-		try { $decisions = (new LmdbSalesCommissionMarginService($db))->assess($proposal); }
+		try { $decisions = (new LmdbSalesCommissionMarginService($db))->assess($proposal, true, $user); }
 		catch (Exception $e) {
 			$policyError = '<span class="warning">'.$langs->trans($e->getMessage() === 'LscOwnerContext' ? 'LscOwnerContext' : 'LscPolicyUnavailable').'</span>';
 			if (!$summary) { return $policyError; }
@@ -65,7 +65,8 @@ class LmdbSalesCommissionMarginView
 			$decision = $decisions[$beneficiary] ?? null;
 			$estimate = $estimateRows[$beneficiary] ?? array();
 			$person = new User($db);
-			$label = $person->fetch($beneficiary) > 0 ? $person->getFullName($langs) : $langs->trans('Unknown');
+			$personLoaded = $person->fetch($beneficiary) > 0;
+			$label = $personLoaded ? $person->getFullName($langs) : $langs->trans('Unknown');
 			$beneficiaryHtml = $estimate['beneficiary'] ?? dol_escape_htmltag($label);
 			$status = $estimate['status'] ?? $langs->trans('Unknown');
 			if ($policyError !== '' || (isset($decision['commission']) && $decision['commission'] !== 'allow')) {
@@ -85,7 +86,12 @@ class LmdbSalesCommissionMarginView
 			}
 			foreach ($decision['checks'] ?? array() as $check) {
 				$originLabel = array('user' => 'User', 'group' => 'Group', 'default' => 'Default')[$check['origin_type'] ?? ''] ?? '';
-				$cells = array($originLabel !== '' ? $langs->trans($originLabel) : '—', dol_escape_htmltag($check['origin']), $langs->trans('LscContext_'.$check['context']), $langs->trans('LscEffect_'.$check['effect']), $check['threshold'] === null ? '—' : dol_escape_htmltag((string) $check['threshold']).' %', $langs->trans('LscReason_'.$check['reason']));
+				$thresholdLabel = $check['threshold'] === null ? '—' : dol_escape_htmltag((string) $check['threshold']).' %';
+				if (($check['travel_metric'] ?? '') !== '' && ($check['travel_value'] ?? null) !== null) {
+					$unit = $langs->trans($check['travel_metric'] === 'minutes' ? 'LscTravelMinutes' : 'LscTravelKilometres');
+					$thresholdLabel .= '<br><span class="opacitymedium">'.dol_escape_htmltag($langs->trans('LscTravelApplied', (string) $check['base_threshold'], (string) $check['travel_uplift'], price($check['travel_value'], 0, $langs, 0, 2, 2), $unit)).'</span>';
+				}
+				$cells = array($originLabel !== '' ? $langs->trans($originLabel) : '—', dol_escape_htmltag($check['origin']), $langs->trans('LscContext_'.$check['context']), $langs->trans('LscEffect_'.$check['effect']), $thresholdLabel, $langs->trans('LscReason_'.$check['reason']));
 				$rulesHtml .= $summary ? '<p>'.implode(' · ', $cells) : '<tr class="oddeven"><td>'.implode('</td><td>', $cells);
 				if (isset($check['approval_id'])) { $rulesHtml .= '<br>'.$langs->trans('LscApproval').' #'.((int) $check['approval_id']); }
 				if ($forms && !$summary && !$decision['frozen'] && $check['state'] === 'deny' && (($check['effect'] === 'sale' && $saleApproval) || ($check['effect'] === 'commission' && $commissionApproval))) {
@@ -100,7 +106,9 @@ class LmdbSalesCommissionMarginView
 				$rulesHtml .= $summary ? $notice : '<tr class="oddeven"><td colspan="6">'.$notice.'</td></tr>';
 			}
 			if ($summary) {
-				$details = self::renderEstimateDetails($estimate, $beneficiaryHtml, $status);
+				// Native dialogs focus the first link; do not open a nested user tooltip on focus.
+				$dialogBeneficiaryHtml = $personLoaded ? $person->getNomUrl(1, '', 0, 1) : dol_escape_htmltag($label);
+				$details = self::renderEstimateDetails($estimate, $dialogBeneficiaryHtml, $status);
 				$details .= '<h3>'.$langs->trans('LscMarginDetails').'</h3><div class="div-table-responsive-no-min"><table class="noborder centpercent"><tr class="liste_titre">';
 				foreach ($policyHeaders as $key) { $details .= '<th scope="col">'.$langs->trans($key).'</th>'; }
 				$details .= '</tr><tr class="oddeven"><td>'.implode('</td><td>', $policyValues).'</td><td>'.$rulesHtml.'</td></tr></table></div>';

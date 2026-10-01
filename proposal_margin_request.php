@@ -32,7 +32,7 @@ if ($action === 'requestsaleapproval') {
 }
 $fingerprint = '';
 try {
-	foreach ($service->assess($object, false) as $decision) {
+	foreach ($service->assess($object, false, $user) as $decision) {
 		foreach ($decision['checks'] as $check) {
 			if ($check['effect'] === 'sale' && $check['state'] === 'deny') { $fingerprint = $decision['fingerprint']; }
 		}

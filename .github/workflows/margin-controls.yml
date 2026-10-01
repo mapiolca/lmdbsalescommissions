@@ -30,7 +30,9 @@ jobs:
       - run: php test/margin_guard_test.php 'test/.core-cache/${{ matrix.dolibarr }}/htdocs' '${{ matrix.dolibarr }}'
       - run: php test/margin_validation_test.php 'test/.core-cache/${{ matrix.dolibarr }}/htdocs' '${{ matrix.dolibarr }}'
       - run: php test/margin_summary_test.php 'test/.core-cache/${{ matrix.dolibarr }}/htdocs'
+      - run: php test/margin_service_test.php 'test/.core-cache/${{ matrix.dolibarr }}/htdocs' '${{ matrix.dolibarr }}'
       - run: php test/margin_admin_test.php 'test/.core-cache/${{ matrix.dolibarr }}/htdocs'
+      - run: php test/margin_line_trigger_test.php 'test/.core-cache/${{ matrix.dolibarr }}/htdocs'
       - run: php test/tier_calculator_test.php
   schema:
     runs-on: ubuntu-latest
