@@ -266,8 +266,19 @@ class LmdbSalesCommissionMarginService
 	 * @return void */
 	public function freeze($proposal, $user)
 	{
-		foreach ($this->assess($proposal, true, $user) as $beneficiary => $decision) {
+		$decisions = $this->assess($proposal, true, $user);
+		$rewards = array();
+		foreach ($decisions as $decision) {
+			if (!$decision['frozen']) {
+				require_once __DIR__.'/lmdbsalescommissionrewardservice.class.php';
+				$rewards = (new LmdbSalesCommissionRewardService($this->db))->forProposal($proposal, LmdbSalesCommissionProposalService::getSignatureDate($proposal) ?: dol_now(), $decisions);
+				break;
+			}
+		}
+		foreach ($decisions as $beneficiary => $decision) {
 			if ($decision['frozen']) { continue; }
+			// Null is an explicit historical absence; adding a rule later must not create a bonus.
+			$decision['reward'] = $rewards[$beneficiary] ?? null;
 			$sql = 'INSERT INTO '.MAIN_DB_PREFIX.'lmdbsalescommissions_margin_snapshot (entity,fk_propal,fk_user,fingerprint,sale_state,commission_state,snapshot_payload,fk_user_creat,date_creation) VALUES (';
 			$sql .= ((int) $proposal->entity).','.((int) $proposal->id).','.$beneficiary.",'".$this->db->escape($decision['fingerprint'])."','".$decision['sale']."','".$decision['commission']."','".$this->db->escape(json_encode($decision, JSON_THROW_ON_ERROR | JSON_PRESERVE_ZERO_FRACTION))."',".((int) $user->id).",'".$this->db->idate(dol_now())."')";
 			if (!$this->db->query($sql)) { throw new RuntimeException('LscPolicyUnavailable'); }

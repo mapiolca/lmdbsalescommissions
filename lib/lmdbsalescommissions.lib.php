@@ -477,6 +477,7 @@ function lmdbsalescommissionsGetLineStatusLabel($langs, $status)
 function lmdbsalescommissionsGetModeLabel($langs, $mode)
 {
 	$labels = array(
+		'margin_excess' => 'LscReward',
 		'margin' => 'LmdbSalesCommissionsRuleTypeMargin',
 		'tier' => 'LmdbSalesCommissionsRuleTypeTier',
 		'tracking' => 'LmdbSalesCommissionsModeTracking',
@@ -521,6 +522,7 @@ function lmdbsalescommissionsGetRuleSourceLabel($langs, $ruleSource)
 		'group' => 'Group',
 		'default' => 'Default',
 		'none' => 'None',
+		'margin_excess' => 'LscReward',
 		'dispatch' => 'LmdbSalesCommissionsManualDispatch',
 		'turnover' => 'LmdbSalesCommissionsTurnoverDispatch',
 		'automatic' => 'LmdbSalesCommissionsTurnoverDispatchAutomaticSource',

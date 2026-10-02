@@ -4,7 +4,7 @@
  */
 $pdo = new PDO(getenv('LSC_TEST_DSN'), getenv('LSC_TEST_USER'), getenv('LSC_TEST_PASSWORD'), array(PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION));
 $prefix = 'long_test_prefix_';
-$tables = array('rule', 'rule_assignment', 'margin_band', 'margin_travel_band', 'margin_approval', 'margin_request', 'margin_revision', 'margin_snapshot');
+$tables = array('rule', 'rule_assignment', 'margin_band', 'margin_travel_band', 'margin_approval', 'margin_request', 'margin_revision', 'margin_snapshot', 'line', 'due');
 foreach ($tables as $table) {
 	$sql = file_get_contents(__DIR__.'/../sql/llx_lmdbsalescommissions_'.$table.'.sql');
 	$pdo->exec(str_replace('llx_', $prefix, $sql));
@@ -38,6 +38,7 @@ class MarginPolicyPdo
 	public function __construct(PDO $pdo) { $this->pdo = $pdo; }
 	public function query($sql) { return $this->pdo->query($sql); }
 	public function fetch_object($result) { return $result->fetchObject(); }
+	public function num_rows($result) { return $result->rowCount(); }
 	public function free($result) { $result->closeCursor(); }
 	public function idate($date) { return gmdate('Y-m-d H:i:s', $date); }
 	public function escape($value) { return substr($this->pdo->quote($value), 1, -1); }
@@ -106,3 +107,38 @@ $conf->entity = $proposal->entity = 2;
 $requestService->requestSaleApproval($proposal,$actor,'Other entity',str_repeat('a',64));
 if ((int) $pdo->query("SELECT COUNT(*) FROM $requests WHERE entity = 2")->fetchColumn() !== 2) { throw new RuntimeException('Request entity isolation'); }
 echo "MariaDB sale requests, atomic persistence, rollback and duplicate protection passed.\n";
+
+// Actual additive migration methods, with a real MariaDB connection and descriptor base double.
+// Reconstruct the old column shape in this disposable database, preserve an existing line.
+define('DOL_DOCUMENT_ROOT', __DIR__.'/fixtures/reward');
+require_once __DIR__.'/../core/modules/modLmdbSalesCommissions.class.php';
+$lines = $prefix.'lmdbsalescommissions_line';
+$dues = $prefix.'lmdbsalescommissions_due';
+$pdo->exec("INSERT INTO $lines (entity,fk_user,fk_source,mode,fk_rule,commission_total,date_creation) VALUES (1,7,10,'margin',1,123.45,NOW())");
+$pdo->exec("ALTER TABLE $lines DROP INDEX idx_lsc_reward_rule, DROP COLUMN fk_reward_rule, DROP COLUMN snapshot_reward");
+$pdo->exec("ALTER TABLE $rules DROP COLUMN reward_mode, DROP COLUMN reward_value");
+$descriptor = (new ReflectionClass(modLmdbSalesCommissions::class))->newInstanceWithoutConstructor();
+$descriptor->db = new MarginPolicyPdo($pdo);
+foreach (array('upgradeRuleSchema', 'upgradeCommissionLineDispatchSchema') as $name) {
+	$method = new ReflectionMethod($descriptor, $name); $method->setAccessible(true);
+	for ($pass=0; $pass<2; $pass++) { if ($method->invoke($descriptor,true)!==1) { throw new RuntimeException('Migration failed: '.$name); } }
+}
+if ((float) $pdo->query("SELECT commission_total FROM $lines WHERE rowid=1")->fetchColumn() !== 123.45) { throw new RuntimeException('Migration changed history'); }
+$rewardInsert="INSERT INTO $lines (entity,fk_user,fk_source,mode,fk_rule,fk_reward_rule,commission_total,snapshot_reward,date_creation) VALUES (1,7,10,'margin_excess',0,42,50,'{\"acquired\":true}',NOW())";
+$pdo->beginTransaction(); $pdo->exec($rewardInsert);
+$lineId=(int) $pdo->lastInsertId();
+$pdo->exec("INSERT INTO $dues (entity,fk_commission_line,event_type,amount,date_creation) VALUES (1,$lineId,'proposal_signed',50,NOW())");
+$pdo->rollBack();
+if ((int) $pdo->query("SELECT COUNT(*) FROM $lines WHERE mode='margin_excess'")->fetchColumn() !== 0 || (int) $pdo->query("SELECT COUNT(*) FROM $dues")->fetchColumn() !== 0) { throw new RuntimeException('Reward/dues rollback'); }
+$pdo->exec($rewardInsert);
+try { $pdo->exec(str_replace(',42,50,', ',99,50,', $rewardInsert)); throw new RuntimeException('Changed rule duplicated reward'); }
+catch (PDOException $error) { if ($error->errorInfo[1] !== 1062) { throw $error; } }
+$pdo->exec(str_replace('(1,7,10,', '(2,7,10,', $rewardInsert));
+if ((int) $pdo->query("SELECT COUNT(*) FROM $lines WHERE mode='margin_excess'")->fetchColumn() !== 2) { throw new RuntimeException('Reward entity isolation'); }
+// Real resolver query: end DATE includes the entire business day, separate bonus resolution.
+require_once __DIR__.'/../class/lmdbsalescommissionruleresolver.class.php';
+$pdo->exec("INSERT INTO $rules (rowid,entity,ref,label,rule_type,reward_mode,reward_value,date_end,date_creation) VALUES (42,1,'BONUS','Reward','margin_excess','fixed',50,'1970-01-01',NOW())");
+$pdo->exec("INSERT INTO $assignments (entity,assignment_type,fk_rule,date_creation) VALUES (1,'default',42,NOW())");
+$result=(new LmdbSalesCommissionRuleResolver(new MarginPolicyPdo($pdo)))->resolveForUser(7,2000,1,'proposal','margin_excess');
+if (($result['selected']['margin_excess']['rule_id'] ?? 0)!==42) { throw new RuntimeException('Reward validity end date'); }
+echo "MariaDB reward migrations replayed, history preserved, atomic rollback, stable uniqueness and resolution passed.\n";

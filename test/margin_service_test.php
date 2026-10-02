@@ -33,6 +33,7 @@ class PolicyDb {
 			} else { throw new RuntimeException('Unexpected insert'); }
 			return true;
 		}
+		if (strpos($sql, '_rule_assignment AS a') !== false || strpos($sql, 'usergroup_user') !== false) { return new PolicyRows(array()); }
 		if (strpos($sql, '_proposal_dispatch') !== false) { return new PolicyRows($this->dispatch); }
 		if (strpos($sql, '_margin_revision') !== false) { return new PolicyRows(array(array('object_id' => '10', 'revision' => (string) $this->revision))); }
 		if (strpos($sql, '_margin_approval') !== false) {
@@ -184,4 +185,24 @@ LmdbZoningTravelService::$response['state'] = 'stale';
 expect($service->assess($proposal)[7]['sale'], 'unknown', 'stale route cannot grant sale');
 $actor->rightsList = array();
 expect($service->assess($proposal)[7]['sale'], 'unknown', 'unreadable route cannot grant sale');
+// Signature uses its explicit actor for route access, independently of the global user.
+$db = new PolicyDb(); $service = new PolicyService($db); $proposal = new PolicyProposal();
+$proposal->lines[0]->total_ht = $proposal->lines[0]->subprice = $proposal->total_ht = 150.0;
+$travelPolicy['effect'] = 'commission';
+$service->rules = array(7 => array($travelPolicy));
+LmdbZoningTravelService::$response['state'] = 'ready';
+LmdbZoningTravelService::$response['total']['round_trip']['duration_s'] = 6360.0;
+$signer = new PolicyUser(); $signer->rightsList = array('read');
+expect($service->assess($proposal)[7]['commission'], 'unknown', 'global actor cannot read the required route');
+$proposal->date_signature = 2000; $proposal->status = 2; $proposal->context['lmdb_margin_signing'] = true;
+$service->freeze($proposal, $signer);
+$snapshot = $service->assess($proposal)[7];
+expect($snapshot['commission'], 'allow', 'freeze preserves signing actor route access');
+expect($snapshot['checks'][0]['threshold'], 30.0, 'freeze keeps the effective travel target');
+expect($snapshot['inputs']['travel']['minutes'], 106.0, 'freeze keeps the actual journey used for its decision');
+expect(array_key_exists('reward', $snapshot) && $snapshot['reward'] === null, true, 'freeze records explicit reward absence alongside travel');
+LmdbZoningTravelService::$response['total']['round_trip']['duration_s'] = 600.0;
+$service->freeze($proposal, $signer);
+expect(count($db->snapshots), 1, 'replayed signature does not replace the travel and reward snapshot');
+expect($service->assess($proposal)[7]['checks'][0]['threshold'], 30.0, 'changed journey cannot alter a frozen reward target');
 print "Service + native FormMargin: $tests assertions passed using ".DOL_DOCUMENT_ROOT.".\n";

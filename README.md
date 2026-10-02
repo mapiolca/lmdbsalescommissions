@@ -8,12 +8,13 @@ Version préparée : **1.3.0**.
 
 ## Nouveautés de la version 1.3.0
 
+- Prime additionnelle de dépassement de marge, forfaitaire ou proportionnelle au surplus, répartie selon le CA attribué et figée à la signature : [calcul, configuration et recette](doc/margin-excess-reward.md).
 - Minimum de marge sur coût pour autoriser la vente, distinct de la cible ouvrant droit aux commissions directes.
 - Règles générales autonomes et grilles PV, stockage utile et mixtes, cumulées selon les affectations utilisateur, groupe ou défaut.
 - Paliers facultatifs de majoration en points de pourcentage selon la durée ou la distance aller-retour du devis stockée par `lmdbzoning` ; par exemple, 50 % devient 60 % au-delà de 1 h 45 pour un palier de +10 points.
 - Dérogations distinctes pour la vente et la commission ; décisions figées à la signature et accords invalidés après modification.
 - Au clic sur **Valider**, une vente bloquée propose une demande motivée en attente ou le retour à la proposition. Une cible de commission seule ne bloque pas ce parcours.
-- Un seul tableau de synthèse sur le devis : **Commercial**, **Com. estimée**, **État**, **Règles appliquées**. La loupe **Consulter** ouvre les deux tableaux détaillés du bénéficiaire dans une modale native.
+- Un seul tableau de synthèse sur le devis : **Commercial**, **Com. estimée**, **État**, **Règles appliquées**. La loupe **Consulter** ouvre les tableaux détaillés du bénéficiaire dans une modale native. Le détail des primes présente les valeurs et leurs unités (devise de l’entité ou %) dans un tableau natif, avec résultat en badge. Les règles de marge sont affichées dans un tableau indépendant pour préserver les bordures et l’alternance du thème ; elles y sont présentées en deux colonnes **Règles** et **État**, avec badges natifs (vert : seuil atteint, orange : sous le seuil). Le survol du libellé charge une infobulle Ajax native avec contexte, effet, seuils, tranches techniques et paliers de trajet ; les devis signés conservent leurs paramètres figés.
 - Précontrôles serveur des parcours natifs fiche, liste, signature publique et API ; maintien du CA et des paliers lorsque la commission directe est nulle.
 
 ## Nouveautés de la version 1.2.0
@@ -39,7 +40,7 @@ Par rapport à la version 1.0, cette version apporte principalement :
 
 ## Périmètre de la version 1.3.0
 
-- Commission constante sur marge.
+- Commission constante sur marge et prime facultative de dépassement de la cible de marge par devis.
 - Primes par paliers de chiffre d’affaires.
 - Cumul commission sur marge et commission par paliers.
 - Règles par agent, par groupe d’utilisateurs et par défaut.
@@ -204,7 +205,7 @@ La désactivation temporaire conserve les réglages métier du module. La migrat
 - Pas de commissionnement par ligne produit/service.
 - La détection des paiements acompte/facture finale repose sur les liens natifs Dolibarr entre devis, commandes et factures client.
 - Aucun modèle PDF/ODT n’est fourni dans cette version.
-- Majorations chantier et bonus de 25 % sur le dépassement de marge cible hors de cette version. Les majorations de trajet nécessitent lmdbzoning 1.3.0 et un trajet aller-retour du devis calculé et à jour.
+- Majorations chantier hors de cette version. La prime de dépassement est configurable en forfait ou en pourcentage du surplus. Les majorations de trajet nécessitent lmdbzoning 1.3.0 et un trajet aller-retour du devis calculé et à jour.
 - Les scripts/modules tiers désactivant les triggers et les écritures SQL directes nécessitent une intégration explicite des contrôles de marge.
 
 ## Licence

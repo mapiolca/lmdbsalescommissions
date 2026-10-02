@@ -407,6 +407,7 @@ class LmdbSalesCommissionProposalDispatchService
 			if ($termId > 0 && $this->isPaymentTermUsable($termId, $entity)) {
 				return $termId;
 			}
+			if ($this->error !== '') { return -1; }
 		}
 
 		return 0;
@@ -599,6 +600,7 @@ class LmdbSalesCommissionProposalDispatchService
 		$sql .= ' GROUP BY pt.rowid';
 		$resql = $this->db->query($sql);
 		if (!$resql) {
+			$this->error = 'LscPolicyUnavailable';
 			return false;
 		}
 		$obj = $this->db->fetch_object($resql);

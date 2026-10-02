@@ -42,7 +42,14 @@ class LmdbSalesCommissionLine extends LmdbSalesCommissionCommon
 	public $date_creation;
 	public $tms;
 
+	/** @var int|string|null Original reward rule, independent from the stable acquisition key */
+	public $fk_reward_rule;
+	/** @var string|null Immutable reward calculation at acquisition */
+	public $snapshot_reward;
+
 	public $fields = array(
+		'fk_reward_rule' => array('type' => 'integer', 'label' => 'LscRewardRule', 'enabled' => '1', 'visible' => 0),
+		'snapshot_reward' => array('type' => 'text', 'label' => 'LscReward', 'enabled' => '1', 'visible' => 0),
 		'rowid' => array('type' => 'integer', 'label' => 'TechnicalID', 'enabled' => '1', 'visible' => -2, 'notnull' => 1, 'position' => 1),
 		'entity' => array('type' => 'integer', 'label' => 'Entity', 'enabled' => '1', 'visible' => 0, 'notnull' => 1, 'default' => '1', 'position' => 5),
 		'fk_user' => array('type' => 'integer', 'label' => 'SalesRepresentative', 'enabled' => '1', 'visible' => 1, 'notnull' => 1, 'position' => 10),

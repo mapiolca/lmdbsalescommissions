@@ -89,7 +89,7 @@ if (!lmdbsalescommissionsCanReadUserScope($user, $fk_user)) {
 
 $form = new Form($db);
 $mode_options = array(
-	'margin' => $langs->trans('LmdbSalesCommissionsRuleTypeMargin'),
+	'margin_excess' => $langs->trans('LscReward'), 'margin' => $langs->trans('LmdbSalesCommissionsRuleTypeMargin'),
 	'tier' => $langs->trans('LmdbSalesCommissionsRuleTypeTier'),
 	'tracking' => $langs->trans('LmdbSalesCommissionsModeTracking'),
 	'dispatch' => $langs->trans('LmdbSalesCommissionsModeDispatch'),
