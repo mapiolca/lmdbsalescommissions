@@ -4,7 +4,7 @@
  */
 $pdo = new PDO(getenv('LSC_TEST_DSN'), getenv('LSC_TEST_USER'), getenv('LSC_TEST_PASSWORD'), array(PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION));
 $prefix = 'long_test_prefix_';
-$tables = array('rule', 'rule_assignment', 'margin_band', 'margin_travel_band', 'margin_approval', 'margin_request', 'margin_revision', 'margin_snapshot', 'line', 'due');
+$tables = array('rule', 'rule_assignment', 'margin_band', 'margin_travel_band', 'margin_complex_site', 'margin_approval', 'margin_request', 'margin_revision', 'margin_snapshot', 'line', 'due');
 foreach ($tables as $table) {
 	$sql = file_get_contents(__DIR__.'/../sql/llx_lmdbsalescommissions_'.$table.'.sql');
 	$pdo->exec(str_replace('llx_', $prefix, $sql));
@@ -57,12 +57,18 @@ $travelBands = $prefix.'lmdbsalescommissions_margin_travel_band';
 $pdo->exec("INSERT INTO $travelBands (entity,fk_rule,metric,min_value,uplift) VALUES (1,3,'minutes',105,10)");
 try { $pdo->exec("INSERT INTO $travelBands (entity,fk_rule,metric,min_value,uplift) VALUES (1,3,'minutes',105,20)"); throw new RuntimeException('Duplicate travel tier accepted'); }
 catch (PDOException $error) { if ($error->errorInfo[1] !== 1062) { throw $error; } }
+$complexTable = $prefix.'lmdbsalescommissions_margin_complex_site';
+$pdo->exec("INSERT INTO $complexTable (entity,fk_rule,uplift_without_travel,uplift_with_travel) VALUES (1,3,15,20)");
+try { $pdo->exec("INSERT INTO $complexTable (entity,fk_rule,uplift_without_travel,uplift_with_travel) VALUES (1,3,16,NULL)"); throw new RuntimeException('Duplicate complex configuration accepted'); }
+catch (PDOException $error) { if ($error->errorInfo[1] !== 1062) { throw $error; } }
+$pdo->exec("INSERT INTO $complexTable (entity,fk_rule,uplift_without_travel,uplift_with_travel) VALUES (2,3,17,NULL)");
 $service = new LmdbSalesCommissionMarginService(new MarginPolicyPdo($pdo));
 $policies = $service->policies(7,1);
 if (count($policies) !== 3) { throw new RuntimeException('Inclusive validity end date or owner filter'); }
 $travelPolicy = array_values(array_filter($policies, static function ($policy) { return $policy['rule_id'] === 3; }));
 if (count($travelPolicy) !== 1 || $travelPolicy[0]['travel_bands'][0]['uplift'] !== 10.0) { throw new RuntimeException('Travel tier not resolved'); }
-$decision = LmdbSalesCommissionMarginEngine::evaluate($policies,45.0,null,null,array('minutes' => 106.0, 'kilometres' => null));
+if ($travelPolicy[0]['complex_site'] !== array('uplift_without_travel' => 15.0, 'uplift_with_travel' => 20.0)) { throw new RuntimeException('Owner complex configuration not resolved'); }
+$decision = LmdbSalesCommissionMarginEngine::evaluate($policies,45.0,null,null,array('minutes' => 106.0, 'kilometres' => null), false);
 if ($decision['sale'] !== 'deny' || $decision['checks'][0]['rule_id'] !== 3) { throw new RuntimeException('User priority'); }
 $pdo->exec("UPDATE $assignments SET active = 0 WHERE entity = 1 AND assignment_type = 'user'");
 $decision = LmdbSalesCommissionMarginEngine::evaluate($service->policies(7,1),45.0,null,null);

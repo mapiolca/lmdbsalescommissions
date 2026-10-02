@@ -4,8 +4,9 @@
 /** Pure margin policy evaluation; no persistence, permissions or technical recalculation.
  * @phpstan-type Band array{kwc_min:?float,kwc_max:?float,kwc_inclusive:int,kwh_min:?float,kwh_max:?float,kwh_inclusive:int,threshold:float}
  * @phpstan-type TravelBand array{metric:string,min_value:float,uplift:float}
- * @phpstan-type Policy array{rule_id:int,context:string,effect:string,rank:int,origin:string,origin_type?:string,assignment_id?:int,threshold:?float,bands:list<Band>,travel_bands?:list<TravelBand>}
- * @phpstan-type Check array{rule_id:int,context:string,effect:string,origin:string,origin_type?:string,assignment_id?:int,threshold:?float,base_threshold:?float,travel_uplift:float,travel_metric:string,travel_value:?float,state:string,reason:string,approval_id?:int,approval?:array{reason:string,approver:int,date:string}}
+ * @phpstan-type ComplexSiteUplift array{uplift_without_travel:float,uplift_with_travel:?float}
+ * @phpstan-type Policy array{rule_id:int,context:string,effect:string,rank:int,origin:string,origin_type?:string,assignment_id?:int,threshold:?float,bands:list<Band>,travel_bands?:list<TravelBand>,complex_site?:ComplexSiteUplift|null}
+ * @phpstan-type Check array{rule_id:int,context:string,effect:string,origin:string,origin_type?:string,assignment_id?:int,threshold:?float,base_threshold:?float,travel_uplift:float,travel_metric:string,travel_value:?float,complex_site_configured:bool,complex_site_state:?bool,complex_site_uplift:float,state:string,reason:string,approval_id?:int,approval?:array{reason:string,approver:int,date:string}}
  */
 class LmdbSalesCommissionMarginEngine
 {
@@ -89,13 +90,24 @@ class LmdbSalesCommissionMarginEngine
 		return true;
 	}
 
+	/** @param ComplexSiteUplift $uplift Rule's ON configuration
+	 * @return bool */
+	public static function validComplexSiteUplift(array $uplift)
+	{
+		$without = $uplift['uplift_without_travel'] ?? null;
+		$with = $uplift['uplift_with_travel'] ?? null;
+		return is_float($without) && is_finite($without) && $without >= 0
+			&& ($with === null || (is_float($with) && is_finite($with) && $with >= 0));
+	}
+
 	/** @param list<Policy> $policies Candidates
 	 * @param float|null $rate Global markup on cost
 	 * @param float|null $kwc Peak power
 	 * @param float|null $kwh Useful storage
 	 * @param array{minutes:?float,kilometres:?float}|null $travel Round-trip road journey, null if unavailable
+	 * @param bool|null $complexSite Proposal qualification; null if unavailable
 	 * @return array{sale:string,commission:string,checks:list<Check>} */
-	public static function evaluate(array $policies, $rate, $kwc, $kwh, ?array $travel = null)
+	public static function evaluate(array $policies, $rate, $kwc, $kwh, ?array $travel = null, ?bool $complexSite = null)
 	{
 		$result = array('sale' => 'allow', 'commission' => 'allow', 'checks' => array());
 		$context = $kwc === null || $kwh === null ? null : ($kwc > 0 ? ($kwh > 0 ? 'mixed' : 'pv') : ($kwh > 0 ? 'storage' : 'none'));
@@ -146,6 +158,7 @@ class LmdbSalesCommissionMarginEngine
 				$travelUplift = 0.0;
 				$travelMetric = '';
 				$travelValue = null;
+				$complexUplift = 0.0;
 				$travelBands = $policy['travel_bands'] ?? array();
 				if ($reason === '' && $travelBands) {
 					if (!self::validTravelBands($travelBands)) {
@@ -163,11 +176,23 @@ class LmdbSalesCommissionMarginEngine
 						}
 					}
 				}
+				$complexConfig = $policy['complex_site'] ?? null;
+				if ($reason === '' && $complexConfig !== null) {
+					if (!self::validComplexSiteUplift($complexConfig)) {
+						$reason = 'complex_site_invalid';
+					} elseif ($complexSite === null) {
+						$reason = 'complex_site_missing';
+					} elseif ($complexSite) {
+						$complexUplift = $travelUplift > 0 && $complexConfig['uplift_with_travel'] !== null
+							? $complexConfig['uplift_with_travel'] : $complexConfig['uplift_without_travel'];
+						$threshold += $complexUplift;
+					}
+				}
 				// Account only for machine precision of the subtraction/division/multiplication.
 				// No monetary rounding and no tolerance on technical band boundaries.
 				$met = $reason === '' && ($rate >= $threshold || abs($rate - $threshold) <= 4 * PHP_FLOAT_EPSILON * max(1.0, abs($rate), abs($threshold)));
 				$state = $reason !== '' ? 'unknown' : ($met ? 'allow' : 'deny');
-				$result['checks'][] = array('rule_id' => $policy['rule_id'], 'context' => $policy['context'], 'effect' => $policy['effect'], 'origin' => $policy['origin'], 'origin_type' => $policy['origin_type'] ?? '', 'assignment_id' => $policy['assignment_id'] ?? 0, 'threshold' => $threshold, 'base_threshold' => $baseThreshold, 'travel_uplift' => $travelUplift, 'travel_metric' => $travelMetric, 'travel_value' => $travelValue, 'state' => $state, 'reason' => $reason !== '' ? $reason : ($state === 'deny' ? 'below' : 'met'));
+				$result['checks'][] = array('rule_id' => $policy['rule_id'], 'context' => $policy['context'], 'effect' => $policy['effect'], 'origin' => $policy['origin'], 'origin_type' => $policy['origin_type'] ?? '', 'assignment_id' => $policy['assignment_id'] ?? 0, 'threshold' => $threshold, 'base_threshold' => $baseThreshold, 'travel_uplift' => $travelUplift, 'travel_metric' => $travelMetric, 'travel_value' => $travelValue, 'complex_site_configured' => $complexConfig !== null, 'complex_site_state' => $complexConfig === null ? null : $complexSite, 'complex_site_uplift' => $complexUplift, 'state' => $state, 'reason' => $reason !== '' ? $reason : ($state === 'deny' ? 'below' : 'met'));
 			}
 		}
 		return self::aggregate($result);

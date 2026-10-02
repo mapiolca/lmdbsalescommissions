@@ -40,10 +40,15 @@ foreach (array('LINEPROPAL_INSERT', 'LINEPROPAL_MODIFY', 'LINEPROPAL_DELETE') as
 if ($db->invalidations !== array(array(2, 42), array(2, 42), array(2, 42))) {
 	throw new RuntimeException('Every native line mutation must invalidate the proposal decision');
 }
+$proposal = new Propal($db); $proposal->id = 42;
+$proposal->array_options = array('options_lmdbpropalpv_complex_site' => 1);
+if ($trigger->runTrigger('PROPAL_MODIFY', $proposal, $user, $langs, $conf) !== 0 || $db->invalidations[3] !== array(2, 42)) {
+	throw new RuntimeException('The lmdbpropalpv switch mutation must invalidate the proposal decision');
+}
 $trigger->runTrigger('LINEPROPAL_UPDATE', $line, $user, $langs, $conf);
-if (count($db->invalidations) !== 3) { throw new RuntimeException('Non-native alias must not trigger recalculation'); }
+if (count($db->invalidations) !== 4) { throw new RuntimeException('Non-native alias must not trigger recalculation'); }
 $db->fail = true;
 if ($trigger->runTrigger('LINEPROPAL_MODIFY', $line, $user, $langs, $conf) !== -1 || $trigger->error !== 'LscPolicyUnavailable') {
 	throw new RuntimeException('Revision failure must fail the native edit transaction');
 }
-print "Native proposal line events: 6 assertions passed.\n";
+print "Native proposal and line events: 7 assertions passed.\n";

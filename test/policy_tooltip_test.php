@@ -74,6 +74,12 @@ $html = $get();
 verify($parentChecks === 1, 'Native parent access requested');
 foreach (array('LABEL &lt;script&gt;', 'REF-71', 'LscFrozen', 'LscRuleCurrentMetadata', 'LscContext_pv', 'LscEffect_commission', '170,00', '180,00', '1 275,95', '105,00', '100,00', '70,00', ']0,00 ; 10,00]', '#4') as $expected) { verify(strpos($html,$expected)!==false, 'Missing detail '.$expected); }
 verify(strpos($html,'<script>')===false && strpos($html,'<img')===false, 'Stored labels and description escaped');
+$db->decision['checks'][0]['complex_site_configured'] = true;
+$db->decision['checks'][0]['complex_site_state'] = true;
+$db->decision['checks'][0]['complex_site_uplift'] = 20.0;
+$db->decision['rules'][0]['complex_site'] = array('uplift_without_travel' => 15.0, 'uplift_with_travel' => 20.0);
+$complexHtml = $get();
+verify(strpos($complexHtml, 'LscComplexSiteState') !== false && strpos($complexHtml, 'LscComplexSiteWithoutTravel') !== false && strpos($complexHtml, '20,00') !== false, 'Frozen tooltip shows qualification and both configured uplifts');
 verify($get('8:71:commission') === 'LscPolicyUnavailable', 'Other beneficiary denied with readown');
 verify($get('7:72:commission') === 'LscPolicyUnavailable', 'Unapplied rule denied');
 verify($get('7:71:sale') === 'LscPolicyUnavailable', 'Unapplied effect denied');

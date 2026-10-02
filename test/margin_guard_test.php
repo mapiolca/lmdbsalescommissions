@@ -17,6 +17,7 @@ class GuardDb extends PolicyDb {
 		}
 		if (strpos($sql, '_margin_band') !== false) { return new PolicyRows(array()); }
 		if (strpos($sql, '_margin_travel_band') !== false) { return new PolicyRows(array()); }
+		if (strpos($sql, '_margin_complex_site') !== false) { return new PolicyRows(array()); }
 		return parent::query($sql);
 	}
 }

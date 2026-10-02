@@ -62,6 +62,7 @@ class LmdbSalesCommissionsCompatibility
 			'margin_excess_reward' => array('label' => 'LscReward', 'description' => 'LscRewardHelp', 'min_dolibarr' => '20.0.0', 'min_php' => '8.0.0', 'compatibility_check' => 'nativeMarginGuardCoverage() && LMDBSALESCOMMISSIONS_MARGIN_ENABLED', 'available' => self::nativeMarginGuardCoverage() && (bool) getDolGlobalInt('LMDBSALESCOMMISSIONS_MARGIN_ENABLED'), 'reason' => 'LscRewardUnavailable'),
 			'margin_policy_guards' => array('label' => 'LscPolicies', 'description' => 'LscCoverageDescription', 'min_dolibarr' => '20.0.0', 'min_php' => '8.0.0', 'compatibility_check' => 'nativeMarginGuardCoverage()', 'available' => self::nativeMarginGuardCoverage(), 'reason' => 'LscCoverageUnavailable'),
 			'travel_margin_uplift' => array('label' => 'LscTravelMargin', 'description' => 'LscTravelCompatibilityDescription', 'min_dolibarr' => '20.0.0', 'min_php' => '8.0.0', 'compatibility_check' => 'isModEnabled("lmdbzoning") && LmdbZoningCompatibility::isTravelAvailable("propal") && LmdbZoningTravelService::read()', 'available' => self::travelMarginAvailable(), 'reason' => 'LscTravelCompatibilityUnavailable'),
+			'complex_site_margin_uplift' => array('label' => 'LscComplexSiteMargin', 'description' => 'LscComplexSiteCompatibilityDescription', 'min_dolibarr' => '20.0.0', 'min_php' => '8.0.0', 'compatibility_check' => 'LmdbPropalPVComplexSiteService::isAvailable($db)', 'available' => self::complexSiteMarginAvailable(), 'reason' => 'LscComplexSiteCompatibilityUnavailable'),
 			'module_skeleton' => array(
 				'label' => 'LmdbSalesCommissionsCompatibilitySkeleton',
 				'description' => 'LmdbSalesCommissionsCompatibilitySkeletonDesc',
@@ -119,6 +120,18 @@ class LmdbSalesCommissionsCompatibility
 			&& method_exists('LmdbZoningTravelService', 'read') && LmdbZoningCompatibility::isTravelAvailable('propal');
 	}
 
+	/** Optional lmdbpropalpv qualification in the current entity. */
+	public static function complexSiteMarginAvailable(): bool
+	{
+		global $db;
+		if (!self::isDolibarrVersionAtLeast(self::MIN_DOLIBARR_VERSION) || !isModEnabled('lmdbpropalpv') || !function_exists('dol_include_once') || !is_object($db)) { return false; }
+		if (!class_exists('LmdbPropalPVComplexSiteService') && is_file(dol_buildpath('/lmdbpropalpv/class/lmdbpropalpvcomplexsiteservice.class.php', 0))) {
+			dol_include_once('/lmdbpropalpv/class/lmdbpropalpvcomplexsiteservice.class.php');
+		}
+		return class_exists('LmdbPropalPVComplexSiteService') && method_exists('LmdbPropalPVComplexSiteService', 'isAvailable')
+			&& LmdbPropalPVComplexSiteService::isAvailable($db);
+	}
+
 	/** Check the actual installed entrypoints, not only the declared major version.
 	 * Static source coverage is not an instance integration test. @return bool */
 	public static function nativeMarginGuardCoverage()
@@ -154,6 +167,9 @@ class LmdbSalesCommissionsCompatibility
 	 */
 	public static function isFeatureAvailable($code)
 	{
+		if ($code === 'margin_policy_guards') { return self::nativeMarginGuardCoverage(); }
+		if ($code === 'travel_margin_uplift') { return self::travelMarginAvailable(); }
+		if ($code === 'complex_site_margin_uplift') { return self::complexSiteMarginAvailable(); }
 		$features = self::getCompatibilityFeatures();
 
 		return isset($features[$code]) && !empty($features[$code]['available']);

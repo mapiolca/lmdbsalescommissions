@@ -27,6 +27,9 @@ foreach ($policies as $row) {
 }
 if (!$policies) { print '<tr class="oddeven"><td colspan="6"><span class="opacitymedium">'.$langs->trans('NoRecordFound').'</span></td></tr>'; }
 print '</table></div>';
+if ($complexAvailable) {
+	print '<h3>'.$langs->trans('LscComplexSiteMargin').'</h3><p>'.$langs->trans('LscComplexSiteHelp').'</p>';
+}
 if ($mode === 'delete') {
 	print $form->formconfirm($pageUrl.'?id='.$id, $langs->trans('Delete'), $langs->trans('LscConfirmDeletePolicy', dol_escape_htmltag($rule->ref)), 'confirm_delete', '', 'no', 1);
 }
@@ -81,6 +84,27 @@ if ($mode === 'create' || $mode === 'edit') {
 		print ajax_combobox('metric');
 		foreach ($travelBands as $travelBand) {
 			print '<form id="lsc-delete-travel-band-'.((int) $travelBand['rowid']).'" method="POST" action="'.$pageUrl.'"><input type="hidden" name="token" value="'.newToken().'"><input type="hidden" name="action" value="deletetravelband"><input type="hidden" name="id" value="'.$id.'"><input type="hidden" name="band" value="'.((int) $travelBand['rowid']).'"></form>';
+		}
+	}
+	if (!$id && $travelAvailable) {
+		print '<h3>'.$langs->trans('LscTravelMargin').'</h3><p>'.$langs->trans('LscTravelAfterSave').'</p>';
+	}
+	if ($complexAvailable) {
+		$complexForm = $id ? 'lsc-save-complex-site' : 'lsc-policy-form';
+		print '<h3>'.$langs->trans('LscComplexSiteMargin').'</h3><p>'.$langs->trans('LscComplexSiteHelp').'</p>';
+		print '<div class="div-table-responsive-no-min"><table class="noborder centpercent" id="lsc-complex-site"><tr class="liste_titre"><td>'.$langs->trans('LscComplexSiteState').'</td><td>'.$langs->trans('LscComplexSiteWithoutTravel').'</td><td>'.$langs->trans('LscComplexSiteWithTravel').'</td><td></td></tr>';
+		print '<tr class="oddeven"><td>'.$langs->trans('Disabled').'</td><td>+0 '.$langs->trans('LscPercentagePoints').'</td><td>+0 '.$langs->trans('LscPercentagePoints').'</td><td></td></tr>';
+		print '<tr class="oddeven"><td>'.$langs->trans('Enabled').'</td>';
+		print '<td>+ <input class="width75" name="complex_without_travel" value="'.dol_escape_htmltag($complexValues['without']).'" form="'.$complexForm.'" aria-label="'.dol_escape_htmltag($langs->trans('LscComplexSiteWithoutTravel')).'"'.($id ? ' required' : '').'> '.$langs->trans('LscPercentagePoints').'</td>';
+		print '<td>+ <input class="width75" name="complex_with_travel" value="'.dol_escape_htmltag($complexValues['with']).'" form="'.$complexForm.'" aria-label="'.dol_escape_htmltag($langs->trans('LscComplexSiteWithTravel')).'"> '.$langs->trans('LscPercentagePoints').'</td>';
+		print '<td class="right">'.($id ? '<button class="button" type="submit" form="lsc-save-complex-site">'.$langs->trans($complexSite === null ? 'Add' : 'Save').'</button>' : '').'</td></tr>';
+		print '</table></div>';
+		if ($id) {
+			print '<form id="lsc-save-complex-site" method="POST" action="'.$pageUrl.'"><input type="hidden" name="token" value="'.newToken().'"><input type="hidden" name="action" value="savecomplexsite"><input type="hidden" name="id" value="'.$id.'"></form>';
+			if ($complexSite !== null) {
+				print '<form id="lsc-delete-complex-site" method="POST" action="'.$pageUrl.'"><input type="hidden" name="token" value="'.newToken().'"><input type="hidden" name="action" value="deletecomplexsite"><input type="hidden" name="id" value="'.$id.'"></form>';
+				print '<p class="right"><button class="bordertransp cursorpointer" type="submit" form="lsc-delete-complex-site" aria-label="'.dol_escape_htmltag($langs->trans('Delete')).'">'.img_delete().'</button></p>';
+			}
 		}
 	}
 	foreach ($bands as $band) {
