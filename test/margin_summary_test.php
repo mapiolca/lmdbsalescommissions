@@ -27,7 +27,7 @@ function img_picto($alt, $key) { return '<span class="fa fa-search" aria-hidden=
 class SummaryLangs
 {
 	public function loadLangs($keys) {}
-	public function trans($key, ...$values) { return $key === 'LscTravelApplied' ? implode('|', $values) : $key; }
+	public function trans($key, ...$values) { return $key === 'LscTravelApplied' ? implode('|', $values) : ($key === 'LscComplexSiteApplied' ? $key.'|'.implode('|', $values) : $key); }
 	public function transnoentitiesnoconv($key) { return $key; }
 }
 class SummaryDb
@@ -105,6 +105,11 @@ check(strpos(LmdbSalesCommissionMarginView::render($db, $proposal, $user), '50|1
 $db->snapshots[7]['checks'][0]['travel_value'] = 1275.9533333333;
 check(strpos(LmdbSalesCommissionMarginView::render($db, $proposal, $user), '1 275,95|LscTravelMinutes') !== false, 'Fractional duration uses native French separators and two decimals');
 $db->snapshots[7]['checks'][0]['travel_value'] = 106;
+$db->snapshots[7]['checks'][0]['complex_site_configured'] = true;
+$db->snapshots[7]['checks'][0]['complex_site_state'] = true;
+$db->snapshots[7]['checks'][0]['complex_site_uplift'] = 20.0;
+check(strpos(LmdbSalesCommissionMarginView::render($db, $proposal, $user), 'LscComplexSiteApplied|20,00') !== false, 'Frozen detail shows the applied complex uplift');
+unset($db->snapshots[7]['checks'][0]['complex_site_configured'], $db->snapshots[7]['checks'][0]['complex_site_state'], $db->snapshots[7]['checks'][0]['complex_site_uplift']);
 check($xpath->query('//tr[@class="liste_total"]/td[2]')->item(0)->textContent === '195', 'Total kept in amount column');
 $summaryRows = $xpath->query('//table[not(ancestor::table)]/tr[@class="oddeven"]');
 check($summaryRows->item(0)->childNodes->item(2)->textContent === 'LscState_commission_deny', 'Denied commission shown as null');

@@ -7,7 +7,7 @@ $settings = array('LMDBSALESCOMMISSIONS_MARGIN_ENABLED' => 1, 'LMDBSALESCOMMISSI
 $conf = (object) array('entity' => 1, 'global' => (object) array(), 'modules_parts' => array('hooks' => array('lmdbsalescommissions' => array('propalcard', 'propallist', 'api', 'ajaxonlinesign'))));
 function getDolGlobalInt($key, $default = 0) { global $settings; return (int) ($settings[$key] ?? $default); }
 function getDolGlobalString($key, $default = '') { global $settings; return (string) ($settings[$key] ?? $default); }
-function isModEnabled($key) { global $zoningEnabled; return $key === 'lmdbsalescommissions' || ($key === 'lmdbzoning' && !empty($zoningEnabled)); }
+function isModEnabled($key) { global $zoningEnabled, $propalPvEnabled; return $key === 'lmdbsalescommissions' || ($key === 'lmdbzoning' && !empty($zoningEnabled)) || ($key === 'lmdbpropalpv' && !empty($propalPvEnabled)); }
 if (!function_exists('dol_include_once')) { function dol_include_once($path) { return 1; } }
 function dol_now() { return 2000; }
 function dol_syslog($message, $level = 0) {}
@@ -79,6 +79,10 @@ class LmdbZoningTravelService {
 		if ($type !== 'propal' || $id !== 10) { return array('state' => 'not_calculated'); }
 		return self::$response;
 	}
+}
+class LmdbPropalPVComplexSiteService {
+	public static $calls = 0;
+	public static function isAvailable($db): bool { global $complexFieldEnabled; self::$calls++; return isModEnabled('lmdbpropalpv') && getDolGlobalInt('LMDBPROPALPV_COMPLEX_SITE_ENABLED') === 1 && !empty($complexFieldEnabled); }
 }
 $db = new PolicyDb(); $service = new PolicyService($db); $proposal = new PolicyProposal(); $actor = new PolicyUser();
 $service->rules = array(7 => $general);
@@ -205,4 +209,48 @@ LmdbZoningTravelService::$response['total']['round_trip']['duration_s'] = 600.0;
 $service->freeze($proposal, $signer);
 expect(count($db->snapshots), 1, 'replayed signature does not replace the travel and reward snapshot');
 expect($service->assess($proposal)[7]['checks'][0]['threshold'], 30.0, 'changed journey cannot alter a frozen reward target');
+$db = new PolicyDb(); $service = new PolicyService($db); $proposal = new PolicyProposal();
+$propalPvEnabled = true; $complexFieldEnabled = true; $settings['LMDBPROPALPV_COMPLEX_SITE_ENABLED'] = 1;
+$actor->rightsList = array('approvesale');
+$complexRule = policy(30, 'general', 'sale', 20.0);
+$complexRule['complex_site'] = array('uplift_without_travel' => 15.0, 'uplift_with_travel' => null);
+$unrelated = $complexRule;
+$unrelated['context'] = 'pv'; $unrelated['effect'] = 'commission';
+$service->rules = array(7 => array($unrelated));
+$proposal->array_options['options_powerplantpv_peak_power'] = 0;
+$proposal->array_options['options_powerplantpv_storage_capacity'] = 10;
+$callsBefore = LmdbPropalPVComplexSiteService::$calls;
+expect($service->assess($proposal)[7]['commission'], 'allow', 'unrelated PV rule does not apply to storage proposal');
+expect(LmdbPropalPVComplexSiteService::$calls, $callsBefore, 'unrelated rule does not query complex-site availability');
+$proposal->array_options = array();
+$service->rules = array(7 => array($complexRule));
+$proposal->array_options['options_lmdbpropalpv_complex_site'] = 1;
+$on = $service->assess($proposal)[7];
+expect($on['checks'][0]['threshold'], 35.0, 'stored qualification raises the threshold');
+expect($on['sale'], 'deny', 'ON qualification blocks insufficient sale margin');
+$service->rules[7][0]['complex_site']['uplift_without_travel'] = 16.0;
+$changedConfiguration = $service->assess($proposal)[7];
+expect($changedConfiguration['checks'][0]['threshold'], 36.0, 'edited complex configuration changes the current threshold');
+expect($changedConfiguration['fingerprint'] === $on['fingerprint'], false, 'edited complex configuration changes the approval fingerprint');
+$service->rules[7][0]['complex_site']['uplift_without_travel'] = 15.0; $db->revision++;
+$on = $service->assess($proposal)[7];
+$service->approve($proposal, $actor, 7, 30, 'sale', 'Complex exception', $on['fingerprint']);
+expect($service->assess($proposal)[7]['sale'], 'allow', 'matching complex approval accepted');
+$proposal->array_options['options_lmdbpropalpv_complex_site'] = null; $db->revision++;
+$off = $service->assess($proposal)[7];
+expect($off['checks'][0]['threshold'], 20.0, 'NULL switch is OFF');
+expect($off['fingerprint'] === $on['fingerprint'], false, 'switch mutation invalidates approval fingerprint');
+$proposal->array_options['options_lmdbpropalpv_complex_site'] = 1; $db->revision++;
+expect($service->assess($proposal)[7]['sale'], 'deny', 'old approval does not revive when switch returns ON');
+$propalPvEnabled = false;
+expect($service->assess($proposal)[7]['sale'], 'unknown', 'disabled dependency makes active rule indeterminate');
+$propalPvEnabled = true; $settings['LMDBPROPALPV_COMPLEX_SITE_ENABLED'] = 0;
+expect($service->assess($proposal)[7]['sale'], 'unknown', 'disabled entity setting makes active rule indeterminate');
+$settings['LMDBPROPALPV_COMPLEX_SITE_ENABLED'] = 1; $complexFieldEnabled = false;
+expect($service->assess($proposal)[7]['sale'], 'unknown', 'missing extrafield definition makes active rule indeterminate');
+$complexFieldEnabled = true;
+$proposal->date_signature = 2000; $proposal->status = 2; $proposal->context['lmdb_margin_signing'] = true;
+$service->freeze($proposal, $actor);
+$settings['LMDBPROPALPV_COMPLEX_SITE_ENABLED'] = 0;
+expect($service->assess($proposal)[7]['checks'][0]['threshold'], 35.0, 'signed decision retains complex uplift after dependency removal');
 print "Service + native FormMargin: $tests assertions passed using ".DOL_DOCUMENT_ROOT.".\n";

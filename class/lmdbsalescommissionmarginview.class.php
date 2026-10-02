@@ -136,6 +136,11 @@ class LmdbSalesCommissionMarginView
 					$unit = $langs->trans($check['travel_metric'] === 'minutes' ? 'LscTravelMinutes' : 'LscTravelKilometres');
 					$thresholdLabel .= '<br><span class="opacitymedium">'.dol_escape_htmltag($langs->trans('LscTravelApplied', (string) $check['base_threshold'], (string) $check['travel_uplift'], price($check['travel_value'], 0, $langs, 0, 2, 2), $unit)).'</span>';
 				}
+				if (!empty($check['complex_site_configured'])) {
+					$complexLabel = ($check['complex_site_state'] ?? null) === null ? $langs->trans('LscComplexSiteUnknown')
+						: ($check['complex_site_state'] ? $langs->trans('LscComplexSiteApplied', price($check['complex_site_uplift'])) : $langs->trans('LscComplexSiteNotApplied'));
+					$thresholdLabel .= '<br><span class="opacitymedium">'.dol_escape_htmltag($complexLabel).'</span>';
+				}
 				$cells = array($originLabel !== '' ? $langs->trans($originLabel) : '—', dol_escape_htmltag($check['origin']), $langs->trans('LscContext_'.$check['context']), $langs->trans('LscEffect_'.$check['effect']), $thresholdLabel, $langs->trans('LscReason_'.$check['reason']));
 				if ($summary) {
 					$ruleId = (int) ($check['rule_id'] ?? 0);

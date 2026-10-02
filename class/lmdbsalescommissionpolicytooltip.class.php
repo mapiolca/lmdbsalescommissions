@@ -75,6 +75,10 @@ class LmdbSalesCommissionPolicyTooltip extends Propal
 			$fields['LscRuleTravelValue'] = isset($check['travel_value']) ? price($check['travel_value']) : $langs->trans('Unknown');
 			$fields['LscTravelUplift'] = isset($check['travel_uplift']) ? price($check['travel_uplift']).' '.$langs->trans('LscPercentagePoints') : '—';
 		}
+		if (!empty($check['complex_site_configured'])) {
+			$fields['LscComplexSiteState'] = ($check['complex_site_state'] ?? null) === null ? $langs->trans('Unknown') : $langs->trans($check['complex_site_state'] ? 'Enabled' : 'Disabled');
+			$fields['LscComplexSiteMargin'] = price($check['complex_site_uplift']).' '.$langs->trans('LscPercentagePoints');
+		}
 		if (isset($check['approval_id'])) { $fields['LscApproval'] = '#'.((int) $check['approval_id']); }
 		foreach ($fields as $key => $value) {
 			$html .= '<div><strong>'.dol_escape_htmltag($langs->trans($key)).' :</strong> '.dol_escape_htmltag($value).'</div>';
@@ -96,6 +100,11 @@ class LmdbSalesCommissionPolicyTooltip extends Propal
 				$html .= '<div>&gt; '.dol_escape_htmltag(price($band['min_value']).' '.$langs->trans($band['metric'] === 'minutes' ? 'LscTravelMinutes' : 'LscTravelKilometres')).' : +'.dol_escape_htmltag(price($band['uplift']).' '.$langs->trans('LscPercentagePoints')).'</div>';
 			}
 			if (empty($policy['travel_bands'])) { $html .= dol_escape_htmltag($langs->trans('NoRecordFound')); }
+			if (isset($policy['complex_site']) && is_array($policy['complex_site'])) {
+				$html .= '<p><strong>'.dol_escape_htmltag($langs->trans('LscComplexSiteMargin')).'</strong></p>';
+				$html .= '<div>'.dol_escape_htmltag($langs->trans('LscComplexSiteWithoutTravel')).' : +'.dol_escape_htmltag(price($policy['complex_site']['uplift_without_travel'])).' '.$langs->trans('LscPercentagePoints').'</div>';
+				$html .= '<div>'.dol_escape_htmltag($langs->trans('LscComplexSiteWithTravel')).' : +'.dol_escape_htmltag(price($policy['complex_site']['uplift_with_travel'] ?? $policy['complex_site']['uplift_without_travel'])).' '.$langs->trans('LscPercentagePoints').'</div>';
+			}
 		}
 		return $html.'</div>';
 	}

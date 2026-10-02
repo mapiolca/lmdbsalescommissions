@@ -87,6 +87,12 @@ $approved = $travelDecision(106.0, 14200.0);
 $approved['checks'][0]['state'] = 'allow'; $approved['checks'][0]['reason'] = 'approved';
 $approved = LmdbSalesCommissionMarginEngine::aggregate($approved);
 checkReward(LmdbSalesCommissionRewardService::calculate($approved, 'fixed', 200.0, 1.0)['amount'], 0.0, 'Commission approval never removes the travel uplift from reward target');
+$complexRewardPolicy = $travelPolicy;
+$complexRewardPolicy['complex_site'] = array('uplift_without_travel' => 10.0, 'uplift_with_travel' => 20.0);
+$complexDecision = LmdbSalesCommissionMarginEngine::evaluate(array($complexRewardPolicy), 70.0, null, null, array('minutes' => 106.0, 'kilometres' => null), true);
+$complexDecision['inputs'] = array('cost' => 10000.0, 'sale' => 17000.0);
+checkReward($complexDecision['checks'][0]['threshold'], 65.0, 'Reward receives the combined travel and complex target');
+checkReward(LmdbSalesCommissionRewardService::calculate($complexDecision, 'percentage', 25.0, 1.0)['amount'], 125.0, 'Reward surplus uses the combined target');
 
 class RewardDb {
 	public $rules = array(); public $allocations = array(); public $fail = false; public $queries = array();

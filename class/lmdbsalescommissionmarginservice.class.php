@@ -89,12 +89,18 @@ class LmdbSalesCommissionMarginService
 			foreach ($this->rows('SELECT metric, min_value, uplift FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_margin_travel_band WHERE entity = '.((int) $entity).' AND fk_rule = '.((int) $row['rowid']).' ORDER BY min_value') as $band) {
 				$travelBands[] = array('metric' => (string) $band['metric'], 'min_value' => (float) $band['min_value'], 'uplift' => (float) $band['uplift']);
 			}
+			$complexSite = null;
+			$complexRows = $this->rows('SELECT uplift_without_travel, uplift_with_travel FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_margin_complex_site WHERE entity = '.((int) $entity).' AND fk_rule = '.((int) $row['rowid']));
+			if (count($complexRows) > 1) { throw new RuntimeException('LscPolicyUnavailable'); }
+			if ($complexRows) {
+				$complexSite = array('uplift_without_travel' => (float) $complexRows[0]['uplift_without_travel'], 'uplift_with_travel' => $complexRows[0]['uplift_with_travel'] === null ? null : (float) $complexRows[0]['uplift_with_travel']);
+			}
 			$effects = $row['policy_effect'] === 'both' ? array('sale', 'commission') : array($row['policy_effect']);
 			foreach ($effects as $effect) {
 				if (!in_array($effect, array('sale', 'commission'), true) || !in_array($row['policy_context'], array('general', 'pv', 'storage', 'mixed'), true) || ($row['policy_context'] !== 'general' && $effect !== 'commission')) {
 					throw new RuntimeException('LscPolicyUnavailable');
 				}
-				$policies[] = array('rule_id' => (int) $row['rowid'], 'context' => $row['policy_context'], 'effect' => $effect, 'rank' => array('user' => 1, 'group' => 2, 'default' => 3)[$row['assignment_type']], 'origin' => $row['ref'], 'origin_type' => $row['assignment_type'], 'assignment_id' => (int) $row['assignment_id'], 'threshold' => $row['rate'] === null ? null : (float) $row['rate'], 'bands' => $bands, 'travel_bands' => $travelBands);
+				$policies[] = array('rule_id' => (int) $row['rowid'], 'context' => $row['policy_context'], 'effect' => $effect, 'rank' => array('user' => 1, 'group' => 2, 'default' => 3)[$row['assignment_type']], 'origin' => $row['ref'], 'origin_type' => $row['assignment_type'], 'assignment_id' => (int) $row['assignment_id'], 'threshold' => $row['rate'] === null ? null : (float) $row['rate'], 'bands' => $bands, 'travel_bands' => $travelBands, 'complex_site' => $complexSite);
 			}
 		}
 		return $policies;
@@ -178,13 +184,23 @@ class LmdbSalesCommissionMarginService
 		return array('cost' => $cost, 'sale' => $sale, 'rate' => $rate, 'kwc' => $tech['kwc'], 'kwh' => $tech['kwh'], 'lines' => $lineData, 'resolved_costs' => $resolvedCosts, 'cost_settings' => $costSettings, 'total_ht' => $copy->total_ht, 'discount' => $copy->remise_percent ?? null, 'currency' => $copy->multicurrency_code ?? null, 'currency_rate' => $copy->multicurrency_tx ?? null);
 	}
 
+	/** Read the optional qualification only after a selected rule requires it.
+	 * @param Propal $proposal Loaded proposal
+	 * @return bool */
+	private function complexSiteState($proposal)
+	{
+		$copy = clone $proposal;
+		if ($copy->fetch_optionals() < 0) { throw new RuntimeException('LscPolicyUnavailable'); }
+		return !empty($copy->array_options['options_lmdbpropalpv_complex_site']);
+	}
+
 	/** @param Propal $proposal Loaded proposal
 	 * @param bool $frozen Return existing signed snapshot when available
 	 * @param User|null $actor Authenticated actor, or the current Dolibarr user
 	 * @return array<int,array<string,mixed>> Beneficiary => evaluated/frozen decision */
 	public function assess($proposal, $frozen = true, $actor = null)
 	{
-		global $user;
+		global $user, $conf;
 		if ($actor === null) { $actor = $user ?? null; }
 		$entity = (int) $proposal->entity;
 		$activation = $this->activation($entity);
@@ -221,6 +237,16 @@ class LmdbSalesCommissionMarginService
 		$inputs = $hasRules ? $this->inputs($proposal, $technicalNeeded) : array('cost' => null, 'sale' => null, 'rate' => null, 'kwc' => null, 'kwh' => null);
 		$travel = $travelNeeded ? $this->travelData($proposal, $actor) : null;
 		if ($travelNeeded) { $inputs['travel'] = $travel; }
+		$complexNeeded = false;
+		foreach ($policies as $rules) {
+			foreach (LmdbSalesCommissionMarginEngine::evaluate($rules, $inputs['rate'], $inputs['kwc'], $inputs['kwh'], $travel)['checks'] as $check) {
+				if ($check['reason'] === 'complex_site_missing') { $complexNeeded = true; break 2; }
+			}
+		}
+		if ($complexNeeded && $entity !== (int) $conf->entity) { throw new RuntimeException('LscOwnerContext'); }
+		$complexAvailable = $complexNeeded && LmdbSalesCommissionsCompatibility::isFeatureAvailable('complex_site_margin_uplift');
+		$inputs['complex_site'] = $complexAvailable ? $this->complexSiteState($proposal) : null;
+		$inputs['complex_site_available'] = $complexAvailable;
 
 		// All selected profiles and all commercial data participate: a distribution change also expires approvals.
 		$revisions = $this->rows('SELECT object_id, revision FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_margin_revision WHERE entity = '.$entity.' AND object_id IN (0,'.((int) $proposal->id).') ORDER BY object_id');
@@ -229,7 +255,7 @@ class LmdbSalesCommissionMarginService
 		$approvals = $this->rows('SELECT rowid, fk_user, fk_rule, effect, reason, fk_user_creat, date_creation FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_margin_approval WHERE '.$where." AND fingerprint = '".$this->db->escape($fingerprint)."'");
 		$result = array();
 		foreach ($policies as $id => $rules) {
-			$decision = LmdbSalesCommissionMarginEngine::evaluate($rules, $inputs['rate'], $inputs['kwc'], $inputs['kwh'], $travel);
+			$decision = LmdbSalesCommissionMarginEngine::evaluate($rules, $inputs['rate'], $inputs['kwc'], $inputs['kwh'], $travel, $inputs['complex_site']);
 			foreach ($decision['checks'] as &$check) {
 				if ($id <= 0) { $check['state'] = 'unknown'; $check['reason'] = 'beneficiary_missing'; }
 				foreach ($approvals as $approval) {

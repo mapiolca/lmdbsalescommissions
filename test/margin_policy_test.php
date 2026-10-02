@@ -63,4 +63,29 @@ expect(LmdbSalesCommissionMarginEngine::evaluate(array($travelPolicy), 65.0, nul
 expect(LmdbSalesCommissionMarginEngine::validTravelBands(array(array('metric' => 'minutes', 'min_value' => 105.0, 'uplift' => 10.0), array('metric' => 'kilometres', 'min_value' => 80.0, 'uplift' => 10.0))), false, 'one metric per policy');
 expect(LmdbSalesCommissionMarginEngine::validTravelBands(array(array('metric' => 'minutes', 'min_value' => 0.0, 'uplift' => -0.5))), false, 'negative uplift rejected');
 expect(LmdbSalesCommissionMarginEngine::validTravelBands(array(array('metric' => 'minutes', 'min_value' => 105.0, 'uplift' => 10.0), array('metric' => 'minutes', 'min_value' => 120.0, 'uplift' => 5.0))), false, 'higher tier cannot reduce required margin');
+$complexPolicy = policy(9, 'general', 'sale', 100.0);
+$complexPolicy['complex_site'] = array('uplift_without_travel' => 15.0, 'uplift_with_travel' => 20.0);
+$complexPolicy['travel_bands'] = array(array('metric' => 'minutes', 'min_value' => 105.0, 'uplift' => 10.0));
+$short = array('minutes' => 105.0, 'kilometres' => null);
+$long = array('minutes' => 106.0, 'kilometres' => null);
+foreach (array(array(false, $short, 100.0), array(true, $short, 115.0), array(false, $long, 110.0), array(true, $long, 130.0)) as $case) {
+	$commissionPolicy = $complexPolicy; $commissionPolicy['effect'] = 'commission';
+	$decision = LmdbSalesCommissionMarginEngine::evaluate(array($complexPolicy, $commissionPolicy), $case[2], null, null, $case[1], $case[0]);
+	expect($decision['checks'][0]['threshold'], $case[2], 'complex and travel produce the exact effective threshold');
+	expect($decision['sale'], 'allow', 'general sale threshold met');
+	expect($decision['commission'], 'allow', 'general commission threshold met');
+}
+expect(LmdbSalesCommissionMarginEngine::evaluate(array($complexPolicy), 129.999, null, null, $long, true)['sale'], 'deny', 'combined margin remains strict below 130');
+$complexPolicy['complex_site']['uplift_with_travel'] = null;
+expect(LmdbSalesCommissionMarginEngine::evaluate(array($complexPolicy), 125.0, null, null, $long, true)['checks'][0]['threshold'], 125.0, 'omitted combined value defaults to standalone uplift');
+expect(LmdbSalesCommissionMarginEngine::evaluate(array($complexPolicy), 100.0, null, null, $short, null)['sale'], 'unknown', 'missing qualification cannot be treated as OFF');
+expect(LmdbSalesCommissionMarginEngine::evaluate(array($complexPolicy), 100.0, null, null, null, false)['sale'], 'unknown', 'missing route remains indeterminate with complex configuration');
+unset($complexPolicy['travel_bands']);
+expect(LmdbSalesCommissionMarginEngine::evaluate(array($complexPolicy), 115.0, null, null, null, true)['checks'][0]['threshold'], 115.0, 'complex uplift works without travel configuration');
+$technicalComplex = policy(10, 'pv', 'commission', null, 3, array(band(0.0, null, 100.0)));
+$technicalComplex['complex_site'] = array('uplift_without_travel' => 15.0, 'uplift_with_travel' => null);
+$decision = LmdbSalesCommissionMarginEngine::evaluate(array($technicalComplex), 115.0, 4.0, 0.0, null, true);
+expect($decision['sale'], 'allow', 'technical complex rule never blocks sale');
+expect($decision['commission'], 'allow', 'technical complex rule adjusts commission threshold');
+expect(LmdbSalesCommissionMarginEngine::validComplexSiteUplift(array('uplift_without_travel' => -1.0, 'uplift_with_travel' => null)), false, 'negative complex uplift rejected');
 print "Margin engine: $tests assertions passed.\n";

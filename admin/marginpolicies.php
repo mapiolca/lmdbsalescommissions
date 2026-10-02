@@ -14,7 +14,9 @@ $langs->loadLangs(array('admin', 'lmdbsalescommissions@lmdbsalescommissions'));
 if (!isModEnabled('lmdbsalescommissions') || !$user->admin || !empty($user->socid) || !$user->hasRight('lmdbsalescommissions', 'admin', 'configure')) { accessforbidden(); }
 $action = GETPOST('action', 'aZ09');
 $travelAvailable = LmdbSalesCommissionsCompatibility::isFeatureAvailable('travel_margin_uplift');
+$complexAvailable = LmdbSalesCommissionsCompatibility::isFeatureAvailable('complex_site_margin_uplift');
 if (in_array($action, array('addtravelband', 'deletetravelband'), true) && !$travelAvailable) { accessforbidden(); }
+if (in_array($action, array('savecomplexsite', 'deletecomplexsite'), true) && !$complexAvailable) { accessforbidden(); }
 $id = GETPOSTINT('id');
 $mode = GETPOST('mode', 'aZ09');
 if ($mode === '' && $id > 0 && $action === '') { $mode = 'edit'; }
@@ -27,6 +29,7 @@ $effects = array('sale' => $langs->trans('LscSale'), 'commission' => $langs->tra
 $form = new Form($db);
 $bands = array();
 $travelBands = array();
+$complexSite = null;
 if ($id) {
 	$q = $db->query('SELECT * FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_margin_band WHERE entity = '.((int) $conf->entity).' AND fk_rule = '.$id.' ORDER BY rowid');
 	if (!$q) { dol_print_error($db); exit; }
@@ -43,6 +46,10 @@ if ($id) {
 	$q = $db->query('SELECT rowid, metric, min_value, uplift FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_margin_travel_band WHERE entity = '.((int) $conf->entity).' AND fk_rule = '.$id.' ORDER BY min_value');
 	if (!$q) { dol_print_error($db); exit; }
 	while (is_object($row = $db->fetch_object($q))) { $travelBands[] = array('rowid' => (int) $row->rowid, 'metric' => (string) $row->metric, 'min_value' => (float) $row->min_value, 'uplift' => (float) $row->uplift); }
+	$db->free($q);
+	$q = $db->query('SELECT rowid, uplift_without_travel, uplift_with_travel FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_margin_complex_site WHERE entity = '.((int) $conf->entity).' AND fk_rule = '.$id);
+	if (!$q) { dol_print_error($db); exit; }
+	if (is_object($row = $db->fetch_object($q))) { $complexSite = array('rowid' => (int) $row->rowid, 'uplift_without_travel' => (float) $row->uplift_without_travel, 'uplift_with_travel' => $row->uplift_with_travel === null ? null : (float) $row->uplift_with_travel); }
 	$db->free($q);
 }
 if ($action !== '') {
@@ -76,6 +83,11 @@ if ($action !== '') {
 			$travelBands = array();
 			while (is_object($row = $db->fetch_object($q))) { $travelBands[] = array('rowid' => (int) $row->rowid, 'metric' => (string) $row->metric, 'min_value' => (float) $row->min_value, 'uplift' => (float) $row->uplift); }
 			$db->free($q);
+			$q = $db->query('SELECT rowid, uplift_without_travel, uplift_with_travel FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_margin_complex_site WHERE entity = '.((int) $conf->entity).' AND fk_rule = '.$id);
+			if (!$q) { throw new RuntimeException('LscPolicyUnavailable'); }
+			$complexSite = null;
+			if (is_object($row = $db->fetch_object($q))) { $complexSite = array('rowid' => (int) $row->rowid, 'uplift_without_travel' => (float) $row->uplift_without_travel, 'uplift_with_travel' => $row->uplift_with_travel === null ? null : (float) $row->uplift_with_travel); }
+			$db->free($q);
 		}
 		if ($action === 'activate') {
 			if (!LmdbSalesCommissionsCompatibility::isFeatureAvailable('margin_policy_guards')) { throw new RuntimeException('LscPolicyUnavailable'); }
@@ -83,6 +95,12 @@ if ($action !== '') {
 			if ($enabled && !getDolGlobalInt('LMDBSALESCOMMISSIONS_MARGIN_ENABLED') && dolibarr_set_const($db, 'LMDBSALESCOMMISSIONS_MARGIN_ACTIVATED_AT', (string) dol_now(), 'chaine', 0, '', (int) $conf->entity) <= 0) { throw new RuntimeException('LscPolicyUnavailable'); }
 			if (dolibarr_set_const($db, 'LMDBSALESCOMMISSIONS_MARGIN_ENABLED', (string) $enabled, 'chaine', 0, '', (int) $conf->entity) <= 0) { throw new RuntimeException('LscPolicyUnavailable'); }
 		} elseif ($action === 'savepolicy') {
+			$complexWithout = str_replace(',', '.', trim(GETPOST('complex_without_travel', 'alphanohtml')));
+			$complexWith = str_replace(',', '.', trim(GETPOST('complex_with_travel', 'alphanohtml')));
+			$pendingComplex = !$id && ($complexWithout !== '' || $complexWith !== '');
+			if ($pendingComplex && !$complexAvailable) { throw new RuntimeException('LscComplexSiteCompatibilityUnavailable'); }
+			if ($pendingComplex && ($complexWithout === '' || !is_numeric($complexWithout) || ($complexWith !== '' && !is_numeric($complexWith))
+				|| !LmdbSalesCommissionMarginEngine::validComplexSiteUplift(array('uplift_without_travel' => (float) $complexWithout, 'uplift_with_travel' => $complexWith === '' ? null : (float) $complexWith)))) { throw new RuntimeException('LscInvalidComplexSiteUplift'); }
 			$context = GETPOST('policy_context', 'aZ09');
 			$effect = GETPOST('policy_effect', 'aZ09');
 			$rate = str_replace(',', '.', trim(GETPOST('rate', 'alphanohtml')));
@@ -101,11 +119,16 @@ if ($action !== '') {
 			$result = $id ? $rule->update($user) : $rule->create($user);
 			if ($result <= 0) { throw new RuntimeException('LscInvalidPolicy'); }
 			if (!$id) { $id = $result; }
+			if ($pendingComplex) {
+				$sql = 'INSERT INTO '.MAIN_DB_PREFIX.'lmdbsalescommissions_margin_complex_site (entity,fk_rule,uplift_without_travel,uplift_with_travel) VALUES ('.((int) $conf->entity).','.$id.','.(float) $complexWithout.','.($complexWith === '' ? 'NULL' : (string) (float) $complexWith).')';
+				if (!$db->query($sql)) { throw new RuntimeException('LscInvalidComplexSiteUplift'); }
+			}
 		} elseif ($action === 'confirm_delete' && $id) {
 			if ($rule->delete($user) <= 0) { throw new RuntimeException($rule->error); }
 			$id = 0;
 		} elseif ($action === 'togglepolicy' && $id) {
 			if (!$rule->active && $travelBands && !$travelAvailable) { throw new RuntimeException('LscTravelCompatibilityUnavailable'); }
+			if (!$rule->active && $complexSite !== null && !$complexAvailable) { throw new RuntimeException('LscComplexSiteCompatibilityUnavailable'); }
 			$rule->active = (int) $rule->active ? 0 : 1;
 			if ($rule->update($user) <= 0) { throw new RuntimeException('LscInvalidPolicy'); }
 		} elseif ($action === 'deleteband' && $id) {
@@ -124,6 +147,16 @@ if ($action !== '') {
 		} elseif ($action === 'deletetravelband' && $id) {
 			if (!$db->query('DELETE FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_margin_travel_band WHERE entity = '.((int) $conf->entity).' AND fk_rule = '.$id.' AND rowid = '.GETPOSTINT('band'))) { throw new RuntimeException('LscInvalidTravelBand'); }
 			if ($rule->update($user) <= 0) { throw new RuntimeException('LscInvalidPolicy'); }
+		} elseif ($action === 'savecomplexsite' && $id) {
+			$complexWithout = str_replace(',', '.', trim(GETPOST('complex_without_travel', 'alphanohtml')));
+			$complexWith = str_replace(',', '.', trim(GETPOST('complex_with_travel', 'alphanohtml')));
+			if (!is_numeric($complexWithout) || ($complexWith !== '' && !is_numeric($complexWith))
+				|| !LmdbSalesCommissionMarginEngine::validComplexSiteUplift(array('uplift_without_travel' => (float) $complexWithout, 'uplift_with_travel' => $complexWith === '' ? null : (float) $complexWith))) { throw new RuntimeException('LscInvalidComplexSiteUplift'); }
+			$sql = 'INSERT INTO '.MAIN_DB_PREFIX.'lmdbsalescommissions_margin_complex_site (entity,fk_rule,uplift_without_travel,uplift_with_travel) VALUES ('.((int) $conf->entity).','.$id.','.(float) $complexWithout.','.($complexWith === '' ? 'NULL' : (string) (float) $complexWith).') ON DUPLICATE KEY UPDATE uplift_without_travel = VALUES(uplift_without_travel), uplift_with_travel = VALUES(uplift_with_travel)';
+			if (!$db->query($sql) || $rule->update($user) <= 0) { throw new RuntimeException('LscInvalidComplexSiteUplift'); }
+		} elseif ($action === 'deletecomplexsite' && $id) {
+			if (!$db->query('DELETE FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_margin_complex_site WHERE entity = '.((int) $conf->entity).' AND fk_rule = '.$id)
+				|| $rule->update($user) <= 0) { throw new RuntimeException('LscInvalidComplexSiteUplift'); }
 		} elseif ($action !== 'addband' || !$id || $rule->policy_context === 'general') { throw new RuntimeException('LscInvalidPolicy'); }
 		// Save a pending band with the policy, including its first creation, in the same transaction.
 		if (in_array($action, array('savepolicy', 'addband'), true) && $rule->policy_context !== 'general') {
@@ -148,7 +181,7 @@ if ($action !== '') {
 		}
 		if (!$db->commit()) { throw new RuntimeException('LscPolicyUnavailable'); }
 		setEventMessages($langs->trans('RecordSaved'), null, 'mesgs');
-		$keepEditor = $id && (in_array($action, array('togglepolicy', 'addband', 'deleteband', 'addtravelband', 'deletetravelband'), true) || ($action === 'savepolicy' && GETPOSTINT('add_band_continue') === 1 && $rule->policy_context !== 'general'));
+		$keepEditor = $id && (in_array($action, array('togglepolicy', 'addband', 'deleteband', 'addtravelband', 'deletetravelband', 'savecomplexsite', 'deletecomplexsite'), true) || ($action === 'savepolicy' && GETPOSTINT('add_band_continue') === 1 && $rule->policy_context !== 'general'));
 		header('Location: '.$pageUrl.($keepEditor ? '?mode=edit&id='.$id : '')); exit;
 	} catch (Exception $e) {
 		if ($transactionStarted) { $db->rollback(); }
@@ -169,6 +202,10 @@ $travelValues = array(
 	'metric' => $action === 'addtravelband' ? GETPOST('metric', 'aZ09') : ($travelBands ? $travelBands[0]['metric'] : 'minutes'),
 	'min_value' => $action === 'addtravelband' ? GETPOST('min_value', 'alphanohtml') : '',
 	'uplift' => $action === 'addtravelband' ? GETPOST('uplift', 'alphanohtml') : '',
+);
+$complexValues = array(
+	'without' => ($action === 'savecomplexsite' || ($action === 'savepolicy' && !$id)) ? GETPOST('complex_without_travel', 'alphanohtml') : ($complexSite === null ? '' : (string) $complexSite['uplift_without_travel']),
+	'with' => ($action === 'savecomplexsite' || ($action === 'savepolicy' && !$id)) ? GETPOST('complex_with_travel', 'alphanohtml') : ($complexSite === null || $complexSite['uplift_with_travel'] === null ? '' : (string) $complexSite['uplift_with_travel']),
 );
 $policies = array();
 $q = $db->query("SELECT rowid, ref, label, policy_context, policy_effect, active FROM ".MAIN_DB_PREFIX."lmdbsalescommissions_rule WHERE rule_type = 'margin_policy' AND entity = ".((int) $conf->entity).' ORDER BY ref');
