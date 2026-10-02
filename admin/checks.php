@@ -61,7 +61,7 @@ $checks = array();
 $checks[] = array(
 	'label' => 'LmdbSalesCommissionsCheckIncompleteRules',
 	'level' => 'error',
-	'count' => lmdbsalescommissions_check_count($db, "SELECT COUNT(*) AS nb FROM ".MAIN_DB_PREFIX."lmdbsalescommissions_rule WHERE entity IN (".$entityRule.") AND active = 1 AND ((rule_type = 'margin' AND (rate IS NULL OR rate <= 0)) OR (rule_type = 'tier' AND (fk_tier_grid IS NULL OR fk_tier_grid <= 0)))"),
+	'count' => lmdbsalescommissions_check_count($db, "SELECT COUNT(*) AS nb FROM ".MAIN_DB_PREFIX."lmdbsalescommissions_rule WHERE entity IN (".$entityRule.") AND active = 1 AND ((rule_type = 'margin' AND (rate IS NULL OR rate <= 0)) OR (rule_type = 'tier' AND (fk_tier_grid IS NULL OR fk_tier_grid <= 0)) OR (rule_type = 'margin_excess' AND (reward_mode IS NULL OR reward_mode NOT IN ('fixed','percentage') OR reward_value IS NULL OR reward_value <= 0 OR (reward_mode = 'percentage' AND reward_value > 100))))"),
 );
 $checks[] = array(
 	'label' => 'LmdbSalesCommissionsCheckInvalidPaymentTerms',
@@ -118,7 +118,7 @@ $checks[] = array(
 
 llxHeader('', $langs->trans('LmdbSalesCommissionsChecks'), '', '', 0, 0, array(), lmdbsalescommissionsGetCssFiles(), '', lmdbsalescommissionsGetBodyClass());
 $head = lmdbsalescommissionsAdminPrepareHead();
-print dol_get_fiche_head($head, 'checks', $langs->trans('LmdbSalesCommissionsSetup'), -1, 'fa-percent');
+print dol_get_fiche_head($head, 'checks', $langs->trans('LmdbSalesCommissionsSetup'), -1, 'fa-percent_fas_#f0b400');
 print load_fiche_titre($langs->trans('LmdbSalesCommissionsChecks'), lmdbsalescommissionsBuildModuleListLink(), 'title_setup');
 
 print '<table class="noborder liste centpercent">';

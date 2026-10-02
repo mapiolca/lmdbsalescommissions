@@ -43,7 +43,7 @@ class modLmdbSalesCommissions extends DolibarrModules
 		$this->name = preg_replace('/^mod/i', '', get_class($this));
 		$this->description = 'LmdbSalesCommissionsDesc';
 		$this->descriptionlong = 'LmdbSalesCommissionsDescLong';
-		$this->version = '1.2.0';
+		$this->version = '1.3.0';
 		$this->const_name = 'MAIN_MODULE_'.strtoupper($this->name);
 		$this->picto = 'fa-percent_fas_#f0b400';
 		$this->editor_name = 'Pierre Ardoin';
@@ -52,7 +52,7 @@ class modLmdbSalesCommissions extends DolibarrModules
 		$this->module_parts = array(
 			'triggers' => 1,
 			'hooks' => array(
-				'propalcard',
+				'propalcard', 'propallist', 'api', 'ajaxonlinesign',
 				'notification',
 			),
 			'substitutions' => 1,
@@ -71,8 +71,8 @@ class modLmdbSalesCommissions extends DolibarrModules
 		$this->warnings_activation_ext = array();
 		$this->const = array();
 		$this->tabs = array(
-			'user:+lmdbsalescommissions:LmdbSalesCommissions:lmdbsalescommissions@lmdbsalescommissions:$user->admin || $user->hasRight("lmdbsalescommissions", "commission", "readown") || $user->hasRight("lmdbsalescommissions", "commission", "readall") || $user->hasRight("lmdbsalescommissions", "commission", "readgroup"):/lmdbsalescommissions/user_commissions.php?id=__ID__',
-			'propal:+lmdbsalescommissions_dispatch:LmdbSalesCommissionsProposalDispatch:lmdbsalescommissions@lmdbsalescommissions:$user->admin || $user->hasRight("lmdbsalescommissions", "commission", "dispatch") || $user->hasRight("lmdbsalescommissions", "commission", "readown") || $user->hasRight("lmdbsalescommissions", "commission", "readall") || $user->hasRight("lmdbsalescommissions", "commission", "readgroup"):/lmdbsalescommissions/proposal_dispatch.php?id=__ID__',
+			'user:+lmdbsalescommissions:LmdbSalesCommissions:lmdbsalescommissions@lmdbsalescommissions:$user->hasRight("lmdbsalescommissions", "commission", "readown") || $user->hasRight("lmdbsalescommissions", "commission", "readall") || $user->hasRight("lmdbsalescommissions", "commission", "readgroup"):/lmdbsalescommissions/user_commissions.php?id=__ID__',
+			'propal:+lmdbsalescommissions_dispatch:LmdbSalesCommissionsProposalDispatch:lmdbsalescommissions@lmdbsalescommissions:$user->hasRight("lmdbsalescommissions", "marginpolicy", "approvesale") || $user->hasRight("lmdbsalescommissions", "marginpolicy", "approvecommission") || $user->hasRight("lmdbsalescommissions", "commission", "dispatch") || $user->hasRight("lmdbsalescommissions", "commission", "readown") || $user->hasRight("lmdbsalescommissions", "commission", "readall") || $user->hasRight("lmdbsalescommissions", "commission", "readgroup"):/lmdbsalescommissions/proposal_dispatch.php?id=__ID__',
 		);
 		$this->boxes = array(
 			array(
@@ -260,12 +260,23 @@ class modLmdbSalesCommissions extends DolibarrModules
 		$this->rights[$r][4] = 'commission';
 		$this->rights[$r][5] = 'dispatch';
 
+		$r++;
+		$this->rights[$r][0] = $this->numero * 100 + $r;
+		$this->rights[$r][1] = 'LscPermissionApproveSale';
+		$this->rights[$r][4] = 'marginpolicy';
+		$this->rights[$r][5] = 'approvesale';
+		$r++;
+		$this->rights[$r][0] = $this->numero * 100 + $r;
+		$this->rights[$r][1] = 'LscPermissionApproveCommission';
+		$this->rights[$r][4] = 'marginpolicy';
+		$this->rights[$r][5] = 'approvecommission';
+
 		$this->menu = array();
 		$r = 0;
 
-		$readperms = '$user->admin || $user->hasRight("lmdbsalescommissions", "commission", "readown") || $user->hasRight("lmdbsalescommissions", "commission", "readall") || $user->hasRight("lmdbsalescommissions", "commission", "readgroup")';
-		$dueperms = '$user->admin || $user->hasRight("lmdbsalescommissions", "due", "read")';
-		$exportperms = '$user->admin || $user->hasRight("lmdbsalescommissions", "export", "own") || $user->hasRight("lmdbsalescommissions", "export", "all")';
+		$readperms = '$user->hasRight("lmdbsalescommissions", "commission", "readown") || $user->hasRight("lmdbsalescommissions", "commission", "readall") || $user->hasRight("lmdbsalescommissions", "commission", "readgroup")';
+		$dueperms = '$user->hasRight("lmdbsalescommissions", "due", "read")';
+		$exportperms = '$user->hasRight("lmdbsalescommissions", "export", "own") || $user->hasRight("lmdbsalescommissions", "export", "all")';
 
 		$this->menu[$r++] = array(
 			'fk_menu' => 'fk_mainmenu=billing',
@@ -368,6 +379,7 @@ class modLmdbSalesCommissions extends DolibarrModules
 	public function init($options = '')
 	{
 		$sql = array();
+		if ($this->upgradeRuleSchema(false) < 0) { return -1; }
 		if ($this->upgradeCommissionLineDispatchSchema(false) < 0) {
 			return -1;
 		}
@@ -391,7 +403,29 @@ class modLmdbSalesCommissions extends DolibarrModules
 			return -1;
 		}
 
+		if ($this->upgradeRuleSchema(true) < 0) { return -1; }
 		return $this->_init($sql, $options);
+	}
+
+	/** Add policy/reward fields conservatively; safe before and after table installation.
+	 * @param bool $tableMustExist Fail when the base table is unavailable
+	 * @return int */
+	private function upgradeRuleSchema($tableMustExist)
+	{
+		$table = MAIN_DB_PREFIX.'lmdbsalescommissions_rule';
+		$q = $this->db->query("SHOW TABLES LIKE '".$this->db->escape($table)."'");
+		if (!$q) { return -1; }
+		$exists = $this->db->num_rows($q) > 0;
+		$this->db->free($q);
+		if (!$exists) { return $tableMustExist ? -1 : 0; }
+		foreach (array('policy_context' => 'varchar(16)', 'policy_effect' => 'varchar(16)', 'reward_mode' => 'varchar(16)', 'reward_value' => 'double(24,8)') as $column => $definition) {
+			$resql = $this->db->query("SHOW COLUMNS FROM ".$table." LIKE '".$column."'");
+			if (!$resql) { return -1; }
+			$exists = $this->db->num_rows($resql) > 0;
+			$this->db->free($resql);
+			if (!$exists && !$this->db->query("ALTER TABLE ".$table." ADD ".$column." ".$definition." DEFAULT NULL")) { return -1; }
+		}
+		return 1;
 	}
 
 	/**
@@ -414,6 +448,8 @@ class modLmdbSalesCommissions extends DolibarrModules
 		}
 
 		$columns = array(
+			'fk_reward_rule' => 'integer DEFAULT NULL',
+			'snapshot_reward' => 'text DEFAULT NULL',
 			'fk_proposal_dispatch' => 'integer DEFAULT NULL',
 			'fk_proposal_turnover_dispatch' => 'integer DEFAULT NULL',
 			'snapshot_base_type' => 'varchar(16) DEFAULT NULL',
@@ -454,6 +490,12 @@ class modLmdbSalesCommissions extends DolibarrModules
 		if (!$turnoverIndexExists && !$this->db->query('ALTER TABLE '.$table.' ADD INDEX '.$turnoverIndexName.' (fk_proposal_turnover_dispatch)')) {
 			return -1;
 		}
+
+		$q = $this->db->query("SHOW INDEX FROM ".$table." WHERE Key_name = 'idx_lsc_reward_rule'");
+		if (!$q) { return -1; }
+		$exists = $this->db->num_rows($q) > 0;
+		$this->db->free($q);
+		if (!$exists && !$this->db->query('ALTER TABLE '.$table.' ADD INDEX idx_lsc_reward_rule (fk_reward_rule)')) { return -1; }
 
 		return 1;
 	}

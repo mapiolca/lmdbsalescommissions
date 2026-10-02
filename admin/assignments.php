@@ -77,7 +77,7 @@ $id = GETPOSTINT('id');
 if (!isModEnabled('lmdbsalescommissions')) {
 	accessforbidden();
 }
-if (!lmdbsalescommissionsCanConfigure($user)) {
+if (!$user->admin || !$user->hasRight('lmdbsalescommissions', 'admin', 'configure')) {
 	accessforbidden();
 }
 
@@ -135,6 +135,12 @@ if ($action === 'addassignment' || $action === 'updateassignment') {
 		$errors[] = $langs->trans('ErrorDateEndLowerThanDateStart');
 	}
 
+	// Reuse native selectors, but validate the selected relationship on the server.
+	$owner = is_object($object) && $id > 0 ? (int) $object->entity : (int) $conf->entity;
+	if ($owner !== (int) $conf->entity || !isset($ruleOptions[$fk_rule]) || ($assignment_type === 'user' && !isset($userOptions[$fk_user])) || ($assignment_type === 'group' && !isset($groupOptions[$fk_usergroup]))) { $errors[] = $langs->trans('LscInvalidPolicy'); }
+	$ruleQuery = $db->query('SELECT rowid FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_rule WHERE entity = '.$owner.' AND rowid = '.((int) $fk_rule));
+	if (!$ruleQuery || !$db->num_rows($ruleQuery)) { $errors[] = $langs->trans('LscInvalidPolicy'); }
+	if ($ruleQuery) { $db->free($ruleQuery); }
 	if (empty($errors)) {
 		$assignment = $action === 'updateassignment' ? lmdbsalescommissions_fetch_assignment_for_admin($db, $id) : new LmdbSalesCommissionRuleAssignment($db);
 		if (!is_object($assignment)) {
@@ -170,7 +176,7 @@ if ($action === 'addassignment' || $action === 'updateassignment') {
 llxHeader('', $langs->trans('LmdbSalesCommissionsAssignments'), '', '', 0, 0, array(), lmdbsalescommissionsGetCssFiles(), '', lmdbsalescommissionsGetBodyClass());
 
 $head = lmdbsalescommissionsAdminPrepareHead();
-print dol_get_fiche_head($head, 'assignments', $langs->trans('LmdbSalesCommissionsSetup'), -1, 'fa-percent');
+print dol_get_fiche_head($head, 'assignments', $langs->trans('LmdbSalesCommissionsSetup'), -1, 'fa-percent_fas_#f0b400');
 print load_fiche_titre($langs->trans('LmdbSalesCommissionsAssignments'), lmdbsalescommissionsBuildModuleListLink(), 'title_setup');
 
 print '<div class="tabsAction">';

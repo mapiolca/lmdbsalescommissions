@@ -8,6 +8,7 @@ require_once __DIR__.'/lmdbsalescommissioncommon.class.php';
  */
 class LmdbSalesCommissionProposalTurnoverDispatch extends LmdbSalesCommissionCommon
 {
+	public $TRIGGER_PREFIX = 'LMDBSALESCOMMISSIONS_PROPOSAL_TURNOVER_DISPATCH';
 	public $element = 'lmdbsalescommissions_proposal_turnover_dispatch';
 	public $table_element = 'lmdbsalescommissions_proposal_turnover_dispatch';
 
