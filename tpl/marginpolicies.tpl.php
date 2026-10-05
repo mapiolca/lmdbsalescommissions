@@ -28,7 +28,7 @@ foreach ($policies as $row) {
 if (!$policies) { print '<tr class="oddeven"><td colspan="6"><span class="opacitymedium">'.$langs->trans('NoRecordFound').'</span></td></tr>'; }
 print '</table></div>';
 if ($complexAvailable) {
-	print '<h3>'.$langs->trans('LscComplexSiteMargin').'</h3><p>'.$langs->trans('LscComplexSiteHelp').'</p>';
+	print '<h3>'.$langs->trans('LscComplexSiteMargin').'</h3><div class="info">'.$langs->trans('LscComplexSiteHelp').'</div>';
 }
 if ($mode === 'delete') {
 	print $form->formconfirm($pageUrl.'?id='.$id, $langs->trans('Delete'), $langs->trans('LscConfirmDeletePolicy', dol_escape_htmltag($rule->ref)), 'confirm_delete', '', 'no', 1);
@@ -91,7 +91,7 @@ if ($mode === 'create' || $mode === 'edit') {
 	}
 	if ($complexAvailable) {
 		$complexForm = $id ? 'lsc-save-complex-site' : 'lsc-policy-form';
-		print '<h3>'.$langs->trans('LscComplexSiteMargin').'</h3><p>'.$langs->trans('LscComplexSiteHelp').'</p>';
+		print '<h3>'.$langs->trans('LscComplexSiteMargin').'</h3><div class="info">'.$langs->trans('LscComplexSiteHelp').'</div>';
 		print '<div class="div-table-responsive-no-min"><table class="noborder centpercent" id="lsc-complex-site"><tr class="liste_titre"><td>'.$langs->trans('LscComplexSiteState').'</td><td>'.$langs->trans('LscComplexSiteWithoutTravel').'</td><td>'.$langs->trans('LscComplexSiteWithTravel').'</td><td></td></tr>';
 		print '<tr class="oddeven"><td>'.$langs->trans('Disabled').'</td><td>+0 '.$langs->trans('LscPercentagePoints').'</td><td>+0 '.$langs->trans('LscPercentagePoints').'</td><td></td></tr>';
 		print '<tr class="oddeven"><td>'.$langs->trans('Enabled').'</td>';
