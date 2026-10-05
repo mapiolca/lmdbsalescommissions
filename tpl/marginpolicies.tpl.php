@@ -21,7 +21,8 @@ print load_fiche_titre('', dolGetButtonTitle($langs->trans('New'), '', 'fa fa-pl
 print '<div class="div-table-responsive-no-min"><table class="noborder centpercent" id="lsc-policies"><tr class="liste_titre"><td>'.$langs->trans('Ref').'</td><td>'.$langs->trans('Label').'</td><td>'.$langs->trans('LscPolicyContext').'</td><td>'.$langs->trans('LscPolicyEffect').'</td><td>'.$langs->trans('Active').'</td><td class="right">'.$langs->trans('Actions').'</td></tr>';
 foreach ($policies as $row) {
 	$rowId = (int) $row->rowid;
-	print '<tr class="oddeven"><td>'.dol_escape_htmltag($row->ref).'</td><td>'.dol_escape_htmltag($row->label).'</td><td>'.($contexts[$row->policy_context] ?? '').'</td><td>'.($effects[$row->policy_effect] ?? '').'</td><td>'.yn($row->active).'</td>';
+	print '<tr class="oddeven"><td>'.dol_escape_htmltag($row->ref).'</td><td>'.dol_escape_htmltag($row->label).'</td><td>'.($contexts[$row->policy_context] ?? '').'</td><td>'.($effects[$row->policy_effect] ?? '').'</td>';
+	print '<td><a href="'.$pageUrl.'?action=togglepolicy&amp;id='.$rowId.'&amp;token='.newToken().'" role="switch" aria-checked="'.($row->active ? 'true' : 'false').'" aria-label="'.dol_escape_htmltag($langs->trans('Active').' '.$row->ref).'">'.img_picto($langs->trans($row->active ? 'Enabled' : 'Disabled'), $row->active ? 'switch_on' : 'switch_off').'</a></td>';
 	print '<td class="right nowraponall"><a class="editfielda" href="'.$pageUrl.'?mode=edit&amp;id='.$rowId.'" aria-label="'.dol_escape_htmltag($langs->trans('Modify').' '.$row->ref).'">'.img_edit().'</a> ';
 	print '<a href="'.$pageUrl.'?mode=delete&amp;id='.$rowId.'" aria-label="'.dol_escape_htmltag($langs->trans('Delete').' '.$row->ref).'">'.img_delete().'</a></td></tr>';
 }
@@ -44,7 +45,7 @@ if ($mode === 'create' || $mode === 'edit') {
 	print '<tr><td><label for="policy_context">'.$langs->trans('LscPolicyContext').'</label></td><td>'.$form->selectarray('policy_context', $contexts, $formValues['policy_context'] ?: 'general').'</td></tr>';
 	print '<tr><td><label for="policy_effect">'.$langs->trans('LscPolicyEffect').'</label></td><td>'.$form->selectarray('policy_effect', $effects, $formValues['policy_effect'] ?: 'commission').'</td></tr>';
 	if ($id) {
-		print '<tr><td>'.$langs->trans('Active').'</td><td><a href="'.$pageUrl.'?action=togglepolicy&amp;id='.$id.'&amp;token='.newToken().'" role="switch" aria-checked="'.($rule->active ? 'true' : 'false').'" aria-label="'.dol_escape_htmltag($langs->trans('Active')).'">'.img_picto($langs->trans($rule->active ? 'Enabled' : 'Disabled'), $rule->active ? 'switch_on' : 'switch_off').'</a></td></tr>';
+		print '<tr><td>'.$langs->trans('Active').'</td><td><a href="'.$pageUrl.'?action=togglepolicy&amp;mode=edit&amp;id='.$id.'&amp;token='.newToken().'" role="switch" aria-checked="'.($rule->active ? 'true' : 'false').'" aria-label="'.dol_escape_htmltag($langs->trans('Active')).'">'.img_picto($langs->trans($rule->active ? 'Enabled' : 'Disabled'), $rule->active ? 'switch_on' : 'switch_off').'</a></td></tr>';
 	}
 	print '</table>';
 	// Render at creation too: JavaScript follows the selected context without a preliminary save.

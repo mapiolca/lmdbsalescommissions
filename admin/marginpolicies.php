@@ -181,7 +181,7 @@ if ($action !== '') {
 		}
 		if (!$db->commit()) { throw new RuntimeException('LscPolicyUnavailable'); }
 		setEventMessages($langs->trans('RecordSaved'), null, 'mesgs');
-		$keepEditor = $id && (in_array($action, array('togglepolicy', 'addband', 'deleteband', 'addtravelband', 'deletetravelband', 'savecomplexsite', 'deletecomplexsite'), true) || ($action === 'savepolicy' && GETPOST('add_band_continue', 'alpha') !== '' && $rule->policy_context !== 'general'));
+		$keepEditor = $id && (in_array($action, array('addband', 'deleteband', 'addtravelband', 'deletetravelband', 'savecomplexsite', 'deletecomplexsite'), true) || ($action === 'togglepolicy' && $mode === 'edit') || ($action === 'savepolicy' && GETPOST('add_band_continue', 'alpha') !== '' && $rule->policy_context !== 'general'));
 		header('Location: '.$pageUrl.($keepEditor ? '?mode=edit&id='.$id : '')); exit;
 	} catch (Exception $e) {
 		if ($transactionStarted) { $db->rollback(); }

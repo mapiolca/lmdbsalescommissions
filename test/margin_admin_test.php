@@ -100,8 +100,12 @@ check($view->query('//div[@id="lsc-policy-editor"]')->length === 0, 'No permanen
 check($view->query('//table[@id="lsc-policies"]/tr[2]/td[1]/a')->length === 0, 'Reference is plain text');
 check($view->query('//table[@id="lsc-policies"]/tr[2]/td[6]/a')->length === 2, 'Edit and delete in final column');
 check($view->query('//a[contains(@href,"assignments.php")]')->length === 0, 'Redundant assignments link removed');
-check($view->query('//a[@role="switch"]/ancestor::tr/td')->length === 2, 'Activation row has two cells');
+check($view->query('//a[@role="switch" and contains(@href,"action=activate")]/ancestor::tr/td')->length === 2, 'Activation row has two cells');
 check($view->query('//a[@role="switch"]')->item(0)->getAttribute('aria-checked') === 'true', 'Activation state exposed');
+check($view->query('//table[@id="lsc-policies"]//td[5]/a[@role="switch" and @aria-checked="true" and contains(@href,"action=togglepolicy") and contains(@href,"token=test-csrf")]/span[@data-picto="switch_on"]')->length === 1, 'Active policy has a token-protected native switch');
+$policies[0]->active = 0; $view = parseView($render());
+check($view->query('//table[@id="lsc-policies"]//td[5]/a[@role="switch" and @aria-checked="false"]/span[@data-picto="switch_off"]')->length === 1, 'Inactive policy has a native OFF switch');
+$policies[0]->active = 1;
 $mode = 'create'; $html = $render(); $view = parseView($html);
 check($view->query('//form[@id="lsc-policy-form" and @method="POST"]')->length === 1, 'Editor saves by POST');
 check($view->query('//form[@id="lsc-policy-form"]/input[@name="token"]')->length === 1, 'Editor has CSRF token');
