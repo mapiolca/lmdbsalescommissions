@@ -315,7 +315,7 @@ if (!$resql) {
 			$state = (int) $obj->{$field};
 			print '<td class="center"><a href="'.$_SERVER['PHP_SELF'].'?action='.$switchAction.'&amp;id='.((int) $obj->rowid).'&amp;value='.($state ? 0 : 1).'&amp;token='.newToken().'" role="switch" aria-checked="'.($state ? 'true' : 'false').'" aria-label="'.dol_escape_htmltag($langs->trans($field === 'is_default' ? 'Default' : 'Active').' '.$obj->ref).'">'.img_picto($langs->trans($state ? 'Enabled' : 'Disabled'), $state ? 'switch_on' : 'switch_off').'</a></td>';
 		}
-		print '<td class="right"><a class="reposition" href="'.$_SERVER['PHP_SELF'].'?mode=edit&id='.((int) $obj->rowid).'">'.img_edit().'</a></td>';
+		print '<td class="right"><a class="reposition editfielda" href="'.$_SERVER['PHP_SELF'].'?mode=edit&id='.((int) $obj->rowid).'">'.img_edit().'</a></td>';
 		print '</tr>';
 	}
 	print '</table>';

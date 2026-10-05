@@ -313,7 +313,7 @@ if (!$resql) {
 		print '<td class="center">'.yn((int) $obj->cumulative).'</td>';
 		print '<td class="right">'.((int) $obj->priority).'</td>';
 		print '<td class="center"><a href="'.$_SERVER['PHP_SELF'].'?action=setactive&amp;id='.((int) $obj->rowid).'&amp;value='.($obj->active ? 0 : 1).'&amp;token='.newToken().'" role="switch" aria-checked="'.($obj->active ? 'true' : 'false').'" aria-label="'.dol_escape_htmltag($langs->trans('Active').' '.((int) $obj->rowid)).'">'.img_picto($langs->trans($obj->active ? 'Enabled' : 'Disabled'), $obj->active ? 'switch_on' : 'switch_off').'</a></td>';
-		print '<td class="right"><a class="reposition" href="'.$_SERVER['PHP_SELF'].'?mode=edit&id='.((int) $obj->rowid).'">'.img_edit().'</a></td>';
+		print '<td class="right"><a class="reposition editfielda" href="'.$_SERVER['PHP_SELF'].'?mode=edit&id='.((int) $obj->rowid).'">'.img_edit().'</a></td>';
 		print '</tr>';
 	}
 	print '</table>';
