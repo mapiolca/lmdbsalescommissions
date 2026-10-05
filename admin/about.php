@@ -58,8 +58,8 @@ if (!empty($moduleDescriptor->editor_url)) {
 
 llxHeader('', $langs->trans('About'), '', '', 0, 0, array(), lmdbsalescommissionsGetCssFiles(), '', lmdbsalescommissionsGetBodyClass());
 $head = lmdbsalescommissionsAdminPrepareHead();
-print dol_get_fiche_head($head, 'about', $langs->trans('LmdbSalesCommissionsSetup'), -1, (string) $moduleDescriptor->picto);
 print load_fiche_titre($langs->trans('About'), lmdbsalescommissionsBuildModuleListLink(), 'title_setup');
+print dol_get_fiche_head($head, 'about', $langs->trans('LmdbSalesCommissionsSetup'), -1, (string) $moduleDescriptor->picto);
 
 print '<div class="underbanner opacitymedium">'.dol_escape_htmltag($langs->trans($descriptionKey)).'</div><br>';
 print '<div class="fichecenter"><div class="fichehalfleft"><div class="div-table-responsive-no-min">';

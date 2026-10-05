@@ -213,7 +213,7 @@ if (!$q) { dol_print_error($db); exit; }
 while (is_object($row = $db->fetch_object($q))) { $policies[] = $row; }
 $db->free($q);
 llxHeader('', $langs->trans('LscPolicies'), '', '', 0, 0, array(dol_buildpath('/lmdbsalescommissions/js/marginpolicies.js', 1)));
-print dol_get_fiche_head(lmdbsalescommissionsAdminPrepareHead(), 'marginpolicies', $langs->trans('LmdbSalesCommissionsSetup'), -1, 'fa-percent_fas_#f0b400');
 print load_fiche_titre($langs->trans('LscPolicies'), lmdbsalescommissionsBuildModuleListLink(), 'title_setup');
+print dol_get_fiche_head(lmdbsalescommissionsAdminPrepareHead(), 'marginpolicies', $langs->trans('LmdbSalesCommissionsSetup'), -1, 'fa-percent_fas_#f0b400');
 require __DIR__.'/../tpl/marginpolicies.tpl.php';
 print dol_get_fiche_end(); llxFooter(); $db->close();

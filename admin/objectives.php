@@ -193,8 +193,8 @@ if ($action === 'addobjective' || $action === 'updateobjective') {
 llxHeader('', $langs->trans('LmdbSalesCommissionsObjectives'), '', '', 0, 0, array(), lmdbsalescommissionsGetCssFiles(), '', lmdbsalescommissionsGetBodyClass());
 
 $head = lmdbsalescommissionsAdminPrepareHead();
-print dol_get_fiche_head($head, 'objectives', $langs->trans('LmdbSalesCommissionsSetup'), -1, 'fa-percent_fas_#f0b400');
 print load_fiche_titre($langs->trans('LmdbSalesCommissionsObjectives'), lmdbsalescommissionsBuildModuleListLink(), 'title_setup');
+print dol_get_fiche_head($head, 'objectives', $langs->trans('LmdbSalesCommissionsSetup'), -1, 'fa-percent_fas_#f0b400');
 
 print load_fiche_titre('', dolGetButtonTitle($langs->trans('New'), '', 'fa fa-plus-circle', $_SERVER['PHP_SELF'].'?mode=create', 'lsc-new-objectives'), '');
 

@@ -238,8 +238,8 @@ if ($action === 'addpaymentterm' || $action === 'updatepaymentterm') {
 llxHeader('', $langs->trans('LmdbSalesCommissionsPaymentTerms'), '', '', 0, 0, array(), lmdbsalescommissionsGetCssFiles(), '', lmdbsalescommissionsGetBodyClass());
 
 $head = lmdbsalescommissionsAdminPrepareHead();
-print dol_get_fiche_head($head, 'paymentterms', $langs->trans('LmdbSalesCommissionsSetup'), -1, 'fa-percent_fas_#f0b400');
 print load_fiche_titre($langs->trans('LmdbSalesCommissionsPaymentTerms'), lmdbsalescommissionsBuildModuleListLink(), 'title_setup');
+print dol_get_fiche_head($head, 'paymentterms', $langs->trans('LmdbSalesCommissionsSetup'), -1, 'fa-percent_fas_#f0b400');
 
 print load_fiche_titre('', dolGetButtonTitle($langs->trans('New'), '', 'fa fa-plus-circle', $_SERVER['PHP_SELF'].'?mode=create', 'lsc-new-paymentterms'), '');
 

@@ -183,8 +183,8 @@ if ($action === 'addassignment' || $action === 'updateassignment') {
 llxHeader('', $langs->trans('LmdbSalesCommissionsAssignments'), '', '', 0, 0, array(), lmdbsalescommissionsGetCssFiles(), '', lmdbsalescommissionsGetBodyClass());
 
 $head = lmdbsalescommissionsAdminPrepareHead();
-print dol_get_fiche_head($head, 'assignments', $langs->trans('LmdbSalesCommissionsSetup'), -1, 'fa-percent_fas_#f0b400');
 print load_fiche_titre($langs->trans('LmdbSalesCommissionsAssignments'), lmdbsalescommissionsBuildModuleListLink(), 'title_setup');
+print dol_get_fiche_head($head, 'assignments', $langs->trans('LmdbSalesCommissionsSetup'), -1, 'fa-percent_fas_#f0b400');
 
 print load_fiche_titre('', dolGetButtonTitle($langs->trans('New'), '', 'fa fa-plus-circle', $_SERVER['PHP_SELF'].'?mode=create', 'lsc-new-assignments'), '');
 
