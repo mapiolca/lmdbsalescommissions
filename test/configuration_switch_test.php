@@ -88,5 +88,12 @@ foreach (array(LmdbSalesCommissionTierGrid::class, LmdbSalesCommissionRuleAssign
 	checkSwitch($object->setConfigurationFlag('active', 0, $user) > 0 && $db->objects[$object->table_element][$object->id]['active'] === 0, 'Deactivate configuration object');
 	checkSwitch($object->setConfigurationFlag('active', 1, $user) > 0 && $db->objects[$object->table_element][$object->id]['active'] === 1, 'Reactivate configuration object');
 }
+require_once __DIR__.'/../class/lmdbsalescommissionrule.class.php';
+$rule = new LmdbSalesCommissionRule($db);
+$rule->rule_type = 'margin'; $rule->active = 1; $rule->rate = 15;
+checkSwitch($rule->create($user) > 0, 'Create commission rule');
+checkSwitch($rule->setConfigurationFlag('active', 0, $user) > 0 && $db->objects[$rule->table_element][$rule->id]['active'] === 0, 'Deactivate commission rule');
+checkSwitch($rule->setConfigurationFlag('active', 1, $user) > 0 && $db->objects[$rule->table_element][$rule->id]['active'] === 1, 'Reactivate commission rule');
+checkSwitch($db->objects[$rule->table_element][$rule->id]['rate'] === 15, 'Switch preserves commission rate');
 checkSwitch(count($db->snapshots) === 0, 'All nested transactions completed');
 print 'Configuration switches: '.$tests." assertions passed (persistence simulated).\n";
