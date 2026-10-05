@@ -49,13 +49,13 @@ if ($mode === 'create' || $mode === 'edit') {
 	print '</table>';
 	// Render at creation too: JavaScript follows the selected context without a preliminary save.
 	print '<div id="lsc-policy-bands">';
-	print '<p>'.$langs->trans('LscBandHelp').'</p><div class="div-table-responsive-no-min"><table class="noborder centpercent" id="lsc-band-table"><tr class="liste_titre"><td>kWc</td><td>kWh</td><td>'.$langs->trans('LscThreshold').'</td><td></td></tr>';
+	print '<div class="info">'.$langs->trans('LscBandHelp').'</div><div class="div-table-responsive-no-min"><table class="noborder centpercent" id="lsc-band-table"><tr class="liste_titre"><td>kWc</td><td>kWh</td><td>'.$langs->trans('LscThreshold').'</td><td></td></tr>';
 	print '<tr class="oddeven">';
 	foreach (array('kwc', 'kwh') as $axis) {
 		$unit = $axis === 'kwc' ? 'kWc' : 'kWh';
 		print '<td class="nowraponall">'.$form->selectarray($axis.'_inclusive', array(0 => ']', 1 => '['), $bandValues[$axis.'_inclusive'] ?: 0).' <input class="width50" name="'.$axis.'_min" value="'.dol_escape_htmltag($bandValues[$axis.'_min']).'" aria-label="'.dol_escape_htmltag($langs->trans('LscLower').' ('.$unit.')').'"> ; <input class="width50" name="'.$axis.'_max" value="'.dol_escape_htmltag($bandValues[$axis.'_max']).'" aria-label="'.dol_escape_htmltag($langs->trans('LscUpper').' ('.$unit.')').'"> ]</td>';
 	}
-	print '<td class="nowraponall"><input class="width75" name="threshold" value="'.dol_escape_htmltag($bandValues['threshold']).'" aria-label="'.dol_escape_htmltag($langs->trans('LscThreshold')).'"> %</td><td class="right"><button class="button" type="submit" name="add_band_continue" value="1">'.$langs->trans('Add').'</button></td></tr>';
+	print '<td class="nowraponall"><input class="width75" name="threshold" value="'.dol_escape_htmltag($bandValues['threshold']).'" aria-label="'.dol_escape_htmltag($langs->trans('LscThreshold')).'"> %</td><td class="right"><input class="button smallpaddingimp" type="submit" name="add_band_continue" value="'.dol_escape_htmltag($langs->trans('Add')).'"></td></tr>';
 	foreach ($bands as $band) {
 		print '<tr class="oddeven">';
 		foreach (array('kwc', 'kwh') as $axis) { print '<td>'.($band[$axis.'_inclusive'] ? '[' : ']').dol_escape_htmltag((string) ($band[$axis.'_min'] ?? '−∞')).' ; '.dol_escape_htmltag((string) ($band[$axis.'_max'] ?? '+∞')).']</td>'; }
@@ -67,12 +67,12 @@ if ($mode === 'create' || $mode === 'edit') {
 	// These fallback actions are replaced by the native dialog footer when JavaScript is available.
 	print '<div id="lsc-policy-form-actions" class="center"><button class="button button-save" type="submit">'.$langs->trans('Save').'</button> <a class="button button-cancel" href="'.$pageUrl.'">'.$langs->trans('Cancel').'</a></div></form>';
 	if ($id && $travelAvailable) {
-		print '<h3>'.$langs->trans('LscTravelMargin').'</h3><p>'.$langs->trans('LscTravelHelp').'</p>';
+		print '<h3>'.$langs->trans('LscTravelMargin').'</h3><div class="info">'.$langs->trans('LscTravelHelp').'</div>';
 		print '<div class="div-table-responsive-no-min"><table class="noborder centpercent" id="lsc-travel-bands"><tr class="liste_titre"><td>'.$langs->trans('LscTravelMetric').'</td><td>'.$langs->trans('LscTravelMinimum').'</td><td>'.$langs->trans('LscTravelUplift').'</td><td></td></tr>';
 		print '<tr class="oddeven"><td>'.$form->selectarray('metric', array('minutes' => $langs->trans('LscTravelMinutes'), 'kilometres' => $langs->trans('LscTravelKilometres')), $travelValues['metric'], 0, 0, 0, 'form="lsc-add-travel-band" aria-label="'.dol_escape_htmltag($langs->trans('LscTravelMetric')).'"').'</td>';
 		print '<td class="nowraponall">&gt; <input class="width75" name="min_value" value="'.dol_escape_htmltag($travelValues['min_value']).'" form="lsc-add-travel-band" aria-label="'.dol_escape_htmltag($langs->trans('LscTravelMinimum')).'" required></td>';
 		print '<td class="nowraponall">+ <input class="width75" name="uplift" value="'.dol_escape_htmltag($travelValues['uplift']).'" form="lsc-add-travel-band" aria-label="'.dol_escape_htmltag($langs->trans('LscTravelUplift')).'" required> '.$langs->trans('LscPercentagePoints').'</td>';
-		print '<td class="right"><button class="button" type="submit" form="lsc-add-travel-band">'.$langs->trans('Add').'</button></td></tr>';
+		print '<td class="right"><input class="button smallpaddingimp" type="submit" form="lsc-add-travel-band" value="'.dol_escape_htmltag($langs->trans('Add')).'"></td></tr>';
 		foreach ($travelBands as $travelBand) {
 			$metricLabel = $travelBand['metric'] === 'minutes' ? 'LscTravelMinutes' : 'LscTravelKilometres';
 			print '<tr class="oddeven"><td>'.$langs->trans($metricLabel).'</td><td>&gt; '.dol_escape_htmltag((string) $travelBand['min_value']).'</td><td>+'.dol_escape_htmltag((string) $travelBand['uplift']).' '.$langs->trans('LscPercentagePoints').'</td><td class="right"><button class="bordertransp cursorpointer" type="submit" form="lsc-delete-travel-band-'.((int) $travelBand['rowid']).'" aria-label="'.dol_escape_htmltag($langs->trans('Delete')).'">'.img_delete().'</button></td></tr>';
@@ -87,7 +87,7 @@ if ($mode === 'create' || $mode === 'edit') {
 		}
 	}
 	if (!$id && $travelAvailable) {
-		print '<h3>'.$langs->trans('LscTravelMargin').'</h3><p>'.$langs->trans('LscTravelAfterSave').'</p>';
+		print '<h3>'.$langs->trans('LscTravelMargin').'</h3><div class="info">'.$langs->trans('LscTravelAfterSave').'</div>';
 	}
 	if ($complexAvailable) {
 		$complexForm = $id ? 'lsc-save-complex-site' : 'lsc-policy-form';
@@ -97,7 +97,7 @@ if ($mode === 'create' || $mode === 'edit') {
 		print '<tr class="oddeven"><td>'.$langs->trans('Enabled').'</td>';
 		print '<td>+ <input class="width75" name="complex_without_travel" value="'.dol_escape_htmltag($complexValues['without']).'" form="'.$complexForm.'" aria-label="'.dol_escape_htmltag($langs->trans('LscComplexSiteWithoutTravel')).'"'.($id ? ' required' : '').'> '.$langs->trans('LscPercentagePoints').'</td>';
 		print '<td>+ <input class="width75" name="complex_with_travel" value="'.dol_escape_htmltag($complexValues['with']).'" form="'.$complexForm.'" aria-label="'.dol_escape_htmltag($langs->trans('LscComplexSiteWithTravel')).'"> '.$langs->trans('LscPercentagePoints').'</td>';
-		print '<td class="right">'.($id ? '<button class="button" type="submit" form="lsc-save-complex-site">'.$langs->trans($complexSite === null ? 'Add' : 'Save').'</button>' : '').'</td></tr>';
+		print '<td class="right">'.($id ? '<input class="button smallpaddingimp" type="submit" form="lsc-save-complex-site" value="'.dol_escape_htmltag($langs->trans($complexSite === null ? 'Add' : 'Save')).'">' : '').'</td></tr>';
 		print '</table></div>';
 		if ($id) {
 			print '<form id="lsc-save-complex-site" method="POST" action="'.$pageUrl.'"><input type="hidden" name="token" value="'.newToken().'"><input type="hidden" name="action" value="savecomplexsite"><input type="hidden" name="id" value="'.$id.'"></form>';

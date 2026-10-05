@@ -161,7 +161,7 @@ if ($action !== '') {
 		// Save a pending band with the policy, including its first creation, in the same transaction.
 		if (in_array($action, array('savepolicy', 'addband'), true) && $rule->policy_context !== 'general') {
 			$band = array();
-			$hasBandInput = $action === 'addband' || GETPOSTINT('add_band_continue') === 1;
+			$hasBandInput = $action === 'addband' || GETPOST('add_band_continue', 'alpha') !== '';
 			foreach (array('kwc_min', 'kwc_max', 'kwh_min', 'kwh_max', 'threshold') as $key) {
 				$value = str_replace(',', '.', trim(GETPOST($key, 'alphanohtml')));
 				if ($value !== '') { $hasBandInput = true; }
@@ -181,7 +181,7 @@ if ($action !== '') {
 		}
 		if (!$db->commit()) { throw new RuntimeException('LscPolicyUnavailable'); }
 		setEventMessages($langs->trans('RecordSaved'), null, 'mesgs');
-		$keepEditor = $id && (in_array($action, array('togglepolicy', 'addband', 'deleteband', 'addtravelband', 'deletetravelband', 'savecomplexsite', 'deletecomplexsite'), true) || ($action === 'savepolicy' && GETPOSTINT('add_band_continue') === 1 && $rule->policy_context !== 'general'));
+		$keepEditor = $id && (in_array($action, array('togglepolicy', 'addband', 'deleteband', 'addtravelband', 'deletetravelband', 'savecomplexsite', 'deletecomplexsite'), true) || ($action === 'savepolicy' && GETPOST('add_band_continue', 'alpha') !== '' && $rule->policy_context !== 'general'));
 		header('Location: '.$pageUrl.($keepEditor ? '?mode=edit&id='.$id : '')); exit;
 	} catch (Exception $e) {
 		if ($transactionStarted) { $db->rollback(); }

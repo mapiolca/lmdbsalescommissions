@@ -22,7 +22,7 @@ $action = GETPOST('action', 'aZ09');
 if (!isModEnabled('lmdbsalescommissions')) {
 	accessforbidden();
 }
-if (!lmdbsalescommissionsCanConfigure($user)) {
+if (empty($user->admin) && !$user->hasRight('lmdbsalescommissions', 'admin', 'configure')) {
 	accessforbidden();
 }
 if ($action !== '') {
@@ -59,8 +59,10 @@ foreach ($features as $code => $feature) {
 	print '<td>'.dol_escape_htmltag($code).'</td>';
 	print '<td>'.$langs->trans($feature['label']).'</td>';
 	print '<td>'.$langs->trans($feature['description']).'</td>';
-	print '<td>'.yn($isavailable).'</td>';
-	print '<td>'.($isavailable ? $langs->trans('Available') : $langs->trans($feature['reason'] ?? 'Unavailable')).'</td>';
+	$statusLabel = $langs->trans($isavailable ? 'Available' : 'Unavailable');
+	print '<td class="nowraponall">'.dolGetStatus($statusLabel, $statusLabel, '', $isavailable ? 'status4' : 'status8', 2).'</td>';
+	$reasonKey = $isavailable ? ($feature['available_reason'] ?? '') : ($feature['reason'] ?? 'Unavailable');
+	print '<td>'.($reasonKey !== '' ? dol_escape_htmltag($langs->trans($reasonKey)) : '').'</td>';
 	print '</tr>';
 }
 print '</table>';

@@ -17,7 +17,8 @@
  *     min_php?: string,
  *     compatibility_check: string,
  *     available: bool,
- *     reason?: string
+ *     reason?: string,
+ *     available_reason?: string
  * }
  */
 
@@ -61,8 +62,8 @@ class LmdbSalesCommissionsCompatibility
 		return array(
 			'margin_excess_reward' => array('label' => 'LscReward', 'description' => 'LscRewardHelp', 'min_dolibarr' => '20.0.0', 'min_php' => '8.0.0', 'compatibility_check' => 'nativeMarginGuardCoverage() && LMDBSALESCOMMISSIONS_MARGIN_ENABLED', 'available' => self::nativeMarginGuardCoverage() && (bool) getDolGlobalInt('LMDBSALESCOMMISSIONS_MARGIN_ENABLED'), 'reason' => 'LscRewardUnavailable'),
 			'margin_policy_guards' => array('label' => 'LscPolicies', 'description' => 'LscCoverageDescription', 'min_dolibarr' => '20.0.0', 'min_php' => '8.0.0', 'compatibility_check' => 'nativeMarginGuardCoverage()', 'available' => self::nativeMarginGuardCoverage(), 'reason' => 'LscCoverageUnavailable'),
-			'travel_margin_uplift' => array('label' => 'LscTravelMargin', 'description' => 'LscTravelCompatibilityDescription', 'min_dolibarr' => '20.0.0', 'min_php' => '8.0.0', 'compatibility_check' => 'isModEnabled("lmdbzoning") && LmdbZoningCompatibility::isTravelAvailable("propal") && LmdbZoningTravelService::read()', 'available' => self::travelMarginAvailable(), 'reason' => 'LscTravelCompatibilityUnavailable'),
-			'complex_site_margin_uplift' => array('label' => 'LscComplexSiteMargin', 'description' => 'LscComplexSiteCompatibilityDescription', 'min_dolibarr' => '20.0.0', 'min_php' => '8.0.0', 'compatibility_check' => 'LmdbPropalPVComplexSiteService::isAvailable($db)', 'available' => self::complexSiteMarginAvailable(), 'reason' => 'LscComplexSiteCompatibilityUnavailable'),
+			'travel_margin_uplift' => array('label' => 'LscTravelMargin', 'description' => 'LscTravelCompatibilityDescription', 'min_dolibarr' => '20.0.0', 'min_php' => '8.0.0', 'compatibility_check' => 'isModEnabled("lmdbzoning") && LmdbZoningCompatibility::isTravelAvailable("propal") && LmdbZoningTravelService::read()', 'available' => self::travelMarginAvailable(), 'reason' => 'LscTravelCompatibilityUnavailable', 'available_reason' => 'LscTravelCompatibilityAvailable'),
+			'complex_site_margin_uplift' => array('label' => 'LscComplexSiteMargin', 'description' => 'LscComplexSiteCompatibilityDescription', 'min_dolibarr' => '20.0.0', 'min_php' => '8.0.0', 'compatibility_check' => 'LmdbPropalPVComplexSiteService::isAvailable($db)', 'available' => self::complexSiteMarginAvailable(), 'reason' => 'LscComplexSiteCompatibilityUnavailable', 'available_reason' => 'LscComplexSiteCompatibilityAvailable'),
 			'module_skeleton' => array(
 				'label' => 'LmdbSalesCommissionsCompatibilitySkeleton',
 				'description' => 'LmdbSalesCommissionsCompatibilitySkeletonDesc',

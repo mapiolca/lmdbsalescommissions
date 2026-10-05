@@ -111,14 +111,14 @@ check($view->query('//div[@id="lsc-policy-bands"]')->length === 1, 'Bands are av
 check($view->query('//form[@id="lsc-policy-form"]//input[@name="kwc_min" or @name="kwh_min" or @name="threshold"]')->length === 3, 'Pending band submits with the policy');
 check($view->query('//table[@id="lsc-complex-site"]//input[@name="complex_without_travel" and @form="lsc-policy-form"]')->length === 1, 'Complex input submits with first rule creation');
 check($view->query('//table[@id="lsc-complex-site"]//tr[2]/td[2]')->item(0)->textContent === '+0 LscPercentagePoints', 'OFF row is fixed to zero');
-check($view->query('//table[@id="lsc-band-table"]/tr[2]/td/input')->length === 5 && $view->query('//table[@id="lsc-band-table"]/tr[2]/td/button[@name="add_band_continue"]')->length === 1, 'Creation inputs and Add are immediately below the bounds header');
+check($view->query('//table[@id="lsc-band-table"]/tr[2]/td/input')->length === 6 && $view->query('//table[@id="lsc-band-table"]/tr[2]/td/input[@name="add_band_continue"]')->length === 1, 'Creation inputs and Add are immediately below the bounds header');
 $bandValues['kwc_min'] = '1,5'; $bandValues['threshold'] = '30';
 $view = parseView($render());
 check($view->query('//input[@name="kwc_min"]')->item(0)->getAttribute('value') === '1,5', 'Failed input keeps its original decimal format');
 check($view->query('//input[@name="threshold"]')->item(0)->getAttribute('value') === '30', 'Pending threshold is preserved');
 $mode = 'edit'; $id = 1; $rule->policy_context = 'pv'; $view = parseView($render());
-check($view->query('//form[@id="lsc-policy-form"]//button[@name="add_band_continue"]')->length === 1, 'Add a band and continue editing');
-check($view->query('//table[@id="lsc-band-table"]/tr[2]/td/input')->length === 5 && !$view->query('//div[@id="lsc-policy-bands"]/p//input')->length, 'Edition uses the same input row, without a separate form below the table');
+check($view->query('//form[@id="lsc-policy-form"]//input[@name="add_band_continue"]')->length === 1, 'Add a band and continue editing');
+check($view->query('//table[@id="lsc-band-table"]/tr[2]/td/input')->length === 6 && !$view->query('//div[@id="lsc-policy-bands"]/p//input')->length, 'Edition uses the same input row, without a separate form below the table');
 check($view->query('//form//form')->length === 0, 'No nested forms in editor');
 $bands = array(array('rowid' => 9, 'threshold' => 30, 'kwc_min' => 0, 'kwc_max' => 3, 'kwc_inclusive' => 0, 'kwh_min' => null, 'kwh_max' => null, 'kwh_inclusive' => 0));
 $view = parseView($render());
@@ -135,7 +135,7 @@ check($view->query('//form//form')->length === 0, 'Complex actions do not nest f
 check($view->query('//table[@id="lsc-travel-bands"]/tr[2]/td')->length === 4, 'Travel entry is the first table row below the header');
 check($view->query('//table[@id="lsc-travel-bands"]/tr[2]/td/select[@name="metric" and @form="lsc-add-travel-band"]')->length === 1, 'Travel metric belongs to the independent add form');
 check($view->query('//table[@id="lsc-travel-bands"]/tr[2]/td/input[@name="min_value" and @form="lsc-add-travel-band"]')->length === 1 && $view->query('//table[@id="lsc-travel-bands"]/tr[2]/td/input[@name="uplift" and @form="lsc-add-travel-band"]')->length === 1, 'Travel values submit from the first table row');
-check($view->query('//table[@id="lsc-travel-bands"]/tr[2]/td/button[@form="lsc-add-travel-band"]')->length === 1, 'Add button is in the first table row');
+check($view->query('//table[@id="lsc-travel-bands"]/tr[2]/td/input[@type="submit" and @form="lsc-add-travel-band"]')->length === 1, 'Add button is in the first table row');
 check($view->query('//table[@id="lsc-travel-bands"]/tr[3]/td[2]')->item(0)->textContent === '> 105', 'Saved travel breakpoint follows the entry row');
 check($view->query('//form[@id="lsc-add-travel-band" and @method="POST"]/input[@name="token"]')->length === 1, 'Travel band addition has its own CSRF-protected form');
 check($view->query('//form[@id="lsc-add-travel-band"]//select|//form[@id="lsc-add-travel-band"]//input[@name="min_value" or @name="uplift"]|//form[@id="lsc-add-travel-band"]//button')->length === 0, 'No duplicate visible entry controls below the table');
