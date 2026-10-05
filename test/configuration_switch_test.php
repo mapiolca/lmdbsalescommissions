@@ -81,7 +81,8 @@ checkSwitch($first->setConfigurationFlag('label', 1, $user) < 0, 'Non-boolean fi
 // A form save obeys the same exclusivity as switches.
 $second->is_default = 1; $second->active = 1;
 checkSwitch($second->update($user) > 0 && $db->objects[$table][1]['is_default'] === 0, 'Form save replaces the previous default');
-foreach (array(LmdbSalesCommissionTierGrid::class, LmdbSalesCommissionRuleAssignment::class) as $class) {
+require_once __DIR__.'/../class/lmdbsalescommissionobjective.class.php';
+foreach (array(LmdbSalesCommissionTierGrid::class, LmdbSalesCommissionRuleAssignment::class, LmdbSalesCommissionObjective::class) as $class) {
 	$object = new $class($db); $object->active = 1;
 	checkSwitch($object->create($user) > 0, 'Create configuration object');
 	checkSwitch($object->setConfigurationFlag('active', 0, $user) > 0 && $db->objects[$object->table_element][$object->id]['active'] === 0, 'Deactivate configuration object');
