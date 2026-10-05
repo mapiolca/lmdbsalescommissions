@@ -41,6 +41,9 @@ abstract class LmdbSalesCommissionCommon extends CommonObject
 	/** @var int|string|null Entity id */
 	public $entity;
 
+	/** @var int|string|null Activation state for configuration objects */
+	public $active;
+
 	/** @var int|string|null Creator user id */
 	public $fk_user_creat;
 
@@ -102,6 +105,38 @@ abstract class LmdbSalesCommissionCommon extends CommonObject
 		$this->fk_user_modif = (int) $user->id;
 
 		return $this->updateCommon($user, $notrigger);
+	}
+
+	/** Change an administrative switch without overwriting other fields from a stale page.
+	 * @param string $field active or is_default
+	 * @param int $value Requested state (idempotent)
+	 * @param User $user Current actor
+	 * @return int
+	 */
+	public function setConfigurationFlag(string $field, int $value, $user): int
+	{
+		if (!$user->hasRight('lmdbsalescommissions', 'admin', 'configure')
+			|| !in_array($field, array('active', 'is_default'), true) || !isset($this->fields[$field])
+			|| !in_array($value, array(0, 1), true) || (int) $this->id <= 0 || (int) $this->entity <= 0) {
+			$this->error = 'ErrorForbidden'; return -1;
+		}
+		$owner = (int) $this->entity;
+		if (!in_array($owner, array_map('intval', explode(',', getEntity($this->table_element))), true)) {
+			$this->error = 'ErrorForbidden'; return -1;
+		}
+		if (!$this->db->begin()) { $this->error = $this->db->lasterror(); return -1; }
+		// Use the same lock order as payment-term default changes.
+		$locked = $this->db->query('SELECT rowid FROM '.MAIN_DB_PREFIX.$this->table_element.' WHERE entity = '.$owner.' ORDER BY rowid FOR UPDATE');
+		if (!$locked) { $this->error = $this->db->lasterror(); $this->db->rollback(); return -1; }
+		$this->db->free($locked);
+		if ($this->fetch((int) $this->id) <= 0 || (int) $this->entity !== $owner) {
+			$this->error = 'ErrorRecordNotFound'; $this->db->rollback(); return -1;
+		}
+		$this->{$field} = $value;
+		if ($field === 'is_default' && $value === 1) { $this->active = 1; }
+		if ($this->update($user) <= 0) { $this->db->rollback(); return -1; }
+		if (!$this->db->commit()) { $this->error = $this->db->lasterror(); $this->db->rollback(); return -1; }
+		return 1;
 	}
 
 	/**

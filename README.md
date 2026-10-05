@@ -69,6 +69,7 @@ Il ne contient pas le préfixe `htdocs/custom/`, car ce chemin est géré par Do
 
 - Configuration des règles de commission sur marge et des primes par paliers.
 - Modalités de versement avec contrôle de répartition à 100 %.
+- Switches d’activation dans les listes des modalités, grilles et affectations. Une seule modalité peut être définie par défaut dans chaque entité : choisir un nouveau défaut remplace l’ancien ; désactiver la modalité retire aussi son statut de défaut. Activer son switch « Défaut » la rend active.
 - Affectation des règles à un utilisateur, un groupe ou par défaut.
 - Résolution du profil effectif utilisateur > groupe > défaut.
 - Objectifs mensuels et annuels facultatifs, avec archivage.

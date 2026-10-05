@@ -209,9 +209,7 @@ $head = lmdbsalescommissionsAdminPrepareHead();
 print dol_get_fiche_head($head, 'rules', $langs->trans('LmdbSalesCommissionsSetup'), -1, 'fa-percent_fas_#f0b400');
 print load_fiche_titre($langs->trans('LmdbSalesCommissionsRules'), lmdbsalescommissionsBuildModuleListLink(), 'title_setup');
 
-print '<div class="tabsAction">';
-print '<a class="butAction" href="'.$_SERVER['PHP_SELF'].'?mode=create">'.$langs->trans('New').'</a>';
-print '</div>';
+print load_fiche_titre('', dolGetButtonTitle($langs->trans('New'), '', 'fa fa-plus-circle', $_SERVER['PHP_SELF'].'?mode=create', 'lsc-new-rules'), '');
 
 if ($mode === 'create' || $mode === 'edit') {
 	$rule = is_object($object) ? $object : new LmdbSalesCommissionRule($db);
