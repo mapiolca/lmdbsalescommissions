@@ -23,6 +23,7 @@ class LmdbSalesCommissionLineService
 	public const STATUS_CANCELLED = 6;
 	public const STATUS_BLOCKED = 7;
 	public const MODE_MARGIN = 'margin';
+	public const MODE_REWARD = 'margin_excess';
 	public const MODE_TIER = 'tier';
 	public const MODE_TRACKING = 'tracking';
 	public const MODE_DISPATCH = 'dispatch';
@@ -128,7 +129,9 @@ class LmdbSalesCommissionLineService
 			return -1;
 		}
 
-		return $created + $result;
+		$created += $result;
+		$result = $this->processRewards($proposal, $user, dol_now(), self::STATUS_ESTIMATED);
+		return $result < 0 ? -1 : $created + $result;
 	}
 
 	/**
@@ -224,12 +227,52 @@ class LmdbSalesCommissionLineService
 		}
 		$created += $result;
 
+		$result = $this->processRewards($proposal, $user, $businessDate, self::STATUS_ACQUIRED);
+		if ($result < 0) { return -1; }
+		$created += $result;
 		if ($this->cancelRemainingEstimatedProposalLines($proposal, $user) < 0) {
 			$this->lastResult['errors']++;
 			return -1;
 		}
 
 		return $created;
+	}
+
+
+	/** Synchronize the optional reward within the caller's native transaction.
+	 * @param object $proposal Proposal
+	 * @param User $user Actor
+	 * @param int $date Business date
+	 * @param int $status Estimated or acquired
+	 * @return int Created lines, -1 on failure */
+	private function processRewards($proposal, $user, $date, $status)
+	{
+		require_once __DIR__.'/lmdbsalescommissionrewardservice.class.php';
+		$transaction = false;
+		try {
+			$rewards = (new LmdbSalesCommissionRewardService($this->db))->forProposal($proposal, $date);
+			if (!$this->db->begin()) { throw new RuntimeException('LscPolicyUnavailable'); }
+			$transaction = true;
+			$created = 0;
+			$kept = array();
+			foreach ($rewards as $beneficiary => $reward) {
+				$kept[] = (int) $beneficiary;
+				$rule = array('rule_id' => 0, 'source' => 'margin_excess', 'rule_label' => $reward['rule_label'], 'fk_payment_term' => $reward['payment_term_id']);
+				$result = $this->upsertProposalLine($proposal, $user, $beneficiary, (int) $proposal->entity, self::MODE_REWARD, $reward['surplus'] * $reward['share'], null, $reward['mode'] === 'percentage' ? $reward['value'] : null, $reward['amount'], $rule, $date, $status, $status === self::STATUS_ACQUIRED, $reward);
+				if ($result < 0) { throw new RuntimeException($this->error ?: 'LscPolicyUnavailable'); }
+				$created += $result;
+			}
+			$sql = 'UPDATE '.MAIN_DB_PREFIX.'lmdbsalescommissions_line SET status = 6, fk_user_modif = '.((int) $user->id).' WHERE entity = '.((int) $proposal->entity)." AND source_type = 'proposal' AND fk_source = ".((int) $proposal->id)." AND mode = 'margin_excess' AND status = 0";
+			if ($kept) { $sql .= ' AND fk_user NOT IN ('.implode(',', $kept).')'; }
+			if (!$this->db->query($sql)) { throw new RuntimeException('LscPolicyUnavailable'); }
+			if (!$this->db->commit()) { throw new RuntimeException('LscPolicyUnavailable'); }
+			$transaction = false;
+			return $created;
+		} catch (Exception $e) {
+			$this->error = $e->getMessage();
+			if ($transaction && !$this->db->rollback()) { $this->errors[] = 'LscRewardRollbackFailed'; }
+			return -1;
+		}
 	}
 
 	/**
@@ -667,9 +710,10 @@ class LmdbSalesCommissionLineService
 	 * @param int                  $dateAcquired Acquisition or estimation date
 	 * @param int                  $status       Target line status
 	 * @param bool                 $generateDues Generate due dates when acquired
+	 * @param array<string,mixed>|null $reward Reward audit snapshot
 	 * @return int
 	 */
-	private function upsertProposalLine($proposal, $user, $salesUserId, $entity, $mode, $amountBase, $marginBase, $rate, $amount, array $rule, $dateAcquired, $status, $generateDues)
+	private function upsertProposalLine($proposal, $user, $salesUserId, $entity, $mode, $amountBase, $marginBase, $rate, $amount, array $rule, $dateAcquired, $status, $generateDues, ?array $reward = null)
 	{
 		$existingId = $this->fetchLineId($entity, $salesUserId, (int) $proposal->id, $mode, (int) $rule['rule_id']);
 		if ($existingId < 0) {
@@ -680,6 +724,10 @@ class LmdbSalesCommissionLineService
 			$this->error = $line->error;
 			$this->errors = $line->errors;
 			return -1;
+		}
+		if ($reward !== null && $existingId > 0) {
+			$storedReward = json_decode((string) $line->snapshot_reward, true);
+			if (is_array($storedReward) && !empty($storedReward['acquired'])) { $this->lastResult['existing']++; return 0; }
 		}
 		if ($existingId > 0 && !in_array((int) $line->status, array(self::STATUS_ESTIMATED, self::STATUS_CANCELLED), true)) {
 			$this->lastResult['existing']++;
@@ -697,11 +745,18 @@ class LmdbSalesCommissionLineService
 		$line->margin_base = $marginBase !== null ? (float) price2num($marginBase, 'MT') : null;
 		$line->rate = $rate;
 		$line->fk_tier = null;
+		require_once __DIR__.'/lmdbsalescommissionmarginservice.class.php';
+		try {
+			if ($mode === self::MODE_MARGIN && (new LmdbSalesCommissionMarginService($this->db))->commissionState($proposal, (int) $salesUserId) !== 'allow') { $amount = 0.0; }
+		} catch (Exception $e) { $this->error = $e->getMessage(); return -1; }
 		$line->commission_total = (float) price2num($amount, 'MT');
 		$line->payable_total = 0.0;
 		$line->paid_total = 0.0;
 		$line->status = (int) $status;
 		$line->date_acquired = $dateAcquired;
+		$line->fk_reward_rule = $reward !== null ? (int) $reward['rule_id'] : null;
+		if ($reward !== null) { $reward['acquired'] = (int) $status === self::STATUS_ACQUIRED; }
+		$line->snapshot_reward = $reward !== null ? json_encode($reward, JSON_THROW_ON_ERROR | JSON_PRESERVE_ZERO_FRACTION) : null;
 		$line->fk_rule = (int) $rule['rule_id'];
 		$line->fk_payment_term = isset($rule['fk_payment_term']) ? (int) $rule['fk_payment_term'] : null;
 		$line->fk_proposal_dispatch = null;

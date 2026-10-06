@@ -32,6 +32,8 @@ $search_source_ref = GETPOST('search_source_ref', 'alpha');
 $search_status = GETPOST('search_status', 'array:intcomma');
 $search_mode = GETPOST('search_mode', 'aZ09');
 $search_rule_source = GETPOST('search_rule_source', 'aZ09');
+$search_control = GETPOST('search_control', 'aZ09');
+if (!in_array($search_control, array('allow', 'deny', 'unknown'), true)) { $search_control = ''; }
 $search_date_start = lmdbsalescommissionsGetDateFilterValue('search_date_start');
 $search_date_end = lmdbsalescommissionsGetDateFilterValue('search_date_end', true);
 $sortfield = GETPOST('sortfield', 'aZ09comma');
@@ -74,6 +76,7 @@ if ($search_rule_source === '-1') {
 }
 
 if ($button_removefilter) {
+	$search_control = '';
 	$fk_user = 0;
 	$fk_usergroup = 0;
 	$fk_soc = 0;
@@ -90,13 +93,10 @@ if (!isModEnabled('lmdbsalescommissions')) {
 	accessforbidden();
 }
 
-if (!lmdbsalescommissionsCanReadCommissions($user)) {
-	accessforbidden();
-}
-
-if (!lmdbsalescommissionsCanReadUserScope($user, $fk_user)) {
-	accessforbidden();
-}
+$canReadAll = $user->hasRight('lmdbsalescommissions', 'commission', 'readall');
+$canReadOwn = $user->hasRight('lmdbsalescommissions', 'commission', 'readown');
+$canReadGroup = $user->hasRight('lmdbsalescommissions', 'commission', 'readgroup');
+if (!empty($user->socid) || (!$canReadAll && !$canReadOwn && !$canReadGroup)) { accessforbidden(); }
 
 if ($action !== '') {
 	accessforbidden($langs->trans('LmdbSalesCommissionsActionNotAvailableYet'));
@@ -119,7 +119,7 @@ $source_type_options = array(
 	'contract' => $langs->trans('Contract'),
 );
 $mode_options = array(
-	'margin' => $langs->trans('LmdbSalesCommissionsRuleTypeMargin'),
+	'margin_excess' => $langs->trans('LscReward'), 'margin' => $langs->trans('LmdbSalesCommissionsRuleTypeMargin'),
 	'tier' => $langs->trans('LmdbSalesCommissionsRuleTypeTier'),
 	'tracking' => $langs->trans('LmdbSalesCommissionsModeTracking'),
 	'dispatch' => $langs->trans('LmdbSalesCommissionsModeDispatch'),
@@ -155,6 +155,7 @@ $arrayfields = array(
 	'payable_total' => array('label' => 'LmdbSalesCommissionsPayableTotal', 'checked' => 1, 'position' => 100),
 	'paid_total' => array('label' => 'LmdbSalesCommissionsPaidTotal', 'checked' => 1, 'position' => 110),
 	'status' => array('label' => 'Status', 'checked' => 1, 'position' => 120),
+	'margin_control' => array('label' => 'LscFrozenControls', 'checked' => 1, 'position' => 130),
 );
 $arrayfields = dol_sort_array($arrayfields, 'position');
 
@@ -162,7 +163,7 @@ if (GETPOST('formfilteraction', 'alphanohtml') === 'listafterchangingselectedfie
 	include DOL_DOCUMENT_ROOT.'/core/actions_changeselectedfields.inc.php';
 }
 
-$param = '';
+$param = $search_control !== '' ? '&search_control='.urlencode($search_control) : '';
 if ($fk_user > 0) {
 	$param .= '&fk_user='.((int) $fk_user);
 }
@@ -195,12 +196,20 @@ if ($search_rule_source !== '') {
 }
 
 $sqlselect = 'SELECT l.rowid, l.entity, l.fk_user, l.fk_soc, l.source_type, l.fk_source, l.source_ref, l.mode, l.amount_base, l.margin_base, l.rate, l.commission_total, l.payable_total, l.paid_total, l.status, l.date_acquired, l.rule_source, l.snapshot_rule_label,';
-$sqlselect .= ' u.lastname, u.firstname, u.login, u.statut AS user_status, u.photo AS user_photo, u.email AS user_email, s.nom AS thirdparty_name';
+$sqlselect .= ' u.lastname, u.firstname, u.login, u.statut AS user_status, u.photo AS user_photo, u.email AS user_email, s.nom AS thirdparty_name, ms.sale_state, ms.commission_state';
 $sqlfrom = ' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_line AS l';
 $sqlfrom .= ' LEFT JOIN '.MAIN_DB_PREFIX.'user AS u ON u.rowid = l.fk_user';
 $sqlfrom .= ' LEFT JOIN '.MAIN_DB_PREFIX.'societe AS s ON s.rowid = l.fk_soc';
+$sqlfrom .= " LEFT JOIN ".MAIN_DB_PREFIX."lmdbsalescommissions_margin_snapshot ms ON ms.entity = l.entity AND ms.fk_propal = l.fk_source AND ms.fk_user = l.fk_user AND l.source_type = 'proposal' AND l.mode IN ('margin','dispatch','margin_excess')";
 $sqlwhere = ' WHERE l.entity IN ('.$db->sanitize(getEntity('lmdbsalescommissions_line')).')';
-$sqlwhere .= lmdbsalescommissionsBuildCommissionScopeSql($db, $user, 'l');
+if (!$canReadAll) {
+	$sqlwhere .= ' AND (l.fk_user = '.((int) $user->id);
+	if ($canReadGroup) {
+		$sqlwhere .= ' OR EXISTS (SELECT 1 FROM '.MAIN_DB_PREFIX.'usergroup_user mine INNER JOIN '.MAIN_DB_PREFIX.'usergroup_user theirs ON theirs.fk_usergroup = mine.fk_usergroup AND theirs.entity = mine.entity WHERE mine.fk_user = '.((int) $user->id).' AND mine.entity = l.entity AND theirs.fk_user = l.fk_user)';
+	}
+	$sqlwhere .= ')';
+}
+if ($search_control !== '') { $sqlwhere .= " AND ms.commission_state = '".$db->escape($search_control)."'"; }
 if ($fk_user > 0) {
 	$sqlwhere .= ' AND l.fk_user = '.((int) $fk_user);
 }
@@ -288,6 +297,7 @@ if (!empty($arrayfields['commission_total']['checked'])) print_liste_field_titre
 if (!empty($arrayfields['payable_total']['checked'])) print_liste_field_titre($arrayfields['payable_total']['label'], $_SERVER['PHP_SELF'], 'l.payable_total', $param, '', 'class="right"', $sortfield, $sortorder);
 if (!empty($arrayfields['paid_total']['checked'])) print_liste_field_titre($arrayfields['paid_total']['label'], $_SERVER['PHP_SELF'], 'l.paid_total', $param, '', 'class="right"', $sortfield, $sortorder);
 if (!empty($arrayfields['status']['checked'])) print_liste_field_titre($arrayfields['status']['label'], $_SERVER['PHP_SELF'], 'l.status', $param, '', '', $sortfield, $sortorder, 'center ');
+if (!empty($arrayfields['margin_control']['checked'])) print_liste_field_titre($arrayfields['margin_control']['label'], $_SERVER['PHP_SELF'], 'ms.commission_state', $param, '', '', $sortfield, $sortorder);
 print '</tr>';
 
 print '<tr class="liste_titre_filter">';
@@ -326,6 +336,11 @@ if (!empty($arrayfields['status']['checked'])) {
 	print $form->multiselectarray('search_status', $status_options, $search_status, 0, 0, 'search_status width100 onrightofpage', 0, 0, '', '', '', 1);
 	print '</td>';
 }
+if (!empty($arrayfields['margin_control']['checked'])) {
+	$options = array();
+	foreach (array('allow', 'deny', 'unknown') as $state) { $options[$state] = $langs->trans('LscState_commission_'.$state); }
+	print '<td>'.$form->selectarray('search_control', $options, $search_control, 1, 0, 0, '', 0, 0, 0, '', 'minwidth125', 1).'</td>';
+}
 print '</tr>';
 
 if ($resql) {
@@ -351,6 +366,17 @@ if ($resql) {
 		if (!empty($arrayfields['payable_total']['checked'])) print '<td class="right">'.lmdbsalescommissionsFormatTotalAmount($obj->payable_total).'</td>';
 		if (!empty($arrayfields['paid_total']['checked'])) print '<td class="right">'.lmdbsalescommissionsFormatTotalAmount($obj->paid_total).'</td>';
 		if (!empty($arrayfields['status']['checked'])) print '<td class="center">'.lmdbsalescommissionsStatusBadge(lmdbsalescommissionsGetLineStatusLabel($langs, $status), $status).'</td>';
+		if (!empty($arrayfields['margin_control']['checked'])) {
+			print '<td>';
+			if ($obj->commission_state !== null) {
+				foreach (array('sale', 'commission') as $effect) {
+					$state = $obj->{$effect.'_state'};
+					$label = $langs->trans('LscState_'.$effect.'_'.$state);
+					print dolGetStatus($label, $label, '', $state === 'allow' ? 'status4' : ($state === 'deny' ? 'status8' : 'status1'), 5).' ';
+				}
+			} else { print $langs->trans('LscNoFrozenDecision'); }
+			print '</td>';
+		}
 		print '</tr>';
 	}
 	$db->free($resql);
@@ -369,6 +395,7 @@ if ($resql) {
 		if (!empty($arrayfields['payable_total']['checked'])) print '<td class="right">'.lmdbsalescommissionsFormatTotalAmount($sum_payable).'</td>';
 		if (!empty($arrayfields['paid_total']['checked'])) print '<td class="right">'.lmdbsalescommissionsFormatTotalAmount($sum_paid).'</td>';
 		if (!empty($arrayfields['status']['checked'])) print '<td></td>';
+		if (!empty($arrayfields['margin_control']['checked'])) print '<td></td>';
 		print '</tr>';
 	}
 } else {

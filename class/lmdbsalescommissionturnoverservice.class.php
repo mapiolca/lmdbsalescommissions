@@ -27,6 +27,6 @@ class LmdbSalesCommissionTurnoverService
 
 		return "CASE WHEN SUM(CASE WHEN ".$safeAlias.".mode = 'turnover' THEN 1 ELSE 0 END) > 0"
 			." THEN ".$aggregate."(CASE WHEN ".$safeAlias.".mode = 'turnover' THEN ".$safeAlias.".amount_base ELSE 0 END)"
-			." ELSE MAX(CASE WHEN ".$safeAlias.".mode <> 'dispatch' THEN ".$safeAlias.".amount_base END) END";
+			." ELSE MAX(CASE WHEN ".$safeAlias.".mode NOT IN ('dispatch','margin_excess') THEN ".$safeAlias.".amount_base END) END";
 	}
 }

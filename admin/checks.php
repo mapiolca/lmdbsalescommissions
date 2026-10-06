@@ -32,7 +32,7 @@ function lmdbsalescommissions_check_count($db, $sql)
 	$obj = $db->fetch_object($resql);
 	$db->free($resql);
 
-	return is_object($obj) ? (int) $obj->nb : 0;
+	return is_object($obj) && isset($obj->nb) && is_numeric($obj->nb) ? (int) $obj->nb : -1;
 }
 
 $langs->loadLangs(array('admin', 'lmdbsalescommissions@lmdbsalescommissions'));
@@ -61,7 +61,7 @@ $checks = array();
 $checks[] = array(
 	'label' => 'LmdbSalesCommissionsCheckIncompleteRules',
 	'level' => 'error',
-	'count' => lmdbsalescommissions_check_count($db, "SELECT COUNT(*) AS nb FROM ".MAIN_DB_PREFIX."lmdbsalescommissions_rule WHERE entity IN (".$entityRule.") AND active = 1 AND ((rule_type = 'margin' AND (rate IS NULL OR rate <= 0)) OR (rule_type = 'tier' AND (fk_tier_grid IS NULL OR fk_tier_grid <= 0)))"),
+	'count' => lmdbsalescommissions_check_count($db, "SELECT COUNT(*) AS nb FROM ".MAIN_DB_PREFIX."lmdbsalescommissions_rule WHERE entity IN (".$entityRule.") AND active = 1 AND ((rule_type = 'margin' AND (rate IS NULL OR rate <= 0)) OR (rule_type = 'tier' AND (fk_tier_grid IS NULL OR fk_tier_grid <= 0)) OR (rule_type = 'margin_excess' AND (reward_mode IS NULL OR reward_mode NOT IN ('fixed','percentage') OR reward_value IS NULL OR reward_value <= 0 OR (reward_mode = 'percentage' AND reward_value > 100))))"),
 );
 $checks[] = array(
 	'label' => 'LmdbSalesCommissionsCheckInvalidPaymentTerms',
@@ -118,18 +118,18 @@ $checks[] = array(
 
 llxHeader('', $langs->trans('LmdbSalesCommissionsChecks'), '', '', 0, 0, array(), lmdbsalescommissionsGetCssFiles(), '', lmdbsalescommissionsGetBodyClass());
 $head = lmdbsalescommissionsAdminPrepareHead();
-print dol_get_fiche_head($head, 'checks', $langs->trans('LmdbSalesCommissionsSetup'), -1, 'fa-percent');
 print load_fiche_titre($langs->trans('LmdbSalesCommissionsChecks'), lmdbsalescommissionsBuildModuleListLink(), 'title_setup');
+print dol_get_fiche_head($head, 'checks', $langs->trans('LmdbSalesCommissionsSetup'), -1, 'fa-percent_fas_#f0b400');
 
 print '<table class="noborder liste centpercent">';
 print '<tr class="liste_titre"><td>'.$langs->trans('Control').'</td><td class="center">'.$langs->trans('Severity').'</td><td class="right">'.$langs->trans('Number').'</td><td>'.$langs->trans('Comment').'</td></tr>';
 foreach ($checks as $check) {
 	$count = (int) $check['count'];
-	$type = $count > 0 ? ($check['level'] === 'error' ? -1 : 0) : 1;
-	$status = $count > 0 ? $langs->trans($check['level'] === 'error' ? 'Error' : 'Warning') : $langs->trans('OK');
+	$type = $count < 0 || ($count > 0 && $check['level'] === 'error') ? 'danger' : ($count > 0 ? 'warning' : 'success');
+	$status = $langs->trans($type === 'danger' ? 'Error' : ($type === 'warning' ? 'Warning' : 'OK'));
 	print '<tr class="oddeven">';
 	print '<td>'.$langs->trans((string) $check['label']).'</td>';
-	print '<td class="center">'.lmdbsalescommissionsStatusBadge($status, $type).'</td>';
+	print '<td class="center">'.dolGetBadge($status, '', $type).'</td>';
 	print '<td class="right">'.($count >= 0 ? (int) $count : $langs->trans('Error')).'</td>';
 	print '<td><span class="opacitymedium">'.$langs->trans((string) $check['label'].'Desc').'</span></td>';
 	print '</tr>';

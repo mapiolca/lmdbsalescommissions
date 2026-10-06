@@ -130,7 +130,7 @@ class LmdbSalesCommissionDashboardService
 		if (!in_array($normalized['source'], array('all', 'proposal', 'order', 'contract'), true)) {
 			$normalized['source'] = 'all';
 		}
-		if (!in_array($normalized['commission_type'], array('all', 'margin', 'tier', 'dispatch', 'turnover'), true)) {
+		if (!in_array($normalized['commission_type'], array('all', 'margin', 'tier', 'dispatch', 'turnover', 'margin_excess'), true)) {
 			$normalized['commission_type'] = 'all';
 		}
 		if (!in_array($normalized['status'], array('all', 'estimated', 'acquired', 'payable', 'paid', 'cancelled', 'blocked'), true)) {
@@ -183,6 +183,7 @@ class LmdbSalesCommissionDashboardService
 			'commission_estimated' => 0.0,
 			'commission_acquired' => 0.0,
 			'margin_commission_acquired' => 0.0,
+			'reward_acquired' => 0.0,
 			'dispatch_commission_acquired' => 0.0,
 			'tier_commission_acquired' => 0.0,
 			'tier_bonus' => 0.0,
@@ -207,6 +208,7 @@ class LmdbSalesCommissionDashboardService
 		$sql .= ' SUM(CASE WHEN l.status = 0 THEN l.commission_total ELSE 0 END) AS commission_estimated,';
 		$sql .= ' SUM(CASE WHEN l.status = 1 THEN l.commission_total ELSE 0 END) AS commission_acquired,';
 		$sql .= " SUM(CASE WHEN l.status = 1 AND l.mode = 'margin' THEN l.commission_total ELSE 0 END) AS margin_commission_acquired,";
+		$sql .= " SUM(CASE WHEN l.status = 1 AND l.mode = 'margin_excess' THEN l.commission_total ELSE 0 END) AS reward_acquired,";
 		$sql .= " SUM(CASE WHEN l.status = 1 AND l.mode = 'dispatch' THEN l.commission_total ELSE 0 END) AS dispatch_commission_acquired,";
 		$sql .= " SUM(CASE WHEN l.status = 1 AND l.mode = 'tier' THEN l.commission_total ELSE 0 END) AS tier_commission_acquired,";
 		$sql .= ' SUM(CASE WHEN l.status IN (0,1) THEN l.commission_total ELSE 0 END) AS commission_total,';
@@ -218,6 +220,7 @@ class LmdbSalesCommissionDashboardService
 		if (!empty($row)) {
 			$kpis['commission_estimated'] = (float) $row['commission_estimated'];
 			$kpis['commission_acquired'] = (float) $row['commission_acquired'];
+			$kpis['reward_acquired'] = (float) $row['reward_acquired'];
 			$kpis['margin_commission_acquired'] = (float) $row['margin_commission_acquired'];
 			$kpis['dispatch_commission_acquired'] = (float) $row['dispatch_commission_acquired'];
 			$kpis['tier_commission_acquired'] = (float) $row['tier_commission_acquired'];
@@ -621,6 +624,7 @@ class LmdbSalesCommissionDashboardService
 		$sql .= " MAX(CASE WHEN l.mode <> 'turnover' THEN l.margin_base END) AS margin_base,";
 		$sql .= " SUM(CASE WHEN l.mode = 'margin' THEN l.commission_total ELSE 0 END) AS margin_commission,";
 		$sql .= " SUM(CASE WHEN l.mode = 'tier' THEN l.commission_total ELSE 0 END) AS tier_commission,";
+		$sql .= " SUM(CASE WHEN l.mode = 'margin_excess' THEN l.commission_total ELSE 0 END) AS reward_commission,";
 		$sql .= ' SUM(l.commission_total) AS commission_total, MAX(l.status) AS status,';
 		$sql .= ' u.lastname, u.firstname, u.login, u.statut AS user_status, u.photo AS user_photo, u.email AS user_email, s.nom AS thirdparty_name';
 		$sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_line AS l';
@@ -708,7 +712,7 @@ class LmdbSalesCommissionDashboardService
 	{
 		$where = $this->buildLineWhere('l', $filters, $user, 'date_acquired');
 		if ($excludeDispatch) {
-			$where .= " AND l.mode <> 'dispatch'";
+			$where .= " AND l.mode NOT IN ('dispatch','margin_excess')";
 		}
 		$sql = 'SELECT SUM(src.amount_base) AS turnover, SUM(src.margin_base) AS margin, COUNT(*) AS nb';
 		$sql .= ' FROM (';
@@ -1033,7 +1037,7 @@ class LmdbSalesCommissionDashboardService
 		$sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_rule';
 		$sql .= ' WHERE entity IN ('.$this->db->sanitize(getEntity('lmdbsalescommissions_rule')).')';
 		$sql .= ' AND active = 1';
-		$sql .= " AND ((rule_type = 'margin' AND (rate IS NULL OR rate <= 0)) OR (rule_type = 'tier' AND (fk_tier_grid IS NULL OR fk_tier_grid <= 0)))";
+		$sql .= " AND ((rule_type = 'margin' AND (rate IS NULL OR rate <= 0)) OR (rule_type = 'tier' AND (fk_tier_grid IS NULL OR fk_tier_grid <= 0)) OR (rule_type = 'margin_excess' AND (reward_mode IS NULL OR reward_mode NOT IN ('fixed','percentage') OR reward_value IS NULL OR reward_value <= 0 OR (reward_mode = 'percentage' AND reward_value > 100))))";
 		$sql .= ' ORDER BY rowid DESC'.$this->db->plimit($limit);
 
 		return $this->fetchRows($sql);

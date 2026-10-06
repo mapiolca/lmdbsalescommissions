@@ -33,7 +33,7 @@ $turnoverDispatchId = GETPOSTINT('turnoverdispatchid');
 if (!isModEnabled('lmdbsalescommissions')) {
 	accessforbidden();
 }
-if ($id <= 0 || (!$user->admin && !$user->hasRight('propal', 'lire'))) {
+if ($id <= 0 || !empty($user->socid) || !$user->hasRight('propal', 'lire')) {
 	accessforbidden();
 }
 
@@ -55,12 +55,23 @@ if (method_exists($object, 'fetch_thirdparty')) {
 	$object->fetch_thirdparty();
 }
 
+restrictedArea($user, 'propal', $object->id, 'propal', '', 'fk_soc', 'rowid', 0, 0, 'read');
 $service = new LmdbSalesCommissionProposalDispatchService($db);
 $turnoverService = new LmdbSalesCommissionProposalTurnoverDispatchService($db);
-$canManage = lmdbsalescommissionsCanManageDispatch($user);
-$canReadAny = lmdbsalescommissionsCanReadCommissions($user) || $canManage;
+$canManage = $user->hasRight('lmdbsalescommissions', 'commission', 'dispatch');
+$canReadAny = $canManage || $user->hasRight('lmdbsalescommissions', 'commission', 'readown') || $user->hasRight('lmdbsalescommissions', 'commission', 'readall') || $user->hasRight('lmdbsalescommissions', 'commission', 'readgroup') || $user->hasRight('lmdbsalescommissions', 'marginpolicy', 'approvesale') || $user->hasRight('lmdbsalescommissions', 'marginpolicy', 'approvecommission');
 if (!$canReadAny) {
 	accessforbidden();
+}
+
+if ($action === 'approvemargin') {
+	if ($_SERVER['REQUEST_METHOD'] !== 'POST' || GETPOST('token', 'alpha') === '') { accessforbidden(); }
+	require_once __DIR__.'/class/lmdbsalescommissionmarginservice.class.php';
+	try {
+		(new LmdbSalesCommissionMarginService($db))->approve($object, $user, GETPOSTINT('beneficiary'), GETPOSTINT('rule'), GETPOST('effect', 'aZ09'), GETPOST('reason', 'alphanohtml'), GETPOST('fingerprint', 'aZ09'));
+		setEventMessages($langs->trans('RecordSaved'), null, 'mesgs');
+		header('Location: '.$_SERVER['PHP_SELF'].'?id='.(int) $object->id); exit;
+	} catch (Exception $e) { setEventMessages($langs->trans($e->getMessage()), null, 'errors'); }
 }
 
 /** @var LmdbSalesCommissionProposalDispatch|null $editedDispatch */
@@ -162,7 +173,16 @@ if ($action === 'savedispatch') {
 $dispatches = $service->fetchForProposal((int) $object->id, (int) $object->entity);
 $turnoverDispatches = $turnoverService->fetchForProposal((int) $object->id, (int) $object->entity);
 $editable = $canManage && $service->isProposalEditable($object);
-$canSeeAll = $canManage || !empty($user->admin) || $user->hasRight('lmdbsalescommissions', 'commission', 'readall');
+$canSeeAll = $canManage || $user->hasRight('lmdbsalescommissions', 'commission', 'readall');
+$visibleUsers = array();
+if ($user->hasRight('lmdbsalescommissions', 'commission', 'readown') || $user->hasRight('lmdbsalescommissions', 'commission', 'readgroup')) { $visibleUsers[] = (int) $user->id; }
+if ($user->hasRight('lmdbsalescommissions', 'commission', 'readgroup')) {
+	$q = $db->query('SELECT DISTINCT b.fk_user FROM '.MAIN_DB_PREFIX.'usergroup_user a INNER JOIN '.MAIN_DB_PREFIX.'usergroup_user b ON b.fk_usergroup = a.fk_usergroup AND b.entity = a.entity WHERE a.entity = '.((int) $object->entity).' AND a.fk_user = '.((int) $user->id));
+	if (!$q) { dol_print_error($db); exit; }
+	while (is_object($row = $db->fetch_object($q))) { $visibleUsers[] = (int) $row->fk_user; }
+	$db->free($q);
+}
+
 
 $form = new Form($db);
 $userOptions = lmdbsalescommissionsGetUserOptionsForEntity($db, (int) $object->entity, false);
@@ -199,6 +219,9 @@ if ($editable) {
 	print info_admin($langs->trans('LmdbSalesCommissionsDispatchLocked'), 0, 0, 'info');
 }
 
+require_once __DIR__.'/class/lmdbsalescommissionmarginview.class.php';
+print LmdbSalesCommissionMarginView::render($db, $object, $user, true);
+
 print load_fiche_titre($langs->trans('LmdbSalesCommissionsCommissionDispatchSection'), '', 'fa-percent');
 
 if ($editable && ($mode === 'create' || $mode === 'edit')) {
@@ -233,7 +256,7 @@ print '<tr class="liste_titre"><td>'.$langs->trans('SalesRepresentative').'</td>
 $visibleCount = 0;
 $visibleTotal = 0.0;
 foreach ($dispatches as $dispatch) {
-	if (!$canSeeAll && !lmdbsalescommissionsCanReadUserScope($user, (int) $dispatch->fk_user)) {
+	if (!$canSeeAll && !in_array((int) $dispatch->fk_user, $visibleUsers, true)) {
 		continue;
 	}
 	$visibleCount++;
@@ -255,7 +278,7 @@ foreach ($dispatches as $dispatch) {
 	if ($editable) {
 		$editUrl = $_SERVER['PHP_SELF'].'?id='.((int) $object->id).'&mode=edit&dispatchid='.((int) $dispatch->id);
 		$deleteUrl = $_SERVER['PHP_SELF'].'?id='.((int) $object->id).'&action=deletedispatch&dispatchid='.((int) $dispatch->id).'&token='.newToken();
-		print '<td class="center nowraponall"><a class="reposition" href="'.dol_escape_htmltag($editUrl).'">'.img_edit($langs->trans('Edit')).'</a> ';
+		print '<td class="center nowraponall"><a class="reposition editfielda" href="'.dol_escape_htmltag($editUrl).'">'.img_edit($langs->trans('Edit')).'</a> ';
 		print '<a class="reposition" href="'.dol_escape_htmltag($deleteUrl).'">'.img_delete($langs->trans('Delete')).'</a></td>';
 	}
 	print '</tr>';
@@ -310,7 +333,7 @@ print '<tr class="liste_titre"><td>'.$langs->trans('SalesRepresentative').'</td>
 foreach ($turnoverDispatches as $turnoverDispatch) {
 	$allocatedAmount = $turnoverService->calculateAmount($turnoverDispatch, $proposalTurnover);
 	$turnoverFullTotal = (float) price2num($turnoverFullTotal + $allocatedAmount, 'MT');
-	if (!$canSeeAll && !lmdbsalescommissionsCanReadUserScope($user, (int) $turnoverDispatch->fk_user)) {
+	if (!$canSeeAll && !in_array((int) $turnoverDispatch->fk_user, $visibleUsers, true)) {
 		continue;
 	}
 	$turnoverVisibleCount++;
@@ -326,7 +349,7 @@ foreach ($turnoverDispatches as $turnoverDispatch) {
 	if ($editable) {
 		$editUrl = $_SERVER['PHP_SELF'].'?id='.((int) $object->id).'&mode=editturnover&turnoverdispatchid='.((int) $turnoverDispatch->id);
 		$deleteUrl = $_SERVER['PHP_SELF'].'?id='.((int) $object->id).'&action=deleteturnoverdispatch&turnoverdispatchid='.((int) $turnoverDispatch->id).'&token='.newToken();
-		print '<td class="center nowraponall"><a class="reposition" href="'.dol_escape_htmltag($editUrl).'">'.img_edit($langs->trans('Edit')).'</a> ';
+		print '<td class="center nowraponall"><a class="reposition editfielda" href="'.dol_escape_htmltag($editUrl).'">'.img_edit($langs->trans('Edit')).'</a> ';
 		print '<a class="reposition" href="'.dol_escape_htmltag($deleteUrl).'">'.img_delete($langs->trans('Delete')).'</a></td>';
 	}
 	print '</tr>';
