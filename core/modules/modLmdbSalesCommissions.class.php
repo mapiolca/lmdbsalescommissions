@@ -21,6 +21,13 @@ class modLmdbSalesCommissions extends DolibarrModules
 {
 	/** @var string Translation key for the main features summary */
 	public $about_main_features = 'LmdbSalesCommissionsMainFeaturesSummary';
+	/** @var array<string,string> Documentation and support resources */
+	public $about_resources = array(
+		'LscAboutDocumentation' => 'https://github.com/mapiolca/lmdbsalescommissions/blob/main/README.md',
+		'LscAboutChangeLog' => 'https://github.com/mapiolca/lmdbsalescommissions/blob/main/ChangeLog.md',
+		'LscAboutRepository' => 'https://github.com/mapiolca/lmdbsalescommissions',
+		'LscAboutSupport' => 'mailto:developpeur@lesmetiersdubatiment.fr',
+	);
 
 	/** @var string Module license identifier */
 	public $module_license = 'AGPL-3.0-or-later';

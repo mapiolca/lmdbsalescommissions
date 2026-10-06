@@ -10,6 +10,7 @@ class LmdbSalesCommissionObjective extends LmdbSalesCommissionCommon
 {
 	public $element = 'lmdbsalescommissions_objective';
 	public $table_element = 'lmdbsalescommissions_objective';
+	public $TRIGGER_PREFIX = 'LMDBSALESCOMMISSIONS_OBJECTIVE';
 
 	public $assignment_type;
 	public $fk_user;

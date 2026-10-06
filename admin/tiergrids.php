@@ -138,7 +138,7 @@ $id = GETPOSTINT('id');
 if (!isModEnabled('lmdbsalescommissions')) {
 	accessforbidden();
 }
-if (!lmdbsalescommissionsCanConfigure($user)) {
+if (!$user->admin || !$user->hasRight('lmdbsalescommissions', 'admin', 'configure')) {
 	accessforbidden();
 }
 
@@ -146,6 +146,13 @@ $form = new Form($db);
 $object = $id > 0 ? lmdbsalescommissions_fetch_tier_grid_for_admin($db, $id) : new LmdbSalesCommissionTierGrid($db);
 if ($id > 0 && !is_object($object)) {
 	accessforbidden($langs->trans('ErrorRecordNotFound'));
+}
+if ($action === 'setactive') {
+	if (GETPOST('token', 'alpha') === '' || $id <= 0 || !GETPOSTISSET('value') || !in_array(GETPOST('value', 'alpha'), array('0', '1'), true)) { accessforbidden($langs->trans('ErrorBadToken')); }
+	$result = $object->setConfigurationFlag('active', GETPOSTINT('value'), $user);
+	if ($result > 0) { setEventMessages($langs->trans('RecordSaved'), null, 'mesgs'); }
+	else { setEventMessages($langs->trans($object->error), $object->errors, 'errors'); }
+	header('Location: '.$_SERVER['PHP_SELF']); exit;
 }
 
 $periodtypes = array(
@@ -257,12 +264,10 @@ if ($action === 'addtiergrid' || $action === 'updatetiergrid') {
 llxHeader('', $langs->trans('LmdbSalesCommissionsTierGrids'), '', '', 0, 0, array(), lmdbsalescommissionsGetCssFiles(), '', lmdbsalescommissionsGetBodyClass());
 
 $head = lmdbsalescommissionsAdminPrepareHead();
-print dol_get_fiche_head($head, 'tiergrids', $langs->trans('LmdbSalesCommissionsSetup'), -1, 'fa-percent_fas_#f0b400');
 print load_fiche_titre($langs->trans('LmdbSalesCommissionsTierGrids'), lmdbsalescommissionsBuildModuleListLink(), 'title_setup');
+print dol_get_fiche_head($head, 'tiergrids', $langs->trans('LmdbSalesCommissionsSetup'), -1, 'fa-percent_fas_#f0b400');
 
-print '<div class="tabsAction">';
-print '<a class="butAction" href="'.$_SERVER['PHP_SELF'].'?mode=create">'.$langs->trans('New').'</a>';
-print '</div>';
+print load_fiche_titre('', dolGetButtonTitle($langs->trans('New'), '', 'fa fa-plus-circle', $_SERVER['PHP_SELF'].'?mode=create', 'lsc-new-tiergrids'), '');
 
 if ($mode === 'create' || $mode === 'edit') {
 	$grid = is_object($object) ? $object : new LmdbSalesCommissionTierGrid($db);
@@ -358,8 +363,8 @@ if (!$resql) {
 		$storedCalculationMode = LmdbSalesCommissionTierCalculator::normalizeMode((string) $obj->calculation_mode);
 		print '<td>'.dol_escape_htmltag($calculationModes[$storedCalculationMode]).'</td>';
 		print '<td class="right">'.((int) $obj->nb_tiers).'</td>';
-		print '<td class="center">'.yn((int) $obj->active).'</td>';
-		print '<td class="right"><a class="reposition" href="'.$_SERVER['PHP_SELF'].'?mode=edit&id='.((int) $obj->rowid).'">'.img_edit().'</a></td>';
+		print '<td class="center"><a href="'.$_SERVER['PHP_SELF'].'?action=setactive&amp;id='.((int) $obj->rowid).'&amp;value='.($obj->active ? 0 : 1).'&amp;token='.newToken().'" role="switch" aria-checked="'.($obj->active ? 'true' : 'false').'" aria-label="'.dol_escape_htmltag($langs->trans('Active').' '.((int) $obj->rowid)).'">'.img_picto($langs->trans($obj->active ? 'Enabled' : 'Disabled'), $obj->active ? 'switch_on' : 'switch_off').'</a></td>';
+		print '<td class="right"><a class="reposition editfielda" href="'.$_SERVER['PHP_SELF'].'?mode=edit&id='.((int) $obj->rowid).'">'.img_edit().'</a></td>';
 		print '</tr>';
 	}
 	print '</table>';

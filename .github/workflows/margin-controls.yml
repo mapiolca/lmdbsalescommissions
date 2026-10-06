@@ -36,6 +36,7 @@ jobs:
       - run: php test/margin_line_trigger_test.php 'test/.core-cache/${{ matrix.dolibarr }}/htdocs'
       - run: php test/reward_test.php 'test/.core-cache/${{ matrix.dolibarr }}/htdocs' '${{ matrix.dolibarr }}'
       - run: php test/reward_lifecycle_test.php
+      - run: php test/configuration_switch_test.php
       - run: php test/tier_calculator_test.php
   schema:
     runs-on: ubuntu-latest

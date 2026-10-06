@@ -53,7 +53,7 @@ Par rapport à la version 1.0, cette version apporte principalement :
 - Répartition manuelle d’une commission de devis entre plusieurs commerciaux, sur montant ou pourcentage de marge ou de CA.
 - Attribution du CA d’un devis entre plusieurs commerciaux, indépendamment de leurs commissions.
 - Contrôle de marge et demandes de dérogation, avec activation explicite par entité.
-- Majoration des seuils de marge par trajet aller-retour stocké dans `lmdbzoning`.
+- Majoration des seuils de marge par trajet aller-retour stocké dans `lmdbzoning` et par qualification « Chantier complexe » du devis fournie par `lmdbpropalpv`.
 
 ## Structure du module
 
@@ -69,6 +69,7 @@ Il ne contient pas le préfixe `htdocs/custom/`, car ce chemin est géré par Do
 
 - Configuration des règles de commission sur marge et des primes par paliers.
 - Modalités de versement avec contrôle de répartition à 100 %.
+- Switches d’activation dans les listes des modalités, grilles et affectations. Une seule modalité peut être définie par défaut dans chaque entité : choisir un nouveau défaut remplace l’ancien ; désactiver la modalité retire aussi son statut de défaut. Activer son switch « Défaut » la rend active.
 - Affectation des règles à un utilisateur, un groupe ou par défaut.
 - Résolution du profil effectif utilisateur > groupe > défaut.
 - Objectifs mensuels et annuels facultatifs, avec archivage.
@@ -146,9 +147,9 @@ La répartition des commissions détermine les commissions et leurs modalités d
 ## Mise à niveau vers la version 1.3.0
 
 1. Sauvegarder la base de données et les fichiers du module, puis déployer la version 1.3.0.
-2. Désactiver puis réactiver le module par son écran natif : les migrations additives et idempotentes créent les grilles de marge et de trajet, accords, instantanés, révisions et demandes en attente, ainsi que les droits et hooks nécessaires. Les réglages existants sont conservés.
+2. Désactiver puis réactiver le module par son écran natif : les migrations additives et idempotentes créent les grilles de marge, de trajet et de qualification « Chantier complexe », accords, instantanés, révisions et demandes en attente, ainsi que les droits et hooks nécessaires. Les réglages existants sont conservés.
 3. Attribuer séparément les droits de dérogation de vente et de commission aux approbateurs concernés.
-4. Saisir les règles, grilles, éventuels paliers de trajet et affectations dans les réglages ; aucun seuil des pièces jointes n’est préchargé. Si des paliers de trajet sont utilisés, activer `lmdbzoning` 1.3.0, les trajets des devis et le point de référence du siège social (directement ou via le profil par défaut), puis calculer les trajets des devis.
+4. Saisir les règles, grilles, éventuels paliers de trajet, majorations « Chantier complexe » et affectations dans les réglages ; aucun seuil des pièces jointes n’est préchargé. Si des paliers de trajet sont utilisés, activer `lmdbzoning` 1.3.0, les trajets des devis et le point de référence du siège social (directement ou via le profil par défaut), puis calculer les trajets des devis. Pour la qualification « Chantier complexe », activer `lmdbpropalpv` et son réglage dans chaque entité concernée.
 5. Recetter les canaux utilisés sur l’instance, puis activer volontairement les contrôles dans chaque entité. Les devis déjà signés et versements existants restent préservés.
 
 Consulter la [procédure détaillée et ses limites](doc/margin-controls.md), notamment pour les modules tiers, scripts désactivant les triggers et objets partagés. Aucun calcul historique automatique n’est lancé par cette mise à niveau.
@@ -205,7 +206,7 @@ La désactivation temporaire conserve les réglages métier du module. La migrat
 - Pas de commissionnement par ligne produit/service.
 - La détection des paiements acompte/facture finale repose sur les liens natifs Dolibarr entre devis, commandes et factures client.
 - Aucun modèle PDF/ODT n’est fourni dans cette version.
-- Majorations chantier hors de cette version. La prime de dépassement est configurable en forfait ou en pourcentage du surplus. Les majorations de trajet nécessitent lmdbzoning 1.3.0 et un trajet aller-retour du devis calculé et à jour.
+- Seule la qualification « Chantier complexe » est prise en charge parmi les majorations chantier ; les autres cas du simulateur restent hors de cette version. La prime de dépassement est configurable en forfait ou en pourcentage du surplus. Les majorations de trajet nécessitent lmdbzoning 1.3.0 et un trajet aller-retour du devis calculé et à jour.
 - Les scripts/modules tiers désactivant les triggers et les écritures SQL directes nécessitent une intégration explicite des contrôles de marge.
 
 ## Licence

@@ -21,12 +21,16 @@ print load_fiche_titre('', dolGetButtonTitle($langs->trans('New'), '', 'fa fa-pl
 print '<div class="div-table-responsive-no-min"><table class="noborder centpercent" id="lsc-policies"><tr class="liste_titre"><td>'.$langs->trans('Ref').'</td><td>'.$langs->trans('Label').'</td><td>'.$langs->trans('LscPolicyContext').'</td><td>'.$langs->trans('LscPolicyEffect').'</td><td>'.$langs->trans('Active').'</td><td class="right">'.$langs->trans('Actions').'</td></tr>';
 foreach ($policies as $row) {
 	$rowId = (int) $row->rowid;
-	print '<tr class="oddeven"><td>'.dol_escape_htmltag($row->ref).'</td><td>'.dol_escape_htmltag($row->label).'</td><td>'.($contexts[$row->policy_context] ?? '').'</td><td>'.($effects[$row->policy_effect] ?? '').'</td><td>'.yn($row->active).'</td>';
+	print '<tr class="oddeven"><td>'.dol_escape_htmltag($row->ref).'</td><td>'.dol_escape_htmltag($row->label).'</td><td>'.($contexts[$row->policy_context] ?? '').'</td><td>'.($effects[$row->policy_effect] ?? '').'</td>';
+	print '<td><a href="'.$pageUrl.'?action=togglepolicy&amp;id='.$rowId.'&amp;token='.newToken().'" role="switch" aria-checked="'.($row->active ? 'true' : 'false').'" aria-label="'.dol_escape_htmltag($langs->trans('Active').' '.$row->ref).'">'.img_picto($langs->trans($row->active ? 'Enabled' : 'Disabled'), $row->active ? 'switch_on' : 'switch_off').'</a></td>';
 	print '<td class="right nowraponall"><a class="editfielda" href="'.$pageUrl.'?mode=edit&amp;id='.$rowId.'" aria-label="'.dol_escape_htmltag($langs->trans('Modify').' '.$row->ref).'">'.img_edit().'</a> ';
 	print '<a href="'.$pageUrl.'?mode=delete&amp;id='.$rowId.'" aria-label="'.dol_escape_htmltag($langs->trans('Delete').' '.$row->ref).'">'.img_delete().'</a></td></tr>';
 }
 if (!$policies) { print '<tr class="oddeven"><td colspan="6"><span class="opacitymedium">'.$langs->trans('NoRecordFound').'</span></td></tr>'; }
 print '</table></div>';
+if ($complexAvailable) {
+	print '<div class="info"><strong>'.$langs->trans('LscComplexSiteMargin').'</strong><br>'.$langs->trans('LscComplexSiteHelp').'</div>';
+}
 if ($mode === 'delete') {
 	print $form->formconfirm($pageUrl.'?id='.$id, $langs->trans('Delete'), $langs->trans('LscConfirmDeletePolicy', dol_escape_htmltag($rule->ref)), 'confirm_delete', '', 'no', 1);
 }
@@ -41,18 +45,18 @@ if ($mode === 'create' || $mode === 'edit') {
 	print '<tr><td><label for="policy_context">'.$langs->trans('LscPolicyContext').'</label></td><td>'.$form->selectarray('policy_context', $contexts, $formValues['policy_context'] ?: 'general').'</td></tr>';
 	print '<tr><td><label for="policy_effect">'.$langs->trans('LscPolicyEffect').'</label></td><td>'.$form->selectarray('policy_effect', $effects, $formValues['policy_effect'] ?: 'commission').'</td></tr>';
 	if ($id) {
-		print '<tr><td>'.$langs->trans('Active').'</td><td><a href="'.$pageUrl.'?action=togglepolicy&amp;id='.$id.'&amp;token='.newToken().'" role="switch" aria-checked="'.($rule->active ? 'true' : 'false').'" aria-label="'.dol_escape_htmltag($langs->trans('Active')).'">'.img_picto($langs->trans($rule->active ? 'Enabled' : 'Disabled'), $rule->active ? 'switch_on' : 'switch_off').'</a></td></tr>';
+		print '<tr><td>'.$langs->trans('Active').'</td><td><a href="'.$pageUrl.'?action=togglepolicy&amp;mode=edit&amp;id='.$id.'&amp;token='.newToken().'" role="switch" aria-checked="'.($rule->active ? 'true' : 'false').'" aria-label="'.dol_escape_htmltag($langs->trans('Active')).'">'.img_picto($langs->trans($rule->active ? 'Enabled' : 'Disabled'), $rule->active ? 'switch_on' : 'switch_off').'</a></td></tr>';
 	}
 	print '</table>';
 	// Render at creation too: JavaScript follows the selected context without a preliminary save.
 	print '<div id="lsc-policy-bands">';
-	print '<p>'.$langs->trans('LscBandHelp').'</p><div class="div-table-responsive-no-min"><table class="noborder centpercent" id="lsc-band-table"><tr class="liste_titre"><td>kWc</td><td>kWh</td><td>'.$langs->trans('LscThreshold').'</td><td></td></tr>';
+	print '<div class="info">'.$langs->trans('LscBandHelp').'</div><div class="div-table-responsive-no-min"><table class="noborder centpercent" id="lsc-band-table"><tr class="liste_titre"><td>kWc</td><td>kWh</td><td>'.$langs->trans('LscThreshold').'</td><td></td></tr>';
 	print '<tr class="oddeven">';
 	foreach (array('kwc', 'kwh') as $axis) {
 		$unit = $axis === 'kwc' ? 'kWc' : 'kWh';
 		print '<td class="nowraponall">'.$form->selectarray($axis.'_inclusive', array(0 => ']', 1 => '['), $bandValues[$axis.'_inclusive'] ?: 0).' <input class="width50" name="'.$axis.'_min" value="'.dol_escape_htmltag($bandValues[$axis.'_min']).'" aria-label="'.dol_escape_htmltag($langs->trans('LscLower').' ('.$unit.')').'"> ; <input class="width50" name="'.$axis.'_max" value="'.dol_escape_htmltag($bandValues[$axis.'_max']).'" aria-label="'.dol_escape_htmltag($langs->trans('LscUpper').' ('.$unit.')').'"> ]</td>';
 	}
-	print '<td class="nowraponall"><input class="width75" name="threshold" value="'.dol_escape_htmltag($bandValues['threshold']).'" aria-label="'.dol_escape_htmltag($langs->trans('LscThreshold')).'"> %</td><td class="right"><button class="button" type="submit" name="add_band_continue" value="1">'.$langs->trans('Add').'</button></td></tr>';
+	print '<td class="nowraponall"><input class="width75" name="threshold" value="'.dol_escape_htmltag($bandValues['threshold']).'" aria-label="'.dol_escape_htmltag($langs->trans('LscThreshold')).'"> %</td><td class="right"><input class="button smallpaddingimp" type="submit" name="add_band_continue" value="'.dol_escape_htmltag($langs->trans('Add')).'"></td></tr>';
 	foreach ($bands as $band) {
 		print '<tr class="oddeven">';
 		foreach (array('kwc', 'kwh') as $axis) { print '<td>'.($band[$axis.'_inclusive'] ? '[' : ']').dol_escape_htmltag((string) ($band[$axis.'_min'] ?? '−∞')).' ; '.dol_escape_htmltag((string) ($band[$axis.'_max'] ?? '+∞')).']</td>'; }
@@ -64,12 +68,12 @@ if ($mode === 'create' || $mode === 'edit') {
 	// These fallback actions are replaced by the native dialog footer when JavaScript is available.
 	print '<div id="lsc-policy-form-actions" class="center"><button class="button button-save" type="submit">'.$langs->trans('Save').'</button> <a class="button button-cancel" href="'.$pageUrl.'">'.$langs->trans('Cancel').'</a></div></form>';
 	if ($id && $travelAvailable) {
-		print '<h3>'.$langs->trans('LscTravelMargin').'</h3><p>'.$langs->trans('LscTravelHelp').'</p>';
+		print '<h3>'.$langs->trans('LscTravelMargin').'</h3><div class="info">'.$langs->trans('LscTravelHelp').'</div>';
 		print '<div class="div-table-responsive-no-min"><table class="noborder centpercent" id="lsc-travel-bands"><tr class="liste_titre"><td>'.$langs->trans('LscTravelMetric').'</td><td>'.$langs->trans('LscTravelMinimum').'</td><td>'.$langs->trans('LscTravelUplift').'</td><td></td></tr>';
 		print '<tr class="oddeven"><td>'.$form->selectarray('metric', array('minutes' => $langs->trans('LscTravelMinutes'), 'kilometres' => $langs->trans('LscTravelKilometres')), $travelValues['metric'], 0, 0, 0, 'form="lsc-add-travel-band" aria-label="'.dol_escape_htmltag($langs->trans('LscTravelMetric')).'"').'</td>';
 		print '<td class="nowraponall">&gt; <input class="width75" name="min_value" value="'.dol_escape_htmltag($travelValues['min_value']).'" form="lsc-add-travel-band" aria-label="'.dol_escape_htmltag($langs->trans('LscTravelMinimum')).'" required></td>';
 		print '<td class="nowraponall">+ <input class="width75" name="uplift" value="'.dol_escape_htmltag($travelValues['uplift']).'" form="lsc-add-travel-band" aria-label="'.dol_escape_htmltag($langs->trans('LscTravelUplift')).'" required> '.$langs->trans('LscPercentagePoints').'</td>';
-		print '<td class="right"><button class="button" type="submit" form="lsc-add-travel-band">'.$langs->trans('Add').'</button></td></tr>';
+		print '<td class="right"><input class="button smallpaddingimp" type="submit" form="lsc-add-travel-band" value="'.dol_escape_htmltag($langs->trans('Add')).'"></td></tr>';
 		foreach ($travelBands as $travelBand) {
 			$metricLabel = $travelBand['metric'] === 'minutes' ? 'LscTravelMinutes' : 'LscTravelKilometres';
 			print '<tr class="oddeven"><td>'.$langs->trans($metricLabel).'</td><td>&gt; '.dol_escape_htmltag((string) $travelBand['min_value']).'</td><td>+'.dol_escape_htmltag((string) $travelBand['uplift']).' '.$langs->trans('LscPercentagePoints').'</td><td class="right"><button class="bordertransp cursorpointer" type="submit" form="lsc-delete-travel-band-'.((int) $travelBand['rowid']).'" aria-label="'.dol_escape_htmltag($langs->trans('Delete')).'">'.img_delete().'</button></td></tr>';
@@ -81,6 +85,27 @@ if ($mode === 'create' || $mode === 'edit') {
 		print ajax_combobox('metric');
 		foreach ($travelBands as $travelBand) {
 			print '<form id="lsc-delete-travel-band-'.((int) $travelBand['rowid']).'" method="POST" action="'.$pageUrl.'"><input type="hidden" name="token" value="'.newToken().'"><input type="hidden" name="action" value="deletetravelband"><input type="hidden" name="id" value="'.$id.'"><input type="hidden" name="band" value="'.((int) $travelBand['rowid']).'"></form>';
+		}
+	}
+	if (!$id && $travelAvailable) {
+		print '<h3>'.$langs->trans('LscTravelMargin').'</h3><div class="info">'.$langs->trans('LscTravelAfterSave').'</div>';
+	}
+	if ($complexAvailable) {
+		$complexForm = $id ? 'lsc-save-complex-site' : 'lsc-policy-form';
+		print '<div class="info"><strong>'.$langs->trans('LscComplexSiteMargin').'</strong><br>'.$langs->trans('LscComplexSiteHelp').'</div>';
+		print '<div class="div-table-responsive-no-min"><table class="noborder centpercent" id="lsc-complex-site"><tr class="liste_titre"><td>'.$langs->trans('LscComplexSiteState').'</td><td>'.$langs->trans('LscComplexSiteWithoutTravel').'</td><td>'.$langs->trans('LscComplexSiteWithTravel').'</td><td></td></tr>';
+		print '<tr class="oddeven"><td>'.$langs->trans('Disabled').'</td><td>+0 '.$langs->trans('LscPercentagePoints').'</td><td>+0 '.$langs->trans('LscPercentagePoints').'</td><td></td></tr>';
+		print '<tr class="oddeven"><td>'.$langs->trans('Enabled').'</td>';
+		print '<td>+ <input class="width75" name="complex_without_travel" value="'.dol_escape_htmltag($complexValues['without']).'" form="'.$complexForm.'" aria-label="'.dol_escape_htmltag($langs->trans('LscComplexSiteWithoutTravel')).'"'.($id ? ' required' : '').'> '.$langs->trans('LscPercentagePoints').'</td>';
+		print '<td>+ <input class="width75" name="complex_with_travel" value="'.dol_escape_htmltag($complexValues['with']).'" form="'.$complexForm.'" aria-label="'.dol_escape_htmltag($langs->trans('LscComplexSiteWithTravel')).'"> '.$langs->trans('LscPercentagePoints').'</td>';
+		print '<td class="right">'.($id ? '<input class="button smallpaddingimp" type="submit" form="lsc-save-complex-site" value="'.dol_escape_htmltag($langs->trans($complexSite === null ? 'Add' : 'Save')).'">' : '').'</td></tr>';
+		print '</table></div>';
+		if ($id) {
+			print '<form id="lsc-save-complex-site" method="POST" action="'.$pageUrl.'"><input type="hidden" name="token" value="'.newToken().'"><input type="hidden" name="action" value="savecomplexsite"><input type="hidden" name="id" value="'.$id.'"></form>';
+			if ($complexSite !== null) {
+				print '<form id="lsc-delete-complex-site" method="POST" action="'.$pageUrl.'"><input type="hidden" name="token" value="'.newToken().'"><input type="hidden" name="action" value="deletecomplexsite"><input type="hidden" name="id" value="'.$id.'"></form>';
+				print '<p class="right"><button class="bordertransp cursorpointer" type="submit" form="lsc-delete-complex-site" aria-label="'.dol_escape_htmltag($langs->trans('Delete')).'">'.img_delete().'</button></p>';
+			}
 		}
 	}
 	foreach ($bands as $band) {

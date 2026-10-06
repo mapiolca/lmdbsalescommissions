@@ -10,6 +10,7 @@ class LmdbSalesCommissionTierGrid extends LmdbSalesCommissionCommon
 {
 	public $element = 'lmdbsalescommissions_tier_grid';
 	public $table_element = 'lmdbsalescommissions_tier_grid';
+	public $TRIGGER_PREFIX = 'LMDBSALESCOMMISSIONS_TIER_GRID';
 
 	public $ref;
 	public $label;

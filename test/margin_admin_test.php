@@ -29,10 +29,10 @@ class User {
 	public function hasRight($module, $object, $action) { return $this->permitted; }
 }
 class AdminDb {
-	public $referenced = ''; public $fail = ''; public $deleted = false; public $bands = array(7, 8); public $travelBands = array(12); public $queries = array(); public $saved;
-	public function begin() { if ($this->fail === 'begin') { return 0; } $this->saved = array($this->deleted, $this->bands, $this->travelBands); return 1; }
+	public $referenced = ''; public $fail = ''; public $deleted = false; public $bands = array(7, 8); public $travelBands = array(12); public $complexSite = true; public $queries = array(); public $saved;
+	public function begin() { if ($this->fail === 'begin') { return 0; } $this->saved = array($this->deleted, $this->bands, $this->travelBands, $this->complexSite); return 1; }
 	public function commit() { return $this->fail !== 'commit'; }
-	public function rollback() { list($this->deleted, $this->bands, $this->travelBands) = $this->saved; return 1; }
+	public function rollback() { list($this->deleted, $this->bands, $this->travelBands, $this->complexSite) = $this->saved; return 1; }
 	public function query($sql) {
 		$this->queries[] = $sql;
 		if ($this->fail === 'query') { return false; }
@@ -46,6 +46,10 @@ class AdminDb {
 		if (strpos($sql, 'DELETE FROM admin_test_lmdbsalescommissions_margin_travel_band') === 0) {
 			if ($this->fail === 'travelbands') { return false; }
 			$this->travelBands = array(); return true;
+		}
+		if (strpos($sql, 'DELETE FROM admin_test_lmdbsalescommissions_margin_complex_site') === 0) {
+			if ($this->fail === 'complexsite') { return false; }
+			$this->complexSite = false; return true;
 		}
 		throw new RuntimeException('Unexpected query');
 	}
@@ -84,6 +88,7 @@ $policies = array((object) array('rowid' => 1, 'ref' => $rule->ref, 'label' => '
 $bands = array(); $travelBands = array(); $mode = ''; $id = 0;
 $travelValues = array('metric' => 'minutes', 'min_value' => '', 'uplift' => '');
 $travelAvailable = true;
+$complexAvailable = true; $complexSite = null; $complexValues = array('without' => '', 'with' => '');
 $bandValues = array_fill_keys(array('kwc_min', 'kwc_max', 'kwc_inclusive', 'kwh_min', 'kwh_max', 'kwh_inclusive', 'threshold'), '');
 $render = static function () {
 	extract($GLOBALS, EXTR_SKIP);
@@ -95,8 +100,12 @@ check($view->query('//div[@id="lsc-policy-editor"]')->length === 0, 'No permanen
 check($view->query('//table[@id="lsc-policies"]/tr[2]/td[1]/a')->length === 0, 'Reference is plain text');
 check($view->query('//table[@id="lsc-policies"]/tr[2]/td[6]/a')->length === 2, 'Edit and delete in final column');
 check($view->query('//a[contains(@href,"assignments.php")]')->length === 0, 'Redundant assignments link removed');
-check($view->query('//a[@role="switch"]/ancestor::tr/td')->length === 2, 'Activation row has two cells');
+check($view->query('//a[@role="switch" and contains(@href,"action=activate")]/ancestor::tr/td')->length === 2, 'Activation row has two cells');
 check($view->query('//a[@role="switch"]')->item(0)->getAttribute('aria-checked') === 'true', 'Activation state exposed');
+check($view->query('//table[@id="lsc-policies"]//td[5]/a[@role="switch" and @aria-checked="true" and contains(@href,"action=togglepolicy") and contains(@href,"token=test-csrf")]/span[@data-picto="switch_on"]')->length === 1, 'Active policy has a token-protected native switch');
+$policies[0]->active = 0; $view = parseView($render());
+check($view->query('//table[@id="lsc-policies"]//td[5]/a[@role="switch" and @aria-checked="false"]/span[@data-picto="switch_off"]')->length === 1, 'Inactive policy has a native OFF switch');
+$policies[0]->active = 1;
 $mode = 'create'; $html = $render(); $view = parseView($html);
 check($view->query('//form[@id="lsc-policy-form" and @method="POST"]')->length === 1, 'Editor saves by POST');
 check($view->query('//form[@id="lsc-policy-form"]/input[@name="token"]')->length === 1, 'Editor has CSRF token');
@@ -104,14 +113,16 @@ check(strpos($html, '<&') === false && $view->query('//input[@name="ref"]')->ite
 check(strpos($html, 'select2') !== false, 'Native Select2 initialization present');
 check($view->query('//div[@id="lsc-policy-bands"]')->length === 1, 'Bands are available at first creation, even before selecting a technical context');
 check($view->query('//form[@id="lsc-policy-form"]//input[@name="kwc_min" or @name="kwh_min" or @name="threshold"]')->length === 3, 'Pending band submits with the policy');
-check($view->query('//table[@id="lsc-band-table"]/tr[2]/td/input')->length === 5 && $view->query('//table[@id="lsc-band-table"]/tr[2]/td/button[@name="add_band_continue"]')->length === 1, 'Creation inputs and Add are immediately below the bounds header');
+check($view->query('//table[@id="lsc-complex-site"]//input[@name="complex_without_travel" and @form="lsc-policy-form"]')->length === 1, 'Complex input submits with first rule creation');
+check($view->query('//table[@id="lsc-complex-site"]//tr[2]/td[2]')->item(0)->textContent === '+0 LscPercentagePoints', 'OFF row is fixed to zero');
+check($view->query('//table[@id="lsc-band-table"]/tr[2]/td/input')->length === 6 && $view->query('//table[@id="lsc-band-table"]/tr[2]/td/input[@name="add_band_continue"]')->length === 1, 'Creation inputs and Add are immediately below the bounds header');
 $bandValues['kwc_min'] = '1,5'; $bandValues['threshold'] = '30';
 $view = parseView($render());
 check($view->query('//input[@name="kwc_min"]')->item(0)->getAttribute('value') === '1,5', 'Failed input keeps its original decimal format');
 check($view->query('//input[@name="threshold"]')->item(0)->getAttribute('value') === '30', 'Pending threshold is preserved');
 $mode = 'edit'; $id = 1; $rule->policy_context = 'pv'; $view = parseView($render());
-check($view->query('//form[@id="lsc-policy-form"]//button[@name="add_band_continue"]')->length === 1, 'Add a band and continue editing');
-check($view->query('//table[@id="lsc-band-table"]/tr[2]/td/input')->length === 5 && !$view->query('//div[@id="lsc-policy-bands"]/p//input')->length, 'Edition uses the same input row, without a separate form below the table');
+check($view->query('//form[@id="lsc-policy-form"]//input[@name="add_band_continue"]')->length === 1, 'Add a band and continue editing');
+check($view->query('//table[@id="lsc-band-table"]/tr[2]/td/input')->length === 6 && !$view->query('//div[@id="lsc-policy-bands"]/p//input')->length, 'Edition uses the same input row, without a separate form below the table');
 check($view->query('//form//form')->length === 0, 'No nested forms in editor');
 $bands = array(array('rowid' => 9, 'threshold' => 30, 'kwc_min' => 0, 'kwc_max' => 3, 'kwc_inclusive' => 0, 'kwh_min' => null, 'kwh_max' => null, 'kwh_inclusive' => 0));
 $view = parseView($render());
@@ -119,11 +130,16 @@ check($view->query('//div[@id="lsc-policy-bands"]//button[@form="lsc-delete-band
 check($view->query('//button[@form="lsc-delete-band-9"]/span[@data-picto="delete"]')->length === 1 && trim($view->query('//button[@form="lsc-delete-band-9"]')->item(0)->textContent) === '', 'Band deletion uses the native pictogram without a text button');
 check($view->query('//form[@id="lsc-delete-band-9"]/input[@name="token"]')->length === 1 && !$view->query('//form//form')->length, 'Independent deletion form keeps token and has no nested form');
 $travelBands = array(array('rowid' => 12, 'metric' => 'minutes', 'min_value' => 105.0, 'uplift' => 10.0));
+$complexSite = array('rowid' => 13, 'uplift_without_travel' => 15.0, 'uplift_with_travel' => 20.0);
+$complexValues = array('without' => '15', 'with' => '20');
 $view = parseView($render());
+check($view->query('//table[@id="lsc-complex-site"]//input[@name="complex_without_travel" and @form="lsc-save-complex-site"]')->length === 1, 'Edit form owns complex values');
+check($view->query('//form[@id="lsc-save-complex-site"]/input[@name="token"]')->length === 1 && $view->query('//form[@id="lsc-delete-complex-site"]/input[@name="token"]')->length === 1, 'Complex edit and delete have CSRF tokens');
+check($view->query('//form//form')->length === 0, 'Complex actions do not nest forms');
 check($view->query('//table[@id="lsc-travel-bands"]/tr[2]/td')->length === 4, 'Travel entry is the first table row below the header');
 check($view->query('//table[@id="lsc-travel-bands"]/tr[2]/td/select[@name="metric" and @form="lsc-add-travel-band"]')->length === 1, 'Travel metric belongs to the independent add form');
 check($view->query('//table[@id="lsc-travel-bands"]/tr[2]/td/input[@name="min_value" and @form="lsc-add-travel-band"]')->length === 1 && $view->query('//table[@id="lsc-travel-bands"]/tr[2]/td/input[@name="uplift" and @form="lsc-add-travel-band"]')->length === 1, 'Travel values submit from the first table row');
-check($view->query('//table[@id="lsc-travel-bands"]/tr[2]/td/button[@form="lsc-add-travel-band"]')->length === 1, 'Add button is in the first table row');
+check($view->query('//table[@id="lsc-travel-bands"]/tr[2]/td/input[@type="submit" and @form="lsc-add-travel-band"]')->length === 1, 'Add button is in the first table row');
 check($view->query('//table[@id="lsc-travel-bands"]/tr[3]/td[2]')->item(0)->textContent === '> 105', 'Saved travel breakpoint follows the entry row');
 check($view->query('//form[@id="lsc-add-travel-band" and @method="POST"]/input[@name="token"]')->length === 1, 'Travel band addition has its own CSRF-protected form');
 check($view->query('//form[@id="lsc-add-travel-band"]//select|//form[@id="lsc-add-travel-band"]//input[@name="min_value" or @name="uplift"]|//form[@id="lsc-add-travel-band"]//button')->length === 0, 'No duplicate visible entry controls below the table');
@@ -135,6 +151,10 @@ check($view->query('//table[@id="lsc-travel-bands"]/tr[2]//input[@name="min_valu
 $travelAvailable = false;
 $view = parseView($render());
 check($view->query('//table[@id="lsc-travel-bands"]|//form[@id="lsc-add-travel-band"]|//form[starts-with(@id,"lsc-delete-travel-band-")]')->length === 0, 'Travel controls and saved tiers are hidden when zoning is unavailable');
+$complexAvailable = false;
+$view = parseView($render());
+check($view->query('//table[@id="lsc-complex-site"]|//form[@id="lsc-save-complex-site"]|//form[@id="lsc-delete-complex-site"]')->length === 0, 'Complex controls hidden when qualification is unavailable');
+$complexAvailable = true;
 $travelAvailable = true;
 $travelValues = array('metric' => 'minutes', 'min_value' => '', 'uplift' => '');
 $travelBands = array();
@@ -155,11 +175,11 @@ foreach (array('rule_assignment', 'line', 'margin_approval', 'margin_request') a
 }
 $db->referenced = '';
 $db->fail = 'begin'; $db->queries = array();
-check($rule->delete($user) === -1 && !$db->queries && !$db->deleted && $db->bands === array(7, 8) && $db->travelBands === array(12), 'Failed transaction start prevents every mutation');
-foreach (array('query', 'bands', 'travelbands', 'native', 'trigger', 'commit') as $failure) {
+check($rule->delete($user) === -1 && !$db->queries && !$db->deleted && $db->bands === array(7, 8) && $db->travelBands === array(12) && $db->complexSite, 'Failed transaction start prevents every mutation');
+foreach (array('query', 'bands', 'travelbands', 'complexsite', 'native', 'trigger', 'commit') as $failure) {
 	$db->fail = $failure;
 	check($rule->delete($user) === -1, 'Deletion failure is reported: '.$failure);
-	check(!$db->deleted && $db->bands === array(7, 8) && $db->travelBands === array(12), 'Rollback restores control and both band types');
+	check(!$db->deleted && $db->bands === array(7, 8) && $db->travelBands === array(12) && $db->complexSite, 'Rollback restores control and every uplift');
 }
 $db->fail = ''; $db->queries = array(); $user->permitted = false;
 check($rule->delete($user) === -1 && !$db->queries, 'Admin without explicit right rejected before SQL');
@@ -169,6 +189,6 @@ $user->socid = 0; $rule->entity = 2;
 check($rule->delete($user) === -1 && !$db->queries, 'Other entity rejected');
 $rule->entity = 1;
 $rule->triggers = array();
-check($rule->delete($user) === 1 && $db->deleted && !$db->bands && !$db->travelBands, 'Unused control and both band types deleted together');
+check($rule->delete($user) === 1 && $db->deleted && !$db->bands && !$db->travelBands && !$db->complexSite, 'Unused control and all uplift types deleted together');
 check($rule->triggers === array('LMDBSALESCOMMISSIONS_RULE_DELETE'), 'One stable CRUD trigger invalidates policy decisions');
 print "Margin policy admin: $tests assertions passed using native Form and CommonObject contracts.\n";

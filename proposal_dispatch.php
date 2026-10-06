@@ -278,7 +278,7 @@ foreach ($dispatches as $dispatch) {
 	if ($editable) {
 		$editUrl = $_SERVER['PHP_SELF'].'?id='.((int) $object->id).'&mode=edit&dispatchid='.((int) $dispatch->id);
 		$deleteUrl = $_SERVER['PHP_SELF'].'?id='.((int) $object->id).'&action=deletedispatch&dispatchid='.((int) $dispatch->id).'&token='.newToken();
-		print '<td class="center nowraponall"><a class="reposition" href="'.dol_escape_htmltag($editUrl).'">'.img_edit($langs->trans('Edit')).'</a> ';
+		print '<td class="center nowraponall"><a class="reposition editfielda" href="'.dol_escape_htmltag($editUrl).'">'.img_edit($langs->trans('Edit')).'</a> ';
 		print '<a class="reposition" href="'.dol_escape_htmltag($deleteUrl).'">'.img_delete($langs->trans('Delete')).'</a></td>';
 	}
 	print '</tr>';
@@ -349,7 +349,7 @@ foreach ($turnoverDispatches as $turnoverDispatch) {
 	if ($editable) {
 		$editUrl = $_SERVER['PHP_SELF'].'?id='.((int) $object->id).'&mode=editturnover&turnoverdispatchid='.((int) $turnoverDispatch->id);
 		$deleteUrl = $_SERVER['PHP_SELF'].'?id='.((int) $object->id).'&action=deleteturnoverdispatch&turnoverdispatchid='.((int) $turnoverDispatch->id).'&token='.newToken();
-		print '<td class="center nowraponall"><a class="reposition" href="'.dol_escape_htmltag($editUrl).'">'.img_edit($langs->trans('Edit')).'</a> ';
+		print '<td class="center nowraponall"><a class="reposition editfielda" href="'.dol_escape_htmltag($editUrl).'">'.img_edit($langs->trans('Edit')).'</a> ';
 		print '<a class="reposition" href="'.dol_escape_htmltag($deleteUrl).'">'.img_delete($langs->trans('Delete')).'</a></td>';
 	}
 	print '</tr>';
