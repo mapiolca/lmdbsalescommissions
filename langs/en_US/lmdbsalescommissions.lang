@@ -335,6 +335,7 @@ LmdbSalesCommissionsProposalDispatchUnavailable=The proposal card or native help
 LmdbSalesCommissionsNewCommissionDispatch=Add a commission allocation
 LmdbSalesCommissionsNewTurnoverDispatch=Add a turnover allocation
 LmdbSalesCommissionsCommissionDispatchSection=Commission allocation
+LmdbSalesCommissionsCommissionDispatchHelp=This allocation defines each salesperson’s commission as a fixed amount or a percentage of margin or turnover, along with its payment terms. Commissions are calculated and frozen when the proposal is signed.
 LmdbSalesCommissionsTurnoverDispatchSection=Turnover allocation
 LmdbSalesCommissionsTurnoverDispatchHelp=This allocation feeds individual tiers, objectives and indicators without changing commissions. An explicit allocation must cover exactly 100% of turnover on signature.
 LmdbSalesCommissionsTurnoverDispatchValueType=Allocation type

@@ -335,6 +335,7 @@ LmdbSalesCommissionsProposalDispatchUnavailable=La fiche devis ou les helpers na
 LmdbSalesCommissionsNewCommissionDispatch=Ajouter une répartition de commission
 LmdbSalesCommissionsNewTurnoverDispatch=Ajouter une attribution de CA
 LmdbSalesCommissionsCommissionDispatchSection=Répartition des commissions
+LmdbSalesCommissionsCommissionDispatchHelp=Cette répartition définit la commission de chaque commercial, en montant fixe ou en pourcentage de la marge ou du CA, ainsi que ses modalités de versement. Les commissions sont calculées et figées à la signature du devis.
 LmdbSalesCommissionsTurnoverDispatchSection=Attribution du chiffre d’affaires
 LmdbSalesCommissionsTurnoverDispatchHelp=Cette attribution alimente les paliers, objectifs et indicateurs individuels sans modifier la commission. Une répartition explicite doit couvrir exactement 100 % du CA à la signature.
 LmdbSalesCommissionsTurnoverDispatchValueType=Type d’attribution

@@ -196,6 +196,7 @@ if (!$editable && $canManage) {
 
 $commissionAdd = $editable ? dolGetButtonTitle($langs->trans('LmdbSalesCommissionsNewCommissionDispatch'), '', 'fa fa-plus-circle', $_SERVER['PHP_SELF'].'?id='.((int) $object->id).'&mode=create') : '';
 print load_fiche_titre($langs->trans('LmdbSalesCommissionsCommissionDispatchSection'), $commissionAdd, 'fa-percent');
+print '<div class="opacitymedium">'.$langs->trans('LmdbSalesCommissionsCommissionDispatchHelp').'</div>';
 
 if ($editable && ($mode === 'create' || $mode === 'edit')) {
 	$dispatch = is_object($editedDispatch) ? $editedDispatch : new LmdbSalesCommissionProposalDispatch($db);
