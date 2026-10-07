@@ -189,6 +189,7 @@ $thirdpartyName = is_object($object->thirdparty) ? (string) $object->thirdparty-
 $morehtmlref = '<div class="refidno"><a href="'.DOL_URL_ROOT.'/societe/card.php?socid='.((int) $object->socid).'">'.dol_escape_htmltag($thirdpartyName).'</a></div>';
 dol_banner_tab($object, 'ref', $linkback, 1, 'ref', 'ref', $morehtmlref);
 print '<div class="underbanner clearboth"></div>';
+print dol_get_fiche_end();
 
 if (!$editable && $canManage) {
 	print info_admin($langs->trans('LmdbSalesCommissionsDispatchLocked'), 0, 0, 'info');
@@ -225,8 +226,9 @@ if ($editable && ($mode === 'create' || $mode === 'edit')) {
 	}
 }
 
-print '<br><table class="noborder liste centpercent">';
-print '<tr class="liste_titre"><td>'.$langs->trans('SalesRepresentative').'</td><td>'.$langs->trans('LmdbSalesCommissionsDispatchFormula').'</td><td>'.$langs->trans('LmdbSalesCommissionsPaymentTerms').'</td><td class="right">'.$langs->trans('LmdbSalesCommissionsCommissionTotal').'</td>'.($editable ? '<td class="center">'.$langs->trans('Action').'</td>' : '').'</tr>';
+print '<br><div class="div-table-responsive-no-min">';
+print '<table class="tagtable liste centpercent">';
+print '<tr class="liste_titre"><th class="liste_titre">'.$langs->trans('SalesRepresentative').'</th><th class="liste_titre">'.$langs->trans('LmdbSalesCommissionsDispatchFormula').'</th><th class="liste_titre">'.$langs->trans('LmdbSalesCommissionsPaymentTerms').'</th><th class="liste_titre right">'.$langs->trans('LmdbSalesCommissionsCommissionTotal').'</th>'.($editable ? '<th class="liste_titre center">'.$langs->trans('Action').'</th>' : '').'</tr>';
 $visibleCount = 0;
 $visibleTotal = 0.0;
 foreach ($dispatches as $dispatch) {
@@ -270,7 +272,7 @@ if ($visibleCount === 0) {
 	}
 	print '</tr>';
 }
-print '</table>';
+print '</table></div>';
 
 print '<br>';
 $turnoverAdd = $editable ? dolGetButtonTitle($langs->trans('LmdbSalesCommissionsNewTurnoverDispatch'), '', 'fa fa-plus-circle', $_SERVER['PHP_SELF'].'?id='.((int) $object->id).'&mode=createturnover') : '';
@@ -303,8 +305,9 @@ if ($editable && ($mode === 'createturnover' || $mode === 'editturnover')) {
 $proposalTurnover = property_exists($object, 'total_ht') && is_numeric($object->total_ht) ? (float) price2num(max(0, (float) $object->total_ht), 'MT') : 0.0;
 $turnoverVisibleCount = 0;
 $turnoverFullTotal = 0.0;
-print '<br><table class="noborder liste centpercent">';
-print '<tr class="liste_titre"><td>'.$langs->trans('SalesRepresentative').'</td><td>'.$langs->trans('LmdbSalesCommissionsTurnoverDispatchFormula').'</td><td class="right">'.$langs->trans('LmdbSalesCommissionsAttributedTurnover').'</td>'.($editable ? '<td class="center">'.$langs->trans('Action').'</td>' : '').'</tr>';
+print '<br><div class="div-table-responsive-no-min">';
+print '<table class="tagtable liste centpercent">';
+print '<tr class="liste_titre"><th class="liste_titre">'.$langs->trans('SalesRepresentative').'</th><th class="liste_titre">'.$langs->trans('LmdbSalesCommissionsTurnoverDispatchFormula').'</th><th class="liste_titre right">'.$langs->trans('LmdbSalesCommissionsAttributedTurnover').'</th>'.($editable ? '<th class="liste_titre center">'.$langs->trans('Action').'</th>' : '').'</tr>';
 foreach ($turnoverDispatches as $turnoverDispatch) {
 	$allocatedAmount = $turnoverService->calculateAmount($turnoverDispatch, $proposalTurnover);
 	$turnoverFullTotal = (float) price2num($turnoverFullTotal + $allocatedAmount, 'MT');
@@ -335,7 +338,7 @@ if ($turnoverVisibleCount === 0) {
 	$distributedRate = $proposalTurnover > 0 ? (float) price2num(($turnoverFullTotal / $proposalTurnover) * 100) : 0.0;
 	print '<tr class="liste_total"><td class="liste_total">'.$langs->trans('Total').'</td><td class="liste_total">'.price($distributedRate, 0, $langs, 0, 0, -1).'%</td><td class="liste_total right">'.lmdbsalescommissionsFormatTotalAmount($turnoverFullTotal).'</td>'.($editable ? '<td class="liste_total"></td>' : '').'</tr>';
 }
-print '</table>';
+print '</table></div>';
 
 if (empty($turnoverDispatches)) {
 	print info_admin($langs->trans('LmdbSalesCommissionsTurnoverDispatchAutomatic'), 0, 0, 'info');
@@ -343,6 +346,5 @@ if (empty($turnoverDispatches)) {
 	print info_admin($langs->trans('LmdbSalesCommissionsTurnoverDispatchIncomplete'), 0, 0, 'warning');
 }
 
-print dol_get_fiche_end();
 llxFooter();
 $db->close();

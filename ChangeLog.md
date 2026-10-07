@@ -5,7 +5,7 @@
 - Suppression transactionnelle des commissions et de leurs échéances lors de la suppression d’un devis ou de son retour en brouillon, avec recalcul des paliers concernés.
 - Confirmation supplémentaire sur la fiche pour effacer un historique payé ; refus des opérations sans cette confirmation par API, script ou action de masse.
 - Nettoyage historique depuis Maintenance : aperçu par devis, confirmation explicite et conservation des primes périodiques payées. Aucune purge automatique à la mise à jour.
-- Ajout de répartitions par les boutons « + » natifs propres à chaque tableau, avec les droits et verrouillages existants ; texte explicatif sur les commissions et leurs modalités de versement.
+- Ajout de répartitions par les boutons « + » natifs propres à chaque tableau, avec les droits et verrouillages existants ; texte explicatif sur les commissions et leurs modalités de versement, titres et lignes alignés sur les listes natives.
 - Déverrouillage des répartitions commissions / CA sur les devis revenus en brouillon ou revalidés, même si une ancienne date de signature reste renseignée.
 - Exclusion des politiques de marge du calcul des commissions et traduction des messages de conflit de règles en français et en anglais.
 
