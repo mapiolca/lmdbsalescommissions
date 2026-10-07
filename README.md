@@ -2,7 +2,19 @@
 
 Module Dolibarr externe `lmdbsalescommissions` pour gérer les commissions, primes par paliers et objectifs commerciaux des agents.
 
-Version actuelle : **1.2.0**.
+Version actuelle : **1.2.1**.
+
+## Nouveautés de la version 1.2.1
+
+Les commissions et leurs échéances sont supprimées lorsque leur devis est supprimé ou repassé en brouillon. Les répartitions d’un devis en brouillon restent configurées et redeviennent modifiables malgré une ancienne date de signature ; une nouvelle validation/signature recrée les commissions selon les règles applicables.
+
+Si des commissions sont déjà payées, une confirmation supplémentaire sur la fiche avertit de la suppression de leur historique, des changements de totaux et des régularisations éventuelles. Elle exige le droit de paiement des commissions en plus des droits natifs sur le devis. Les opérations par API, script ou action de masse sans cette confirmation sont refusées. Les appels natifs désactivant explicitement les triggers (`notrigger = 1`) ne sont pas couverts.
+
+Après sauvegarde et déploiement de la version 1.2.1, utiliser **Réglages → Maintenance → Nettoyer les commissions des devis supprimés ou en brouillon** pour traiter l’existant. Le diagnostic est limité à l’entité courante, par pages de 50 devis ; chaque suppression exige un aperçu et une confirmation, supplémentaire pour les paiements. L’accès exige le rôle administrateur et le droit de maintenance/recalcul. La mise à jour ne supprime rien automatiquement.
+
+Les primes périodiques sont recalculées tout en conservant leurs échéances déjà payées. Une règle historique manquante ou un paiement supérieur au nouveau montant est signalé et nécessite une vérification manuelle. Une date d’acquisition de CA absente bloque le nettoyage plutôt que d’inventer une période.
+
+Voir [la validation du correctif](doc/proposal-cleanup-validation.md) pour les tests exécutés et leurs limites.
 
 ## Nouveautés de la version 1.2.0
 
@@ -25,7 +37,7 @@ Par rapport à la version 1.0, cette version apporte principalement :
 - l’adaptation du rattrapage, des exports et des indicateurs au nouveau fonctionnement multi-commerciaux.
 - le rattrapage des devis déjà signés avec attribution automatique au commercial auteur lorsque l’historique ne contient aucune répartition de CA.
 
-## Périmètre de la version 1.2.0
+## Périmètre de la version 1.2.1
 
 - Commission constante sur marge.
 - Primes par paliers de chiffre d’affaires.
@@ -128,7 +140,7 @@ Une répartition manuelle peut être créée depuis l’onglet **Répartition co
 
 La répartition des commissions détermine les commissions et leurs modalités de versement. L’attribution du CA alimente séparément les paliers, objectifs et indicateurs individuels. Une attribution explicite peut rester temporairement inférieure à 100 %, mais elle doit représenter exactement 100 % du CA HT à la signature. Sans attribution explicite, 100 % du CA est affecté au commercial auteur du devis ; si aucun auteur actif ne peut être résolu, la signature est refusée. Après signature, les deux répartitions restent consultables mais ne peuvent plus être modifiées.
 
-## Mise à niveau vers la version 1.2.0
+## Migration antérieure vers la version 1.2.0
 
 1. Sauvegarder la base de données et les fichiers du module.
 2. Remplacer le contenu du module par la version 1.2.0.
@@ -168,13 +180,13 @@ La désactivation temporaire conserve les réglages métier du module. La migrat
 
 ## Compatibilité
 
-- Version du module : 1.2.0
+- Version du module : 1.2.1
 - Dolibarr : v20+
 - PHP : 8.0+
 - Base de données : MySQL/MariaDB via l’abstraction Dolibarr
 - Module installé sous `htdocs/custom/lmdbsalescommissions/`.
 
-## Limites de la version 1.2.0
+## Limites de la version 1.2.1
 
 - Pas de génération automatique de facture fournisseur ou note de frais.
 - Pas de commissionnement par ligne produit/service.

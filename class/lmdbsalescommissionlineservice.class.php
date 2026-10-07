@@ -459,6 +459,24 @@ class LmdbSalesCommissionLineService
 	}
 
 	/**
+	 * Remove proposal commissions and dues inside the native proposal transaction.
+	 * @param object $proposal Loaded proposal
+	 * @param User $user Actor
+	 * @param string $operation delete, draft or cleanup
+	 * @param string $confirmation Single-use session confirmation
+	 * @return int Number of removed lines, -1 on failure
+	 */
+	public function deleteProposalLines($proposal, $user, $operation, $confirmation = '')
+	{
+		require_once __DIR__.'/lmdbsalescommissionproposalcleanup.class.php';
+		$cleanup = new LmdbSalesCommissionProposalCleanup($this->db);
+		$result = $cleanup->deleteForProposal($proposal, $user, $operation, $confirmation);
+		$this->error = $cleanup->error;
+		$this->errors = $cleanup->errors;
+		return $result;
+	}
+
+	/**
 	 * Cancel commission lines linked to a proposal.
 	 *
 	 * @param object $proposal Proposal object
