@@ -6,6 +6,7 @@
 - Confirmation supplémentaire sur la fiche pour effacer un historique payé ; refus des opérations sans cette confirmation par API, script ou action de masse.
 - Nettoyage historique depuis Maintenance : aperçu par devis, confirmation explicite et conservation des primes périodiques payées. Aucune purge automatique à la mise à jour.
 - Déverrouillage des répartitions commissions / CA sur les devis revenus en brouillon ou revalidés, même si une ancienne date de signature reste renseignée.
+- Exclusion des politiques de marge du calcul des commissions et traduction des messages de conflit de règles en français et en anglais.
 
 
 ## 1.2.0 - 2026-07-23

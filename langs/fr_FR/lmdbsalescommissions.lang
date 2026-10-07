@@ -124,6 +124,7 @@ LmdbSalesCommissionsAssignmentUserRequired=Une affectation de type utilisateur d
 LmdbSalesCommissionsAssignmentGroupRequired=Une affectation de type groupe doit cibler un groupe.
 LmdbSalesCommissionsResolverMissingUser=Aucun utilisateur commercial n’a été fourni au moteur de résolution.
 LmdbSalesCommissionsResolverConflict=Conflit de règles sans priorité suffisante
+LmdbSalesCommissionsResolverConflictForType=Conflit de règles sans priorité suffisante : %s. Vérifiez les affectations et leurs priorités dans les réglages des commissions.
 LmdbSalesCommissionsObjectiveBaseSignedTurnover=Chiffre d’affaires HT signé
 LmdbSalesCommissionsObjectiveBaseSignedMargin=Marge estimée signée
 LmdbSalesCommissionsObjectiveBaseSignedDealsCount=Nombre d’affaires signées

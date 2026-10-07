@@ -29,7 +29,9 @@ Les deux défauts sont reproduits avec le trigger de `main` : retour en brouillo
 
 Le service de nettoyage appelle le service existant de recalcul des primes périodiques. La persistance complète de ces primes et la reconstruction de leurs échéances payées ne sont pas validées par cette doublure SQL. Le contrat existant conserve les échéances payées et signale les dépassements ou différences de calendrier ; le nettoyage transmet ces avertissements à l’utilisateur.
 
-Contrôles complémentaires : `php test/tier_calculator_test.php`, lint des fichiers PHP modifiés ou ajoutés et `git diff --check`. PHPStan n’a pas été exécuté : aucun exécutable ni configuration PHPStan utilisable n’est présent dans le module. Aucune dépendance n’a été installée.
+Régression complémentaire : `php test/rule_resolver_test.php` — 7 assertions sur SQL simulé et catalogues français/anglais : reproduction du conflit `margin_policy`, exclusion des politiques du résolveur de commissions, maintien des vrais conflits sur marge et paliers avec message traduit. Cette reproduction ne confirme pas la version ou les données effectivement déployées sur l’instance de la capture.
+
+Contrôles complémentaires : `php test/tier_calculator_test.php`, lint des fichiers PHP modifiés ou ajoutés (14 fichiers dans le patch complet) et `git diff --check`. PHPStan n’a pas été exécuté : aucun exécutable ni configuration PHPStan utilisable n’est présent dans le module. Aucune dépendance n’a été installée.
 
 ## Recette sur une instance de test
 

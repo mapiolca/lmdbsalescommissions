@@ -124,6 +124,7 @@ LmdbSalesCommissionsAssignmentUserRequired=A user assignment must target a user.
 LmdbSalesCommissionsAssignmentGroupRequired=A group assignment must target a group.
 LmdbSalesCommissionsResolverMissingUser=No sales user was provided to the resolver.
 LmdbSalesCommissionsResolverConflict=Rule conflict without sufficient priority
+LmdbSalesCommissionsResolverConflictForType=Rule conflict without sufficient priority: %s. Check assignments and their priorities in commission settings.
 LmdbSalesCommissionsObjectiveBaseSignedTurnover=Signed revenue excl. tax
 LmdbSalesCommissionsObjectiveBaseSignedMargin=Signed estimated margin
 LmdbSalesCommissionsObjectiveBaseSignedDealsCount=Number of signed deals
