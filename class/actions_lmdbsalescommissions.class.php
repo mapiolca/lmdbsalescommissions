@@ -38,6 +38,78 @@ class ActionsLmdbSalesCommissions
 	}
 
 	/**
+	 * Intercept native actions only when paid commissions need a second approval.
+	 * @param array<string,mixed> $parameters Hook context
+	 * @param object $object Proposal
+	 * @param string $action Native action, passed by reference
+	 * @param HookManager $hookmanager Hook manager
+	 * @return int 1 stops native actions; 0 resumes the native operation
+	 */
+	public function doActions($parameters, &$object, &$action, $hookmanager)
+	{
+		global $user, $langs, $confirm;
+		if (!isModEnabled('lmdbsalescommissions') || !in_array('propalcard', explode(':', (string) ($parameters['context'] ?? '')), true)) { return 0; }
+		$final = in_array($action, array('lscconfirmdelete', 'lscconfirmdraft'), true);
+		if (!$final && $action !== 'modif' && !($action === 'confirm_delete' && GETPOST('confirm', 'alpha') === 'yes')) { return 0; }
+		$operation = in_array($action, array('confirm_delete', 'lscconfirmdelete'), true) ? 'delete' : 'draft';
+		$langs->load('lmdbsalescommissions@lmdbsalescommissions');
+		if ($final && GETPOST('confirm', 'alpha') !== 'yes') {
+			unset($_SESSION['lmdbsalescommissions_cleanup']);
+			$action = '';
+			return 1;
+		}
+		if (!$user->hasRight('propal', $operation === 'delete' ? 'supprimer' : 'creer')) {
+			setEventMessages($langs->trans('NotEnoughPermissions'), null, 'errors'); $action = ''; return 1;
+		}
+		require_once __DIR__.'/lmdbsalescommissionproposalcleanup.class.php';
+		$cleanup = new LmdbSalesCommissionProposalCleanup($this->db);
+		$snapshot = $cleanup->inspect((int) $object->id, (int) $object->entity);
+		if ($snapshot === null) {
+			setEventMessages($langs->trans($cleanup->error), null, 'errors'); $action = ''; return 1;
+		}
+		if (!$final && !$snapshot['paid']) { return 0; }
+		if (!$user->hasRight('lmdbsalescommissions', 'due', 'pay')) {
+			setEventMessages($langs->trans('LscCleanupPaidPermission'), null, 'errors'); $action = ''; return 1;
+		}
+		if (!$final) {
+			$cleanup->prepareConfirmation((int) $object->id, (int) $object->entity, $operation, $user, $snapshot);
+			$action = $operation === 'delete' ? 'lscaskdelete' : 'lscaskdraft';
+			return 1;
+		}
+		// The trigger validates and consumes the challenge against locked data.
+		$object->context['lmdb_cleanup_confirmation'] = GETPOST('lsc_confirmation', 'aZ09');
+		if (!$cleanup->approveConfirmation((int) $object->id, (int) $object->entity, $operation, $user, $snapshot, $object->context['lmdb_cleanup_confirmation'])) {
+			unset($object->context['lmdb_cleanup_confirmation']);
+			setEventMessages($langs->trans($cleanup->error), null, 'errors'); $action = ''; return 1;
+		}
+		$confirm = 'yes';
+		$action = $operation === 'delete' ? 'confirm_delete' : 'modif';
+		return 0;
+	}
+
+	/**
+	 * Render the extra native confirmation, keeping native deletion confirmation intact.
+	 * @param array<string,mixed> $parameters Hook context
+	 * @param object $object Proposal
+	 * @param string $action Current action
+	 * @param HookManager $hookmanager Hook manager
+	 * @return int
+	 */
+	public function formConfirm($parameters, &$object, &$action, $hookmanager)
+	{
+		global $form, $langs, $user;
+		if (!isModEnabled('lmdbsalescommissions') || !in_array('propalcard', explode(':', (string) ($parameters['context'] ?? '')), true)
+			|| !in_array($action, array('lscaskdelete', 'lscaskdraft'), true)) { return 0; }
+		$grant = $_SESSION['lmdbsalescommissions_cleanup'] ?? null;
+		if (!is_array($grant) || !isset($grant['user'], $grant['proposal'], $grant['nonce']) || (int) $grant['user'] !== (int) $user->id || (int) $grant['proposal'] !== (int) $object->id) { return 0; }
+		$langs->load('lmdbsalescommissions@lmdbsalescommissions');
+		$fields = array(array('type' => 'hidden', 'name' => 'lsc_confirmation', 'value' => $grant['nonce']));
+		$this->resprints = $form->formconfirm($_SERVER['PHP_SELF'].'?id='.((int) $object->id), $langs->trans('LscCleanupPaidTitle'),
+			$langs->trans('LscCleanupPaidWarning'), $action === 'lscaskdelete' ? 'lscconfirmdelete' : 'lscconfirmdraft', $fields, 'no', 0);
+		return 1;
+	}
+
+	/**
 	 * Add estimated commission block under native margin table on proposal card.
 	 *
 	 * @param array<string, mixed> $parameters  Hook parameters

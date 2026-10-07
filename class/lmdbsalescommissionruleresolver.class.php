@@ -42,6 +42,9 @@ class LmdbSalesCommissionRuleResolver
 	/** @var DoliDB Database handler */
 	private $db;
 
+	/** @var string Last database read error */
+	public $error = '';
+
 	/**
 	 * Constructor.
 	 *
@@ -64,6 +67,7 @@ class LmdbSalesCommissionRuleResolver
 	public function resolveForUser($fkUser, $date = 0, $entity = 0, $sourceType = '')
 	{
 		global $conf;
+		$this->error = '';
 
 		$result = array(
 			'selected' => array(),
@@ -80,7 +84,9 @@ class LmdbSalesCommissionRuleResolver
 		$effectiveDate = $date > 0 ? $date : dol_now();
 		$effectiveEntity = $entity > 0 ? $entity : (int) $conf->entity;
 		$groups = $this->fetchUserGroups($fkUser, $effectiveEntity);
+		if ($this->error !== '') { $result['errors'][] = $this->error; return $result; }
 		$candidates = $this->fetchCandidates($fkUser, $groups, $effectiveDate, $effectiveEntity, $sourceType);
+		if ($this->error !== '') { $result['errors'][] = $this->error; return $result; }
 		$result['candidates'] = $candidates;
 
 		$grouped = array();
@@ -125,7 +131,8 @@ class LmdbSalesCommissionRuleResolver
 
 		$resql = $this->db->query($sql);
 		if (!$resql) {
-			dol_syslog(__METHOD__.': '.$this->db->lasterror(), LOG_ERR);
+			$this->error = $this->db->lasterror();
+			dol_syslog(__METHOD__.': '.$this->error, LOG_ERR);
 			return $groups;
 		}
 
@@ -177,7 +184,8 @@ class LmdbSalesCommissionRuleResolver
 
 		$resql = $this->db->query($sql);
 		if (!$resql) {
-			dol_syslog(__METHOD__.': '.$this->db->lasterror(), LOG_ERR);
+			$this->error = $this->db->lasterror();
+			dol_syslog(__METHOD__.': '.$this->error, LOG_ERR);
 			return $candidates;
 		}
 

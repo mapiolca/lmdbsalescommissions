@@ -357,9 +357,8 @@ class LmdbSalesCommissionProposalTurnoverDispatchService
 			return false;
 		}
 		$status = property_exists($proposal, 'statut') ? (int) $proposal->statut : (property_exists($proposal, 'status') ? (int) $proposal->status : -1);
-		$signatureDate = property_exists($proposal, 'date_signature') ? (int) $proposal->date_signature : 0;
-
-		return $signatureDate <= 0 && in_array($status, array(0, 1), true);
+		// date_signature is historical: native setDraft() may retain it. Status is authoritative.
+		return in_array($status, array(0, 1), true);
 	}
 
 	/** @return bool */

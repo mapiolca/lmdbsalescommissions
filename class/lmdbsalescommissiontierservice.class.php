@@ -304,6 +304,7 @@ class LmdbSalesCommissionTierService
 	private function upsertPeriodLine($fkUser, $user, $entity, array $rule, array $period, $turnover, $bonus, $tier, $calculationMode, $dateAcquired)
 	{
 		$existingId = $this->fetchPeriodLineId($entity, $fkUser, (int) $period['key'], (int) $rule['rule_id']);
+		if ($this->error !== '') { return -1; }
 		$line = new LmdbSalesCommissionLine($this->db);
 		if ($existingId > 0 && $line->fetch($existingId) <= 0) {
 			$this->error = $line->error;
@@ -338,6 +339,8 @@ class LmdbSalesCommissionTierService
 		if ($existingId > 0) {
 			$result = $line->update($user);
 			if ($result <= 0) {
+				$this->error = $line->error;
+				$this->errors = $line->errors;
 				return -1;
 			}
 			if ($this->rebuildUnpaidDues($line, $user) < 0) {
@@ -349,9 +352,10 @@ class LmdbSalesCommissionTierService
 		$result = $line->create($user);
 		if ($result > 0) {
 			$line->id = $result;
-			$this->generateDuesIfNeeded($line, $user);
+			if ($this->generateDuesIfNeeded($line, $user) < 0) { return -1; }
 		}
 
+		if ($result <= 0) { $this->error = $line->error; $this->errors = $line->errors; }
 		return $result;
 	}
 
@@ -360,17 +364,19 @@ class LmdbSalesCommissionTierService
 	 *
 	 * @param LmdbSalesCommissionLine $line Commission line
 	 * @param User                    $user User
-	 * @return void
+	 * @return int Number of generated dues, -1 on failure
 	 */
 	private function generateDuesIfNeeded($line, $user)
 	{
 		if ((float) $line->commission_total <= 0) {
-			return;
+			return 0;
 		}
 
 		require_once __DIR__.'/lmdbsalescommissiondueservice.class.php';
 		$dueService = new LmdbSalesCommissionDueService($this->db);
-		$dueService->generateForLine($line, $user);
+		$result = $dueService->generateForLine($line, $user);
+		if ($result < 0) { $this->error = $dueService->error; $this->errors = $dueService->errors; }
+		return $result;
 	}
 
 	/**
@@ -391,6 +397,7 @@ class LmdbSalesCommissionTierService
 			return -1;
 		}
 
+		$this->errors = array_merge($this->errors, $dueService->errors);
 		return $result;
 	}
 

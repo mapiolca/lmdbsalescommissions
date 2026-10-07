@@ -351,3 +351,19 @@ LmdbSalesCommissionsTurnoverDispatchAutomaticSource=Attribution automatique au c
 LmdbSalesCommissionsCheckInvalidTurnoverDispatches=Attributions de chiffre d’affaires invalides
 LmdbSalesCommissionsCheckInvalidTurnoverDispatchesDesc=Attributions orphelines, bénéficiaires invalides, valeurs incohérentes ou répartition incomplète sur un devis signé.
 ChooseBoxToAdd=Choisir une box à ajouter
+
+# Proposal commission cleanup (1.2.1)
+LscCleanupTitle=Nettoyer les commissions des devis supprimés ou en brouillon
+LscCleanupDescription=Analyse limitée à l’entité courante, par pages de 50 devis. Consultez chaque aperçu avant suppression. Les primes périodiques sont conservées et recalculées lorsque leur règle est disponible. Aucune donnée n’est supprimée automatiquement lors de la mise à jour.
+LscCleanupPaidTitle=Confirmer la suppression de commissions déjà payées
+LscCleanupPaidWarning=Des commissions de ce devis ont déjà été payées. Cette opération supprimera définitivement les commissions, leurs échéances et leur historique de paiement, modifiera les totaux et pourra nécessiter une régularisation comptable ou commerciale. Les primes périodiques seront recalculées sans effacer leur historique payé ; un écart peut subsister. Aucun paiement ne sera remboursé. Confirmez-vous ces conséquences ?
+LscCleanupPaidPermission=Le droit de marquer les commissions comme payées est requis pour confirmer la suppression d’un historique payé.
+LscCleanupConfirmationRequired=Confirmation supplémentaire requise ou périmée. Revenez sur la fiche du devis pour confirmer la suppression des commissions payées ; pour un nettoyage historique, relancez l’aperçu en maintenance.
+LscCleanupChanged=Les données ou l’état du devis ont changé. Relancez l’aperçu avant de confirmer.
+LscCleanupMissingAcquisitionDate=La date d’acquisition du chiffre d’affaires est absente ou invalide : nettoyage refusé pour éviter un recalcul de palier sur une période incorrecte.
+LscCleanupTierFailed=Le recalcul des primes de palier a échoué.
+LscCleanupTierRuleMissing=Une règle de palier historique est indisponible : les commissions du devis ont été supprimées, mais la prime périodique doit être vérifiée manuellement.
+LscCleanupTransactionFailed=Échec de transaction pendant le nettoyage des commissions.
+LscCleanupConfirm=Supprimer définitivement les commissions et toutes les échéances affichées pour ce devis ? Les répartitions d’un devis en brouillon seront conservées.
+LscCleanupDone=%s ligne(s) de commission supprimée(s), avec leurs échéances.
+LscCleanupLines=Lignes de commission
