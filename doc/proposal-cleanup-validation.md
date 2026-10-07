@@ -31,7 +31,7 @@ Le service de nettoyage appelle le service existant de recalcul des primes péri
 
 Régression complémentaire : `php test/rule_resolver_test.php` — 7 assertions sur SQL simulé et catalogues français/anglais : reproduction du conflit `margin_policy`, exclusion des politiques du résolveur de commissions, maintien des vrais conflits sur marge et paliers avec message traduit. Cette reproduction ne confirme pas la version ou les données effectivement déployées sur l’instance de la capture.
 
-Contrôles complémentaires : `php test/tier_calculator_test.php`, lint des fichiers PHP modifiés ou ajoutés (14 fichiers dans le patch complet) et `git diff --check`. PHPStan n’a pas été exécuté : aucun exécutable ni configuration PHPStan utilisable n’est présent dans le module. Aucune dépendance n’a été installée.
+Contrôles complémentaires : `php test/tier_calculator_test.php`, lint des fichiers PHP modifiés ou ajoutés (15 fichiers dans le patch complet) et `git diff --check`. PHPStan n’a pas été exécuté : aucun exécutable ni configuration PHPStan utilisable n’est présent dans le module. Aucune dépendance n’a été installée.
 
 ## Recette sur une instance de test
 
@@ -48,3 +48,5 @@ Aucune instance MySQL/MariaDB ni navigateur servant ce patch n’a été utilis�
 9. Vérifier les modifications ordinaires et le refus d’un devis : leur comportement d’annulation existant doit rester inchangé.
 
 Les appels utilisant volontairement `notrigger=1`, le module désactivé ou des écritures SQL directes contournent les triggers natifs ; ils ne bénéficient pas de cette protection. Le traitement historique est manuel, avec aperçu et confirmation, jamais une purge automatique lors de l’activation.
+
+Interface de répartition : les deux actions d’ajout utilisent `dolGetButtonTitle()` avec `fa fa-plus-circle`, dans le titre natif du tableau correspondant. Contrats lus sur les mêmes révisions v20 à v25 alpha (fonctions déplacées dans `html.lib.php` en v25). Lint réussi ; rendu distant non validé faute de déploiement de cette modification. Les formulaires et contrôles serveur restent inchangés.

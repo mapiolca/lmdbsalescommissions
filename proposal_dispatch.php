@@ -190,16 +190,12 @@ $morehtmlref = '<div class="refidno"><a href="'.DOL_URL_ROOT.'/societe/card.php?
 dol_banner_tab($object, 'ref', $linkback, 1, 'ref', 'ref', $morehtmlref);
 print '<div class="underbanner clearboth"></div>';
 
-if ($editable) {
-	print '<div class="tabsAction">';
-	print '<a class="butAction" href="'.$_SERVER['PHP_SELF'].'?id='.((int) $object->id).'&mode=create">'.$langs->trans('LmdbSalesCommissionsNewCommissionDispatch').'</a>';
-	print '<a class="butAction" href="'.$_SERVER['PHP_SELF'].'?id='.((int) $object->id).'&mode=createturnover">'.$langs->trans('LmdbSalesCommissionsNewTurnoverDispatch').'</a>';
-	print '</div>';
-} elseif ($canManage) {
+if (!$editable && $canManage) {
 	print info_admin($langs->trans('LmdbSalesCommissionsDispatchLocked'), 0, 0, 'info');
 }
 
-print load_fiche_titre($langs->trans('LmdbSalesCommissionsCommissionDispatchSection'), '', 'fa-percent');
+$commissionAdd = $editable ? dolGetButtonTitle($langs->trans('LmdbSalesCommissionsNewCommissionDispatch'), '', 'fa fa-plus-circle', $_SERVER['PHP_SELF'].'?id='.((int) $object->id).'&mode=create') : '';
+print load_fiche_titre($langs->trans('LmdbSalesCommissionsCommissionDispatchSection'), $commissionAdd, 'fa-percent');
 
 if ($editable && ($mode === 'create' || $mode === 'edit')) {
 	$dispatch = is_object($editedDispatch) ? $editedDispatch : new LmdbSalesCommissionProposalDispatch($db);
@@ -276,7 +272,8 @@ if ($visibleCount === 0) {
 print '</table>';
 
 print '<br>';
-print load_fiche_titre($langs->trans('LmdbSalesCommissionsTurnoverDispatchSection'), '', 'fa-chart-line');
+$turnoverAdd = $editable ? dolGetButtonTitle($langs->trans('LmdbSalesCommissionsNewTurnoverDispatch'), '', 'fa fa-plus-circle', $_SERVER['PHP_SELF'].'?id='.((int) $object->id).'&mode=createturnover') : '';
+print load_fiche_titre($langs->trans('LmdbSalesCommissionsTurnoverDispatchSection'), $turnoverAdd, 'fa-chart-line');
 print '<div class="opacitymedium">'.$langs->trans('LmdbSalesCommissionsTurnoverDispatchHelp').'</div>';
 
 if ($editable && ($mode === 'createturnover' || $mode === 'editturnover')) {
