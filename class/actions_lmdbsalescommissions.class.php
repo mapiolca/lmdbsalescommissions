@@ -48,6 +48,9 @@ class ActionsLmdbSalesCommissions
 	public function doActions($parameters, &$object, &$action, $hookmanager)
 	{
 		global $user, $langs, $toselect, $massaction;
+		if (in_array($action, array('modif', 'confirm_delete', 'lscconfirmdelete', 'lscconfirmdraft'), true)) {
+			return $this->handleProposalCleanup($parameters, $object, $action, $hookmanager);
+		}
 		$contexts = explode(':', (string) ($parameters['context'] ?? ''));
 		$card = in_array('propalcard', $contexts, true) && ($action === 'confirm_validate' || ($action === 'confirm_closeas' && GETPOSTINT('statut') === 2));
 		$list = in_array('propallist', $contexts, true) && (in_array($action, array('validate', 'sign'), true) || $massaction === 'validate');
@@ -80,6 +83,9 @@ class ActionsLmdbSalesCommissions
 	public function formConfirm($parameters, &$object, &$action, $hookmanager)
 	{
 		global $user, $langs;
+		if (in_array($action, array('lscaskdelete', 'lscaskdraft'), true)) {
+			return $this->confirmProposalCleanup($parameters, $object, $action, $hookmanager);
+		}
 		if (!in_array('propalcard', explode(':', (string) ($parameters['context'] ?? '')), true)
 			|| $action !== 'validate' || !isModEnabled('lmdbsalescommissions')
 			|| !empty($user->socid) || !is_object($object) || (int) $object->id <= 0
@@ -110,6 +116,78 @@ class ActionsLmdbSalesCommissions
 		$this->resprints = $form->formconfirm($page, $langs->trans('LscSaleBlockedTitle'),
 			$langs->trans($requestable ? 'LscSaleBlockedChoice' : 'LscSaleUnknownChoice'), '', '', 'no', 2, 260, 650, 0,
 			$requestable ? 'LscRequestApproval' : 'LscModifyProposal', $requestable ? 'LscModifyProposal' : 'Cancel');
+		return 1;
+	}
+
+	/**
+	 * Intercept native actions only when paid commissions need a second approval.
+	 * @param array<string,mixed> $parameters Hook context
+	 * @param object $object Proposal
+	 * @param string $action Native action, passed by reference
+	 * @param HookManager $hookmanager Hook manager
+	 * @return int 1 stops native actions; 0 resumes the native operation
+	 */
+	private function handleProposalCleanup($parameters, &$object, &$action, $hookmanager)
+	{
+		global $user, $langs, $confirm;
+		if (!isModEnabled('lmdbsalescommissions') || !in_array('propalcard', explode(':', (string) ($parameters['context'] ?? '')), true)) { return 0; }
+		$final = in_array($action, array('lscconfirmdelete', 'lscconfirmdraft'), true);
+		if (!$final && $action !== 'modif' && !($action === 'confirm_delete' && GETPOST('confirm', 'alpha') === 'yes')) { return 0; }
+		$operation = in_array($action, array('confirm_delete', 'lscconfirmdelete'), true) ? 'delete' : 'draft';
+		$langs->load('lmdbsalescommissions@lmdbsalescommissions');
+		if ($final && GETPOST('confirm', 'alpha') !== 'yes') {
+			unset($_SESSION['lmdbsalescommissions_cleanup']);
+			$action = '';
+			return 1;
+		}
+		if (!$user->hasRight('propal', $operation === 'delete' ? 'supprimer' : 'creer')) {
+			setEventMessages($langs->trans('NotEnoughPermissions'), null, 'errors'); $action = ''; return 1;
+		}
+		require_once __DIR__.'/lmdbsalescommissionproposalcleanup.class.php';
+		$cleanup = new LmdbSalesCommissionProposalCleanup($this->db);
+		$snapshot = $cleanup->inspect((int) $object->id, (int) $object->entity);
+		if ($snapshot === null) {
+			setEventMessages($langs->trans($cleanup->error), null, 'errors'); $action = ''; return 1;
+		}
+		if (!$final && !$snapshot['paid']) { return 0; }
+		if (!$user->hasRight('lmdbsalescommissions', 'due', 'pay')) {
+			setEventMessages($langs->trans('LscCleanupPaidPermission'), null, 'errors'); $action = ''; return 1;
+		}
+		if (!$final) {
+			$cleanup->prepareConfirmation((int) $object->id, (int) $object->entity, $operation, $user, $snapshot);
+			$action = $operation === 'delete' ? 'lscaskdelete' : 'lscaskdraft';
+			return 1;
+		}
+		// The trigger validates and consumes the challenge against locked data.
+		$object->context['lmdb_cleanup_confirmation'] = GETPOST('lsc_confirmation', 'aZ09');
+		if (!$cleanup->approveConfirmation((int) $object->id, (int) $object->entity, $operation, $user, $snapshot, $object->context['lmdb_cleanup_confirmation'])) {
+			unset($object->context['lmdb_cleanup_confirmation']);
+			setEventMessages($langs->trans($cleanup->error), null, 'errors'); $action = ''; return 1;
+		}
+		$confirm = 'yes';
+		$action = $operation === 'delete' ? 'confirm_delete' : 'modif';
+		return 0;
+	}
+
+	/**
+	 * Render the extra native confirmation, keeping native deletion confirmation intact.
+	 * @param array<string,mixed> $parameters Hook context
+	 * @param object $object Proposal
+	 * @param string $action Current action
+	 * @param HookManager $hookmanager Hook manager
+	 * @return int
+	 */
+	private function confirmProposalCleanup($parameters, &$object, &$action, $hookmanager)
+	{
+		global $form, $langs, $user;
+		if (!isModEnabled('lmdbsalescommissions') || !in_array('propalcard', explode(':', (string) ($parameters['context'] ?? '')), true)
+			|| !in_array($action, array('lscaskdelete', 'lscaskdraft'), true)) { return 0; }
+		$grant = $_SESSION['lmdbsalescommissions_cleanup'] ?? null;
+		if (!is_array($grant) || !isset($grant['user'], $grant['proposal'], $grant['nonce']) || (int) $grant['user'] !== (int) $user->id || (int) $grant['proposal'] !== (int) $object->id) { return 0; }
+		$langs->load('lmdbsalescommissions@lmdbsalescommissions');
+		$fields = array(array('type' => 'hidden', 'name' => 'lsc_confirmation', 'value' => $grant['nonce']));
+		$this->resprints = $form->formconfirm($_SERVER['PHP_SELF'].'?id='.((int) $object->id), $langs->trans('LscCleanupPaidTitle'),
+			$langs->trans('LscCleanupPaidWarning'), $action === 'lscaskdelete' ? 'lscconfirmdelete' : 'lscconfirmdraft', $fields, 'no', 0);
 		return 1;
 	}
 
@@ -219,7 +297,7 @@ class ActionsLmdbSalesCommissions
 					'payment_term' => $paymentLabel,
 					'amount_value' => (float) $calculation['commission'],
 					'amount' => lmdbsalescommissionsFormatTotalAmount($calculation['commission']),
-					'status' => $langs->trans(LmdbSalesCommissionProposalService::getSignatureDate($object) > 0 ? 'LscFrozen' : 'LmdbSalesCommissionsEstimateNotAcquired'),
+					'status' => $langs->trans(!$dispatchService->isProposalEditable($object) ? 'LscFrozen' : 'LmdbSalesCommissionsEstimateNotAcquired'),
 				);
 			}
 			if (empty($rows)) {
@@ -243,7 +321,7 @@ class ActionsLmdbSalesCommissions
 		$beneficiary = new User($this->db);
 		$identity = array('beneficiary_id' => $salesUserId, 'beneficiary' => $beneficiary->fetch($salesUserId) > 0 ? $beneficiary->getNomUrl(1) : $langs->trans('Unknown'));
 
-		if (LmdbSalesCommissionProposalService::getSignatureDate($object) > 0 || (int) ($object->status ?? $object->statut ?? 0) >= 2) {
+		if ((int) ($object->status ?? $object->statut ?? 0) >= 2) {
 			$q = $this->db->query('SELECT commission_total, snapshot_rule_label FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_line WHERE entity = '.$entity.' AND fk_user = '.$salesUserId." AND source_type = 'proposal' AND fk_source = ".((int) $object->id)." AND mode = 'margin' AND status <> 0 ORDER BY rowid DESC LIMIT 1");
 			if (!$q) { return $identity + array('message' => $langs->trans('LscPolicyUnavailable')); }
 			$row = $this->db->fetch_object($q);

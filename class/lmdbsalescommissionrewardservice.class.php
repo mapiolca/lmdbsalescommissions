@@ -66,7 +66,7 @@ class LmdbSalesCommissionRewardService
 	public function forProposal($proposal, $date, ?array $decisions = null)
 	{
 		if ((int) $proposal->entity <= 0 || (int) $proposal->id <= 0) { throw new RuntimeException('LscPolicyUnavailable'); }
-		$signed = LmdbSalesCommissionProposalService::getSignatureDate($proposal) > 0 || (int) ($proposal->status ?? $proposal->statut ?? 0) >= 2;
+		$signed = (int) ($proposal->status ?? $proposal->statut ?? 0) >= 2;
 		$decisions = $decisions ?? (new LmdbSalesCommissionMarginService($this->db))->assess($proposal);
 		if (!$decisions) { return array(); }
 		if ($signed) {

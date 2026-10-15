@@ -64,6 +64,8 @@ class LmdbSalesCommissionDueService
 	 */
 	public function generateForLine($line, $user)
 	{
+		$this->error = '';
+		$this->errors = array();
 		if (!is_object($line) || empty($line->id) || (float) $line->commission_total <= 0) {
 			return 0;
 		}
@@ -115,7 +117,7 @@ class LmdbSalesCommissionDueService
 			return -1;
 		}
 
-		$this->db->begin();
+		if (!$this->db->begin()) { $this->error = $this->db->lasterror(); return -1; }
 
 		$sql = 'DELETE FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_due';
 		$sql .= ' WHERE entity = '.((int) $line->entity);
@@ -168,7 +170,7 @@ class LmdbSalesCommissionDueService
 			}
 			$created += $result;
 		}
-		$this->refreshLineTotals((int) $line->id, (int) $line->entity, $user);
+		if ($this->refreshLineTotals((int) $line->id, (int) $line->entity, $user) < 0) { $this->db->rollback(); return -1; }
 
 		$totalPaid = 0.0;
 		foreach ($dueStates as $eventType => $state) {
@@ -185,7 +187,7 @@ class LmdbSalesCommissionDueService
 			dol_syslog(__METHOD__.': paid schedule differs from recalculated distribution for line '.$lineId, LOG_WARNING);
 		}
 
-		$this->db->commit();
+		if (!$this->db->commit()) { $this->error = $this->db->lasterror(); $this->db->rollback(); return -1; }
 		dol_syslog(__METHOD__.': rebuilt unpaid due dates for line '.$lineId.' by user '.$user->id, LOG_INFO);
 
 		return $created;
@@ -875,7 +877,7 @@ class LmdbSalesCommissionDueService
 	 * @param int  $lineId Line id
 	 * @param int  $entity Entity id
 	 * @param User $user   User
-	 * @return int 1 on success, -1 on failure
+	 * @return int 1 on success, -1 on read or update failure
 	 */
 	private function refreshLineTotals($lineId, $entity, $user)
 	{
@@ -895,19 +897,20 @@ class LmdbSalesCommissionDueService
 		$obj = $this->db->fetch_object($resql);
 		$this->db->free($resql);
 		if (!is_object($obj)) {
-			$this->error = 'LscPolicyUnavailable';
+			$this->error = 'ErrorRecordNotFound';
 			return -1;
 		}
 
 		$line = new LmdbSalesCommissionLine($this->db);
 		if ($line->fetch($lineId) <= 0 || (int) $line->entity !== (int) $entity) {
-			$this->error = 'LscPolicyUnavailable';
+			$this->error = $line->error ?: 'ErrorRecordNotFound';
 			return -1;
 		}
 
 		$line->payable_total = (float) price2num(is_numeric($obj->payable) ? $obj->payable : 0, 'MT');
 		$line->paid_total = (float) price2num(is_numeric($obj->paid) ? $obj->paid : 0, 'MT');
-		if ($line->update($user, 1) <= 0) { $this->error = $line->error; return -1; }
+		$result = $line->update($user, 1);
+		if ($result <= 0) { $this->error = $line->error; $this->errors = $line->errors; return -1; }
 		return 1;
 	}
 }

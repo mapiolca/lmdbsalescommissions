@@ -110,6 +110,15 @@ $service->freeze($proposal,$actor); expect(count($db->snapshots),1,'signature sn
 $service->freeze($proposal,$actor); expect(count($db->snapshots),1,'idempotent repeat signature');
 $service->rules[7][0]['threshold']=999.0; $proposal->lines[0]->total_ht=1.0;
 expect($service->assess($proposal)[7]['sale'],'allow','historical decision immutable');
+foreach (array(0, 1) as $reopenedStatus) {
+ $reopened = clone $proposal; $reopened->status = $reopenedStatus; $reopened->statut = $reopenedStatus; $reopened->context = array();
+ foreach (array(900, 2000) as $oldSignature) {
+  $reopened->date_signature = $oldSignature;
+  $live = $service->assess($reopened)[7];
+  expect($live['frozen'], false, 'reopened proposal ignores historical signature and snapshot');
+  expect($live['sale'], 'deny', 'reopened proposal uses current economic data and rules');
+ }
+}
 $settings['LMDBSALESCOMMISSIONS_MARGIN_ENABLED']=0;
 expect($service->assess($proposal)[7]['frozen'],true,'disabled controls preserve snapshots');
 $settings['LMDBSALESCOMMISSIONS_MARGIN_ENABLED']=1;

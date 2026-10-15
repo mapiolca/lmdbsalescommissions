@@ -44,6 +44,9 @@ class LmdbSalesCommissionRuleResolver
 	/** @var DoliDB Database handler */
 	private $db;
 
+	/** @var string Last database read error */
+	public $error = '';
+
 	/**
 	 * Constructor.
 	 *
@@ -67,6 +70,7 @@ class LmdbSalesCommissionRuleResolver
 	public function resolveForUser($fkUser, $date = 0, $entity = 0, $sourceType = '', $ruleType = '')
 	{
 		global $conf;
+		$this->error = '';
 
 		$result = array(
 			'selected' => array(),
@@ -85,7 +89,7 @@ class LmdbSalesCommissionRuleResolver
 		try {
 			$groups = $this->fetchUserGroups($fkUser, $effectiveEntity);
 			$candidates = $this->fetchCandidates($fkUser, $groups, $effectiveDate, $effectiveEntity, $sourceType, $ruleType);
-		} catch (RuntimeException $e) { $result['errors'][] = $e->getMessage(); return $result; }
+		} catch (RuntimeException $e) { $this->error = $e->getMessage(); $result['errors'][] = $this->error; return $result; }
 		$result['candidates'] = $candidates;
 
 		$grouped = array();
@@ -163,8 +167,12 @@ class LmdbSalesCommissionRuleResolver
 		$sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_rule_assignment AS a';
 		$sql .= ' INNER JOIN '.MAIN_DB_PREFIX.'lmdbsalescommissions_rule AS r ON r.rowid = a.fk_rule AND r.entity = a.entity';
 		$sql .= ' WHERE a.entity = '.((int) $entity);
-		$sql .= " AND a.active = 1 AND r.active = 1 AND r.rule_type <> 'margin_policy'";
-		$sql .= $ruleType !== '' ? " AND r.rule_type = '".$this->db->escape($ruleType)."'" : " AND r.rule_type <> 'margin_excess'";
+		$sql .= ' AND a.active = 1 AND r.active = 1';
+		// Margin policies use their own engine; excess rewards are resolved separately.
+		$sql .= $ruleType === 'margin_excess' ? " AND r.rule_type = 'margin_excess'" : " AND r.rule_type IN ('margin', 'tier')";
+		if ($ruleType !== '' && $ruleType !== 'margin_excess') {
+			$sql .= " AND r.rule_type = '".$this->db->escape($ruleType)."'";
+		}
 		$sql .= ' AND (a.date_start IS NULL OR a.date_start <= '.$dateSql.')';
 		$sql .= ' AND (a.date_end IS NULL OR a.date_end >= '.$dateSql.')';
 		$sql .= ' AND (r.date_start IS NULL OR r.date_start <= '.$dateSql.')';
@@ -231,6 +239,7 @@ class LmdbSalesCommissionRuleResolver
 	 */
 	private function resolveRuleType(array $rules)
 	{
+		global $langs;
 		$result = array(
 			'discarded' => array(),
 			'errors' => array(),
@@ -252,7 +261,13 @@ class LmdbSalesCommissionRuleResolver
 		if (count($rules) > 1) {
 			$second = $rules[1];
 			if ($selected['assignment_rank'] === $second['assignment_rank'] && $selected['assignment_priority'] === $second['assignment_priority'] && $selected['rule_id'] !== $second['rule_id']) {
-				$result['errors'][] = 'LmdbSalesCommissionsResolverConflict'.': '.$selected['rule_type'];
+				if ($selected['rule_type'] === 'margin_excess') {
+					$result['errors'][] = 'LscRewardConflict';
+					return $result;
+				}
+				$langs->load('lmdbsalescommissions@lmdbsalescommissions');
+				$typeKey = $selected['rule_type'] === 'margin' ? 'LmdbSalesCommissionsRuleTypeMargin' : 'LmdbSalesCommissionsRuleTypeTier';
+				$result['errors'][] = $langs->trans('LmdbSalesCommissionsResolverConflictForType', $langs->trans($typeKey));
 				return $result;
 			}
 		}

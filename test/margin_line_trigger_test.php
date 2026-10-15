@@ -4,7 +4,9 @@ define('DOL_DOCUMENT_ROOT', $argv[1] ?? __DIR__.'/.core-cache/20.0.0/htdocs');
 define('MAIN_DB_PREFIX', 'line_test_');
 
 function isModEnabled($key) { return $key === 'lmdbsalescommissions'; }
-class User {}
+class User { public $id = 1; public function hasRight(...$args) { return true; } }
+function dol_syslog($message, $level = 0) {}
+function getDolGlobalInt($name, $default = 0) { return $default; }
 class Translate {
 	public function load($key) {}
 	public function trans($key) { return $key; }
@@ -15,14 +17,24 @@ class TriggerDb {
 	public $fail = false;
 	public function query($sql) {
 		if ($this->fail) { return false; }
+		if (strpos($sql, 'SELECT rowid, entity, fk_statut FROM line_test_propal ') === 0) { return (object) array('rows' => array((object) array('rowid' => 42, 'entity' => 2, 'fk_statut' => 0))); }
+		if (strpos($sql, 'SELECT * FROM line_test_lmdbsalescommissions_line ') === 0) { return (object) array('rows' => array()); }
+		if (strpos($sql, 'DELETE FROM line_test_lmdbsalescommissions_margin_snapshot ') === 0) { return true; }
 		if (!preg_match('/^INSERT INTO line_test_lmdbsalescommissions_margin_revision \(entity,object_id,revision\) VALUES \((\d+),(\d+),1\)/', $sql, $matches)) {
 			throw new RuntimeException('Unexpected SQL: '.$sql);
 		}
 		$this->invalidations[] = array((int) $matches[1], (int) $matches[2]);
 		return true;
 	}
+	public function fetch_object($result) { return array_shift($result->rows); }
+	public function free($result) {}
+	public function begin() { return true; }
+	public function commit() { return true; }
+	public function rollback() { return true; }
+	public function lasterror() { return 'Injected failure'; }
 }
 class Propal {
+	public $array_options = array();
 	public $id = 0;
 	public $entity = 2;
 	public $status = 0;

@@ -204,7 +204,9 @@ class LmdbSalesCommissionMarginService
 		if ($actor === null) { $actor = $user ?? null; }
 		$entity = (int) $proposal->entity;
 		$activation = $this->activation($entity);
-		$signature = LmdbSalesCommissionProposalService::getSignatureDate($proposal);
+		$status = (int) ($proposal->status ?? $proposal->statut ?? 0);
+		// Native setDraft() retains date_signature; reopened proposals need a new decision.
+		$signature = in_array($status, array(0, 1), true) ? 0 : LmdbSalesCommissionProposalService::getSignatureDate($proposal);
 		$where = 'entity = '.$entity.' AND fk_propal = '.((int) $proposal->id);
 		// Existing snapshots remain authoritative even after controls are disabled.
 		if ($frozen && ($signature > 0 || (int) ($proposal->status ?? $proposal->statut ?? 0) >= 2)) {

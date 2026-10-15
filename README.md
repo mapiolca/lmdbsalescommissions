@@ -17,6 +17,18 @@ Version préparée : **1.3.0**.
 - Un seul tableau de synthèse sur le devis : **Commercial**, **Com. estimée**, **État**, **Règles appliquées**. La loupe **Consulter** ouvre les tableaux détaillés du bénéficiaire dans une modale native. Le détail des primes présente les valeurs et leurs unités (devise de l’entité ou %) dans un tableau natif, avec résultat en badge. Les règles de marge sont affichées dans un tableau indépendant pour préserver les bordures et l’alternance du thème ; elles y sont présentées en deux colonnes **Règles** et **État**, avec badges natifs (vert : seuil atteint, orange : sous le seuil). Le survol du libellé charge une infobulle Ajax native avec contexte, effet, seuils, tranches techniques et paliers de trajet ; les devis signés conservent leurs paramètres figés.
 - Précontrôles serveur des parcours natifs fiche, liste, signature publique et API ; maintien du CA et des paliers lorsque la commission directe est nulle.
 
+## Nouveautés de la version 1.2.1
+
+Les commissions et leurs échéances sont supprimées lorsque leur devis est supprimé ou repassé en brouillon. Les répartitions d’un devis en brouillon restent configurées et redeviennent modifiables malgré une ancienne date de signature ; une nouvelle validation/signature recrée les commissions selon les règles applicables.
+
+Si des commissions sont déjà payées, une confirmation supplémentaire sur la fiche avertit de la suppression de leur historique, des changements de totaux et des régularisations éventuelles. Elle exige le droit de paiement des commissions en plus des droits natifs sur le devis. Les opérations par API, script ou action de masse sans cette confirmation sont refusées. Les appels natifs désactivant explicitement les triggers (`notrigger = 1`) ne sont pas couverts.
+
+Après sauvegarde et déploiement de la version 1.2.1, utiliser **Réglages → Maintenance → Nettoyer les commissions des devis supprimés ou en brouillon** pour traiter l’existant. Le diagnostic est limité à l’entité courante, par pages de 50 devis ; chaque suppression exige un aperçu et une confirmation, supplémentaire pour les paiements. L’accès exige le rôle administrateur et le droit de maintenance/recalcul. La mise à jour ne supprime rien automatiquement.
+
+Les primes périodiques sont recalculées tout en conservant leurs échéances déjà payées. Une règle historique manquante ou un paiement supérieur au nouveau montant est signalé et nécessite une vérification manuelle. Une date d’acquisition de CA absente bloque le nettoyage plutôt que d’inventer une période.
+
+Voir [la validation du correctif](doc/proposal-cleanup-validation.md) pour les tests exécutés et leurs limites.
+
 ## Nouveautés de la version 1.2.0
 
 - Ajout du mode de grille **Pourcentage progressif par tranche** pour les périodes mensuelles, trimestrielles et annuelles.

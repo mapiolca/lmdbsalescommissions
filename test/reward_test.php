@@ -131,6 +131,12 @@ checkReward($service->forProposal($proposal, 2000, array(7 => $decision)), array
 $db->rules = array($rule);
 $r = $service->forProposal($proposal, 2000, array(7 => $decision));
 checkReward($r[7]['amount'], 250.0, 'Default author owns all turnover');
+$proposal->date_signature = 1500;
+foreach (array(0, 1) as $reopenedStatus) {
+ $proposal->status = $reopenedStatus;
+ checkReward($service->forProposal($proposal, 2000, array(7 => $decision))[7]['amount'], 250.0, 'Reopened proposal previews its new reward despite retained signature date');
+}
+$proposal->date_signature = 0;
 checkReward($r[7]['payment_term_id'], 0, 'Native immediate payment fallback');
 $db->allocations = array(array('rowid' => 1, 'entity' => 1, 'fk_propal' => 10, 'fk_user' => 7, 'value_type' => 'percentage', 'value' => 60.0));
 $r = $service->forProposal($proposal, 2000, array(7 => $decision, 8 => $decision));
