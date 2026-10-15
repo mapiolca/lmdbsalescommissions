@@ -22,7 +22,7 @@ class InterfaceLmdbSalesCommissionsTriggers
 	public $description = 'LmdbSalesCommissionsTriggers';
 
 	/** @var string Version */
-	public $version = '1.2.1';
+	public $version = '1.3.0';
 
 	/** @var string Picto */
 	public $picto = 'fa-percent';
@@ -61,12 +61,18 @@ class InterfaceLmdbSalesCommissionsTriggers
 			return 0;
 		}
 
-		$proposalUpdateActions = array('PROPAL_MODIFY', 'LINEPROPAL_INSERT', 'LINEPROPAL_UPDATE', 'LINEPROPAL_DELETE');
+		require_once __DIR__.'/../../class/lmdbsalescommissionmarginservice.class.php';
+		// MODIFY is listened to for legacy CommonObject callers; new approval events use CRUD.
+		if (preg_match('/^LMDBSALESCOMMISSIONS_(RULE|RULE_ASSIGNMENT|PROPOSAL_DISPATCH|PROPOSAL_TURNOVER_DISPATCH)_(CREATE|UPDATE|MODIFY|DELETE)$/', $action, $match)) {
+			try { (new LmdbSalesCommissionMarginService($this->db))->invalidate((int) $object->entity, strpos($match[1], 'PROPOSAL_') === 0 ? (int) $object->fk_propal : 0); }
+			catch (Exception $e) { $this->error = $langs->trans($e->getMessage()); return -1; }
+			return 0;
+		}
+		$proposalUpdateActions = array('PROPAL_MODIFY', 'LINEPROPAL_INSERT', 'LINEPROPAL_MODIFY', 'LINEPROPAL_DELETE');
 		if ($action !== 'PROPAL_VALIDATE' && $action !== 'PROPAL_CLOSE_SIGNED' && $action !== 'PROPAL_CLOSE_REFUSED' && $action !== 'PROPAL_DELETE' && !in_array($action, $proposalUpdateActions, true)) {
 			return 0;
 		}
 
-		require_once dol_buildpath('/lmdbsalescommissions/class/lmdbsalescommissionlineservice.class.php', 0);
 		if (in_array($action, $proposalUpdateActions, true)) {
 			$proposal = $object;
 			if ($action !== 'PROPAL_MODIFY') {
@@ -74,13 +80,17 @@ class InterfaceLmdbSalesCommissionsTriggers
 				if ($proposalId <= 0) {
 					return 0;
 				}
-				require_once DOL_DOCUMENT_ROOT.'/comm/propal/class/propal.class.php';
+				if (!class_exists('Propal')) { require_once DOL_DOCUMENT_ROOT.'/comm/propal/class/propal.class.php'; }
 				$proposal = new Propal($this->db);
 				if ($proposal->fetch($proposalId) <= 0) {
 					$this->error = $proposal->error ?: 'ErrorRecordNotFound';
 					return -1;
 				}
 			}
+			// Native line triggers run before the parent total is updated; deletion runs before its SQL DELETE.
+			// Invalidate here and let the next proposal view assess the committed lines and totals.
+			try { (new LmdbSalesCommissionMarginService($this->db))->invalidate((int) $proposal->entity, (int) $proposal->id); }
+			catch (Exception $e) { $this->error = $langs->trans($e->getMessage()); return -1; }
 			$status = property_exists($proposal, 'statut') ? (int) $proposal->statut : (property_exists($proposal, 'status') ? (int) $proposal->status : -1);
 			if ($action === 'PROPAL_MODIFY') {
 				require_once __DIR__.'/../../class/lmdbsalescommissionproposalcleanup.class.php';
@@ -89,6 +99,7 @@ class InterfaceLmdbSalesCommissionsTriggers
 				if ($state === null) { $this->error = $cleanup->error ?: 'ErrorRecordNotFound'; return -1; }
 				$status = (int) $state['fk_statut'];
 				if ($status === 0) {
+					require_once __DIR__.'/../../class/lmdbsalescommissionlineservice.class.php';
 					$service = new LmdbSalesCommissionLineService($this->db);
 					$nonce = isset($proposal->context['lmdb_cleanup_confirmation']) && is_string($proposal->context['lmdb_cleanup_confirmation']) ? $proposal->context['lmdb_cleanup_confirmation'] : '';
 					unset($proposal->context['lmdb_cleanup_confirmation']);
@@ -102,6 +113,7 @@ class InterfaceLmdbSalesCommissionsTriggers
 			if ($status !== 1) {
 				return 0;
 			}
+			require_once dol_buildpath('/lmdbsalescommissions/class/lmdbsalescommissionlineservice.class.php', 0);
 			$service = new LmdbSalesCommissionLineService($this->db);
 			$result = $service->estimateFromProposal($proposal, $user);
 			if ($result < 0) {
@@ -113,6 +125,20 @@ class InterfaceLmdbSalesCommissionsTriggers
 			return 0;
 		}
 
+		if (in_array($action, array('PROPAL_VALIDATE', 'PROPAL_CLOSE_SIGNED'), true)) {
+			require_once __DIR__.'/../../class/lmdbsalescommissionmarginservice.class.php';
+			try {
+				// Reload: public signature writes the row without updating its in-memory object.
+				require_once DOL_DOCUMENT_ROOT.'/comm/propal/class/propal.class.php';
+				$current = new Propal($this->db);
+				if ($current->fetch((int) $object->id) <= 0) { throw new RuntimeException('LscPolicyUnavailable'); }
+				$current->context['lmdb_margin_signing'] = $action === 'PROPAL_CLOSE_SIGNED';
+				$policy = new LmdbSalesCommissionMarginService($this->db);
+				if (!$policy->saleAllowed($current, $user)) { throw new RuntimeException('LscSaleBlocked'); }
+				if ($action === 'PROPAL_CLOSE_SIGNED') { $policy->freeze($current, $user); $object = $current; }
+			} catch (Exception $e) { $this->error = $langs->trans($e->getMessage()); return -1; }
+		}
+		require_once dol_buildpath('/lmdbsalescommissions/class/lmdbsalescommissionlineservice.class.php', 0);
 		$service = new LmdbSalesCommissionLineService($this->db);
 		if ($action === 'PROPAL_VALIDATE') {
 			$result = $service->estimateFromProposal($object, $user);

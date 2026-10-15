@@ -8,14 +8,62 @@ require_once __DIR__.'/lmdbsalescommissioncommon.class.php';
  */
 class LmdbSalesCommissionRule extends LmdbSalesCommissionCommon
 {
+	public $TRIGGER_PREFIX = 'LMDBSALESCOMMISSIONS_RULE';
+	/** @var string|null Margin policy context */
+	public $policy_context;
+	/** @var string|null sale, commission or both */
+	public $policy_effect;
+	/** @var string|null fixed or percentage */
+	public $reward_mode;
+	/** @var float|string|null Reward amount or rate */
+	public $reward_value;
 	public $element = 'lmdbsalescommissions_rule';
 	public $table_element = 'lmdbsalescommissions_rule';
+
+	/** Delete an unused margin policy and its bands atomically; retain referenced policies.
+	 * @param User $user Actor
+	 * @param int $notrigger Disable native CRUD trigger
+	 * @return int Positive on success, negative on failure
+	 */
+	public function delete($user, $notrigger = 0)
+	{
+		global $conf;
+		if ($this->rule_type !== 'margin_policy') { return parent::delete($user, $notrigger); }
+		if (!$user->hasRight('lmdbsalescommissions', 'admin', 'configure') || !$user->admin || !empty($user->socid)
+			|| (int) $this->entity !== (int) $conf->entity || (int) $this->id <= 0) {
+			$this->error = 'LscPolicyDeleteDenied'; return -1;
+		}
+		if (!$this->db->begin()) { $this->error = 'LscPolicyUnavailable'; return -1; }
+		try {
+			$where = 'entity = '.((int) $this->entity).' AND fk_rule = '.((int) $this->id);
+			$lock = $this->db->query('SELECT rowid FROM '.MAIN_DB_PREFIX.$this->table_element.' WHERE entity = '.((int) $this->entity).' AND rowid = '.((int) $this->id)." AND rule_type = 'margin_policy' FOR UPDATE");
+			if (!$lock || !$this->db->num_rows($lock)) { throw new RuntimeException('LscPolicyUnavailable'); }
+			$this->db->free($lock);
+			foreach (array('rule_assignment', 'line', 'margin_approval', 'margin_request') as $table) {
+				$result = $this->db->query('SELECT rowid FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_'.$table.' WHERE '.$where.$this->db->plimit(1));
+				if (!$result) { throw new RuntimeException('LscPolicyUnavailable'); }
+				$used = $this->db->num_rows($result) > 0;
+				$this->db->free($result);
+				if ($used) { throw new RuntimeException('LscPolicyInUse'); }
+			}
+			if (!$this->db->query('DELETE FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_margin_band WHERE '.$where)) { throw new RuntimeException('LscPolicyUnavailable'); }
+			if (!$this->db->query('DELETE FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_margin_travel_band WHERE '.$where)) { throw new RuntimeException('LscPolicyUnavailable'); }
+			if (!$this->db->query('DELETE FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_margin_complex_site WHERE '.$where)) { throw new RuntimeException('LscPolicyUnavailable'); }
+			// CommonObject v20 derives a different code from the class name; use our stable CRUD prefix.
+			if (parent::delete($user, 1) <= 0) { throw new RuntimeException('LscPolicyUnavailable'); }
+			if (!$notrigger && $this->call_trigger($this->TRIGGER_PREFIX.'_DELETE', $user) < 0) { throw new RuntimeException('LscPolicyUnavailable'); }
+			if (!$this->db->commit()) { throw new RuntimeException('LscPolicyUnavailable'); }
+			return 1;
+		} catch (Exception $e) {
+			$this->db->rollback(); $this->error = $e->getMessage(); return -1;
+		}
+	}
 
 	/** @var string|null Reference */
 	public $ref;
 	/** @var string|null Label */
 	public $label;
-	/** @var string|null Rule type: margin or tier */
+	/** @var string|null Rule type: margin, tier, margin_policy or margin_excess */
 	public $rule_type;
 	/** @var float|string|null Commission rate */
 	public $rate;
@@ -55,6 +103,10 @@ class LmdbSalesCommissionRule extends LmdbSalesCommissionCommon
 		'ref' => array('type' => 'varchar(128)', 'label' => 'Ref', 'enabled' => '1', 'visible' => 1, 'notnull' => 1, 'position' => 10),
 		'label' => array('type' => 'varchar(255)', 'label' => 'Label', 'enabled' => '1', 'visible' => 1, 'notnull' => 1, 'position' => 20),
 		'rule_type' => array('type' => 'varchar(32)', 'label' => 'Type', 'enabled' => '1', 'visible' => 1, 'notnull' => 1, 'position' => 30),
+		'reward_mode' => array('type' => 'varchar(16)', 'label' => 'LscRewardMode', 'enabled' => '1', 'visible' => 0),
+		'reward_value' => array('type' => 'double(24,8)', 'label' => 'LscRewardValue', 'enabled' => '1', 'visible' => 0),
+		'policy_context' => array('type' => 'varchar(16)', 'label' => 'LscPolicyContext', 'enabled' => '1', 'visible' => 0),
+		'policy_effect' => array('type' => 'varchar(16)', 'label' => 'LscPolicyEffect', 'enabled' => '1', 'visible' => 0),
 		'rate' => array('type' => 'double(10,4)', 'label' => 'Rate', 'enabled' => '1', 'visible' => 1, 'position' => 40),
 		'fk_tier_grid' => array('type' => 'integer', 'label' => 'LmdbSalesCommissionsTierGrid', 'enabled' => '1', 'visible' => 1, 'position' => 50),
 		'fk_payment_term' => array('type' => 'integer', 'label' => 'LmdbSalesCommissionsPaymentTerms', 'enabled' => '1', 'visible' => 1, 'position' => 55),
@@ -74,4 +126,38 @@ class LmdbSalesCommissionRule extends LmdbSalesCommissionCommon
 		'fk_user_modif' => array('type' => 'integer', 'label' => 'UserModif', 'enabled' => '1', 'visible' => -2, 'position' => 520),
 		'import_key' => array('type' => 'varchar(14)', 'label' => 'ImportId', 'enabled' => '1', 'visible' => -2, 'position' => 530),
 	);
+
+	/** Validate the cross-field reward contract before every write.
+	 * @return bool */
+	private function validateReward()
+	{
+		if ($this->rule_type !== 'margin_excess') { return true; }
+		require_once __DIR__.'/lmdbsalescommissionrewardservice.class.php';
+		if (!is_numeric($this->reward_value) || !LmdbSalesCommissionRewardService::validValue((string) $this->reward_mode, (float) $this->reward_value) || $this->source_type !== 'proposal') {
+			$this->setFieldError('reward_value', 'LscRewardInvalid');
+			$this->error = 'LscRewardInvalid';
+			return false;
+		}
+		$this->reward_value = price2num($this->reward_value, $this->reward_mode === 'fixed' ? 'MT' : '');
+		if ((float) $this->reward_value <= 0) { $this->setFieldError('reward_value', 'LscRewardInvalid'); $this->error = 'LscRewardInvalid'; return false; }
+		$this->cumulative = 1;
+		$this->fk_payment_term = null;
+		return true;
+	}
+
+	/** @param User $user Actor
+	 * @param int $notrigger Disable triggers
+	 * @return int */
+	public function create($user, $notrigger = 0)
+	{
+		return $this->validateReward() ? parent::create($user, $notrigger) : -1;
+	}
+
+	/** @param User $user Actor
+	 * @param int $notrigger Disable triggers
+	 * @return int */
+	public function update($user, $notrigger = 0)
+	{
+		return $this->validateReward() ? parent::update($user, $notrigger) : -1;
+	}
 }

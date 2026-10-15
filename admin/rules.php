@@ -56,7 +56,7 @@ function lmdbsalescommissions_fetch_rule_for_admin($db, $id)
 
 	$rule = new LmdbSalesCommissionRule($db);
 	$result = $rule->fetch($id);
-	if ($result <= 0) {
+	if ($result <= 0 || $rule->rule_type === 'margin_policy') {
 		return null;
 	}
 
@@ -79,7 +79,7 @@ $id = GETPOSTINT('id');
 if (!isModEnabled('lmdbsalescommissions')) {
 	accessforbidden();
 }
-if (!lmdbsalescommissionsCanConfigure($user)) {
+if (!$user->admin || !$user->hasRight('lmdbsalescommissions', 'admin', 'configure')) {
 	accessforbidden();
 }
 
@@ -88,8 +88,16 @@ $object = $id > 0 ? lmdbsalescommissions_fetch_rule_for_admin($db, $id) : new Lm
 if ($id > 0 && !is_object($object)) {
 	accessforbidden($langs->trans('ErrorRecordNotFound'));
 }
+if ($action === 'setactive') {
+	if (GETPOST('token', 'alpha') === '' || $id <= 0 || !GETPOSTISSET('value') || !in_array(GETPOST('value', 'alpha'), array('0', '1'), true)) { accessforbidden($langs->trans('ErrorBadToken')); }
+	$result = $object->setConfigurationFlag('active', GETPOSTINT('value'), $user);
+	if ($result > 0) { setEventMessages($langs->trans('RecordSaved'), null, 'mesgs'); }
+	else { setEventMessages($langs->trans($object->error), $object->errors, 'errors'); }
+	header('Location: '.$_SERVER['PHP_SELF']); exit;
+}
 
 $ruletypes = array(
+	'margin_excess' => $langs->trans('LscReward'),
 	'margin' => $langs->trans('LmdbSalesCommissionsRuleTypeMargin'),
 	'tier' => $langs->trans('LmdbSalesCommissionsRuleTypeTier'),
 );
@@ -103,6 +111,7 @@ $periodtypes = array(
 	'quarterly' => $langs->trans('Quarter'),
 	'yearly' => $langs->trans('Year'),
 );
+$rewardModes = array('fixed' => $langs->trans('LscRewardFixed'), 'percentage' => $langs->trans('LscRewardPercentage'));
 $negativeMarginModes = array(
 	'zero' => $langs->trans('LmdbSalesCommissionsNegativeMarginZero'),
 );
@@ -120,6 +129,8 @@ if ($action === 'addrule' || $action === 'updaterule') {
 	$source_type = GETPOST('source_type', 'aZ09');
 	$period_type = GETPOST('period_type', 'aZ09');
 	$negative_margin_mode = GETPOST('negative_margin_mode', 'aZ09');
+	$reward_mode = GETPOST('reward_mode', 'aZ09');
+	$reward_value = price2num(GETPOST('reward_value', 'alphanohtml'), $reward_mode === 'fixed' ? 'MT' : '');
 	$rate = price2num(GETPOST('rate', 'alphanohtml'), 'MU');
 	$fk_tier_grid = GETPOSTINT('fk_tier_grid');
 	$fk_payment_term = GETPOSTINT('fk_payment_term');
@@ -168,12 +179,14 @@ if ($action === 'addrule' || $action === 'updaterule') {
 		$rule->ref = $ref;
 		$rule->label = $label;
 		$rule->rule_type = $rule_type;
+		$rule->reward_mode = $rule_type === 'margin_excess' ? $reward_mode : null;
+		$rule->reward_value = $rule_type === 'margin_excess' ? $reward_value : null;
 		$rule->rate = $rule_type === 'margin' ? $rate : null;
 		$rule->fk_tier_grid = $rule_type === 'tier' ? $fk_tier_grid : null;
-		$rule->fk_payment_term = $fk_payment_term > 0 ? $fk_payment_term : null;
-		$rule->source_type = $source_type;
+		$rule->fk_payment_term = $rule_type !== 'margin_excess' && $fk_payment_term > 0 ? $fk_payment_term : null;
+		$rule->source_type = $rule_type === 'margin_excess' ? 'proposal' : $source_type;
 		$rule->period_type = $period_type;
-		$rule->cumulative = $cumulative;
+		$rule->cumulative = $rule_type === 'margin_excess' ? 1 : $cumulative;
 		$rule->priority = $priority;
 		$rule->active = $active;
 		$rule->date_start = $date_start > 0 ? $date_start : null;
@@ -188,7 +201,9 @@ if ($action === 'addrule' || $action === 'updaterule') {
 			exit;
 		}
 
-		setEventMessages($rule->error, $rule->errors, 'errors');
+		setEventMessages($langs->trans($rule->error), $rule->errors, 'errors');
+		$object = $rule;
+		$mode = $action === 'updaterule' ? 'edit' : 'create';
 	} else {
 		setEventMessages('', $errors, 'errors');
 		$mode = $action === 'updaterule' ? 'edit' : 'create';
@@ -198,12 +213,10 @@ if ($action === 'addrule' || $action === 'updaterule') {
 llxHeader('', $langs->trans('LmdbSalesCommissionsRules'), '', '', 0, 0, array(), lmdbsalescommissionsGetCssFiles(), '', lmdbsalescommissionsGetBodyClass());
 
 $head = lmdbsalescommissionsAdminPrepareHead();
-print dol_get_fiche_head($head, 'rules', $langs->trans('LmdbSalesCommissionsSetup'), -1, 'fa-percent');
 print load_fiche_titre($langs->trans('LmdbSalesCommissionsRules'), lmdbsalescommissionsBuildModuleListLink(), 'title_setup');
+print dol_get_fiche_head($head, 'rules', $langs->trans('LmdbSalesCommissionsSetup'), -1, 'fa-percent_fas_#f0b400');
 
-print '<div class="tabsAction">';
-print '<a class="butAction" href="'.$_SERVER['PHP_SELF'].'?mode=create">'.$langs->trans('New').'</a>';
-print '</div>';
+print load_fiche_titre('', dolGetButtonTitle($langs->trans('New'), '', 'fa fa-plus-circle', $_SERVER['PHP_SELF'].'?mode=create', 'lsc-new-rules'), '');
 
 if ($mode === 'create' || $mode === 'edit') {
 	$rule = is_object($object) ? $object : new LmdbSalesCommissionRule($db);
@@ -220,12 +233,14 @@ if ($mode === 'create' || $mode === 'edit') {
 	print '<tr><td class="titlefieldcreate fieldrequired">'.$langs->trans('Ref').'</td><td><input class="minwidth300" type="text" name="ref" value="'.dol_escape_htmltag((string) $rule->ref).'"></td></tr>';
 	print '<tr><td class="fieldrequired">'.$langs->trans('Label').'</td><td><input class="minwidth500" type="text" name="label" value="'.dol_escape_htmltag((string) $rule->label).'"></td></tr>';
 	print '<tr><td class="fieldrequired">'.$langs->trans('Type').'</td><td>'.$form->selectarray('rule_type', $ruletypes, (string) $rule->rule_type, 0, 0, 0, '', 0, 0, 0, '', 'minwidth300').'</td></tr>';
-	print '<tr><td>'.$langs->trans('Rate').'</td><td><input class="width75 right" type="text" name="rate" value="'.dol_escape_htmltag($rule->rate !== null ? price2num($rule->rate, 'MT') : '').'"> %</td></tr>';
-	print '<tr><td>'.$langs->trans('LmdbSalesCommissionsTierGrid').'</td><td>'.$form->selectarray('fk_tier_grid', $tierGridOptions, (int) $rule->fk_tier_grid, 0, 0, 0, '', 0, 0, 0, '', 'minwidth300').'</td></tr>';
-	print '<tr><td>'.$langs->trans('LmdbSalesCommissionsPaymentTerms').'</td><td>'.$form->selectarray('fk_payment_term', $paymentTermOptions, (int) $rule->fk_payment_term, 0, 0, 0, '', 0, 0, 0, '', 'minwidth300').'</td></tr>';
-	print '<tr><td class="fieldrequired">'.$langs->trans('Source').'</td><td>'.$form->selectarray('source_type', $sourcetypes, (string) ($rule->source_type ?: 'proposal'), 0, 0, 0, '', 0, 0, 0, '', 'minwidth300').'</td></tr>';
-	print '<tr><td class="fieldrequired">'.$langs->trans('Period').'</td><td>'.$form->selectarray('period_type', $periodtypes, (string) ($rule->period_type ?: 'monthly'), 0, 0, 0, '', 0, 0, 0, '', 'minwidth300').'</td></tr>';
-	print '<tr><td>'.$langs->trans('Cumulative').'</td><td>'.$form->selectyesno('cumulative', (int) ($rule->cumulative !== null ? $rule->cumulative : 1), 1).'</td></tr>';
+	print '<tr data-lsc-reward="1"><td class="fieldrequired">'.$langs->trans('LscRewardMode').'</td><td>'.$form->selectarray('reward_mode', $rewardModes, (string) ($rule->reward_mode ?: 'fixed')).'</td></tr>';
+	print '<tr data-lsc-reward="1"><td class="fieldrequired">'.$langs->trans('LscRewardValue').'</td><td><input class="width100 right" name="reward_value" value="'.dol_escape_htmltag((string) $rule->reward_value).'"><br><span class="opacitymedium">'.$langs->trans('LscRewardHelp').'</span></td></tr>';
+	print '<tr data-lsc-standard="1"><td>'.$langs->trans('Rate').'</td><td><input class="width75 right" type="text" name="rate" value="'.dol_escape_htmltag($rule->rate !== null ? price2num($rule->rate, 'MT') : '').'"> %</td></tr>';
+	print '<tr data-lsc-standard="1"><td>'.$langs->trans('LmdbSalesCommissionsTierGrid').'</td><td>'.$form->selectarray('fk_tier_grid', $tierGridOptions, (int) $rule->fk_tier_grid, 0, 0, 0, '', 0, 0, 0, '', 'minwidth300').'</td></tr>';
+	print '<tr data-lsc-standard="1"><td>'.$langs->trans('LmdbSalesCommissionsPaymentTerms').'</td><td>'.$form->selectarray('fk_payment_term', $paymentTermOptions, (int) $rule->fk_payment_term, 0, 0, 0, '', 0, 0, 0, '', 'minwidth300').'</td></tr>';
+	print '<tr data-lsc-standard="1"><td class="fieldrequired">'.$langs->trans('Source').'</td><td>'.$form->selectarray('source_type', $sourcetypes, (string) ($rule->source_type ?: 'proposal'), 0, 0, 0, '', 0, 0, 0, '', 'minwidth300').'</td></tr>';
+	print '<tr data-lsc-standard="1"><td class="fieldrequired">'.$langs->trans('Period').'</td><td>'.$form->selectarray('period_type', $periodtypes, (string) ($rule->period_type ?: 'monthly'), 0, 0, 0, '', 0, 0, 0, '', 'minwidth300').'</td></tr>';
+	print '<tr data-lsc-standard="1"><td>'.$langs->trans('Cumulative').'</td><td>'.$form->selectyesno('cumulative', (int) ($rule->cumulative !== null ? $rule->cumulative : 1), 1).'</td></tr>';
 	print '<tr><td>'.$langs->trans('Priority').'</td><td><input class="width75 right" type="text" name="priority" value="'.dol_escape_htmltag((string) ($rule->priority ?? 0)).'"></td></tr>';
 	print '<tr><td>'.$langs->trans('Active').'</td><td>'.$form->selectyesno('active', (int) ($rule->active !== null ? $rule->active : 1), 1).'</td></tr>';
 	print '<tr><td>'.$langs->trans('DateStart').'</td><td>';
@@ -234,7 +249,7 @@ if ($mode === 'create' || $mode === 'edit') {
 	print '<tr><td>'.$langs->trans('DateEnd').'</td><td>';
 	print $form->selectDate($rule->date_end, 'date_end', 0, 0, 1, 'ruleform', 1, 0);
 	print '</td></tr>';
-	print '<tr><td>'.$langs->trans('LmdbSalesCommissionsNegativeMarginMode').'</td><td>'.$form->selectarray('negative_margin_mode', $negativeMarginModes, (string) ($rule->negative_margin_mode ?: 'zero'), 0, 0, 0, '', 0, 0, 0, '', 'minwidth300').'</td></tr>';
+	print '<tr data-lsc-standard="1"><td>'.$langs->trans('LmdbSalesCommissionsNegativeMarginMode').'</td><td>'.$form->selectarray('negative_margin_mode', $negativeMarginModes, (string) ($rule->negative_margin_mode ?: 'zero'), 0, 0, 0, '', 0, 0, 0, '', 'minwidth300').'</td></tr>';
 	print '<tr><td>'.$langs->trans('Description').'</td><td><textarea class="quatrevingtpercent" name="description" rows="4">'.dol_escape_htmltag((string) $rule->description).'</textarea></td></tr>';
 	print '</table>';
 
@@ -247,6 +262,8 @@ if ($mode === 'create' || $mode === 'edit') {
 
 	if (function_exists('ajax_combobox')) {
 		print ajax_combobox('rule_type');
+		print ajax_combobox('reward_mode');
+		print '<script>jQuery(function($) { var form = $("form[name=ruleform]"); var update = function() { var reward = form.find("[name=rule_type]").val() === "margin_excess"; form.find("[data-lsc-standard]").toggle(!reward); form.find("[data-lsc-reward]").toggle(reward); }; form.find("[name=rule_type]").off("change.lscReward").on("change.lscReward", update); update(); });</script>';
 		print ajax_combobox('fk_tier_grid');
 		print ajax_combobox('fk_payment_term');
 		print ajax_combobox('source_type');
@@ -255,9 +272,10 @@ if ($mode === 'create' || $mode === 'edit') {
 	}
 }
 
-$sql = 'SELECT t.rowid, t.ref, t.label, t.rule_type, t.rate, t.fk_tier_grid, t.source_type, t.period_type, t.cumulative, t.priority, t.active, t.date_start, t.date_end';
+$sql = 'SELECT t.rowid, t.ref, t.label, t.rule_type, t.reward_mode, t.reward_value, t.rate, t.fk_tier_grid, t.source_type, t.period_type, t.cumulative, t.priority, t.active, t.date_start, t.date_end';
 $sql .= ' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_rule AS t';
 $sql .= ' WHERE t.entity IN ('.$db->sanitize(getEntity('lmdbsalescommissions_rule')).')';
+$sql .= " AND t.rule_type <> 'margin_policy'";
 $sql .= ' ORDER BY t.active DESC, t.priority DESC, t.label ASC';
 
 $resql = $db->query($sql);
@@ -270,7 +288,7 @@ if (!$resql) {
 	print '<td>'.$langs->trans('Ref').'</td>';
 	print '<td>'.$langs->trans('Label').'</td>';
 	print '<td>'.$langs->trans('Type').'</td>';
-	print '<td class="right">'.$langs->trans('Rate').'</td>';
+	print '<td class="right">'.$langs->trans('Value').'</td>';
 	print '<td>'.$langs->trans('Source').'</td>';
 	print '<td>'.$langs->trans('Period').'</td>';
 	print '<td class="center">'.$langs->trans('Cumulative').'</td>';
@@ -289,13 +307,13 @@ if (!$resql) {
 		print '<td>'.dol_escape_htmltag((string) $obj->ref).'</td>';
 		print '<td>'.dol_escape_htmltag((string) $obj->label).'</td>';
 		print '<td>'.dol_escape_htmltag($ruletypes[(string) $obj->rule_type] ?? (string) $obj->rule_type).'</td>';
-		print '<td class="right">'.($obj->rate !== null ? lmdbsalescommissionsFormatTotalAmount($obj->rate).' %' : '').'</td>';
+		print '<td class="right">'.($obj->rule_type === 'margin_excess' ? lmdbsalescommissionsFormatTotalAmount($obj->reward_value).($obj->reward_mode === 'percentage' ? ' %' : '') : ($obj->rate !== null ? lmdbsalescommissionsFormatTotalAmount($obj->rate).' %' : '')).'</td>';
 		print '<td>'.dol_escape_htmltag($sourcetypes[(string) $obj->source_type] ?? (string) $obj->source_type).'</td>';
-		print '<td>'.dol_escape_htmltag($periodtypes[(string) $obj->period_type] ?? (string) $obj->period_type).'</td>';
+		print '<td>'.($obj->rule_type === 'margin_excess' ? '—' : dol_escape_htmltag($periodtypes[(string) $obj->period_type] ?? (string) $obj->period_type)).'</td>';
 		print '<td class="center">'.yn((int) $obj->cumulative).'</td>';
 		print '<td class="right">'.((int) $obj->priority).'</td>';
-		print '<td class="center">'.yn((int) $obj->active).'</td>';
-		print '<td class="right"><a class="reposition" href="'.$_SERVER['PHP_SELF'].'?mode=edit&id='.((int) $obj->rowid).'">'.img_edit().'</a></td>';
+		print '<td class="center"><a href="'.$_SERVER['PHP_SELF'].'?action=setactive&amp;id='.((int) $obj->rowid).'&amp;value='.($obj->active ? 0 : 1).'&amp;token='.newToken().'" role="switch" aria-checked="'.($obj->active ? 'true' : 'false').'" aria-label="'.dol_escape_htmltag($langs->trans('Active').' '.((int) $obj->rowid)).'">'.img_picto($langs->trans($obj->active ? 'Enabled' : 'Disabled'), $obj->active ? 'switch_on' : 'switch_off').'</a></td>';
+		print '<td class="right"><a class="reposition editfielda" href="'.$_SERVER['PHP_SELF'].'?mode=edit&id='.((int) $obj->rowid).'">'.img_edit().'</a></td>';
 		print '</tr>';
 	}
 	print '</table>';

@@ -71,7 +71,7 @@ class LmdbSalesCommissionDueService
 		}
 
 		$distribution = $this->fetchDistribution((int) $line->fk_payment_term, (int) $line->entity);
-		if ($this->error !== '') { return -1; }
+		if ($distribution === null) { return -1; }
 		if (empty($distribution)) {
 			$distribution = array('proposal_signed' => 100.0);
 		}
@@ -130,7 +130,7 @@ class LmdbSalesCommissionDueService
 		}
 
 		$distribution = $this->fetchDistribution((int) $line->fk_payment_term, (int) $line->entity);
-		if ($this->error !== '') { $this->db->rollback(); return -1; }
+		if ($distribution === null) { $this->db->rollback(); return -1; }
 		if (empty($distribution)) {
 			$distribution = array('proposal_signed' => 100.0);
 		}
@@ -328,7 +328,7 @@ class LmdbSalesCommissionDueService
 	 *
 	 * @param int $paymentTermId Payment term id
 	 * @param int $entity        Entity id
-	 * @return array<string, float>
+	 * @return array<string, float>|null Null on SQL failure
 	 */
 	private function fetchDistribution($paymentTermId, $entity)
 	{
@@ -347,7 +347,7 @@ class LmdbSalesCommissionDueService
 		$resql = $this->db->query($sql);
 		if (!$resql) {
 			$this->error = $this->db->lasterror();
-			return $distribution;
+			return null;
 		}
 		while (is_object($obj = $this->db->fetch_object($resql))) {
 			$distribution[(string) $obj->event_type] = (float) $obj->percentage;
@@ -889,8 +889,8 @@ class LmdbSalesCommissionDueService
 
 		$resql = $this->db->query($sql);
 		if (!$resql) {
-			$this->error = $this->db->lasterror();
-			dol_syslog(__METHOD__.': '.$this->error, LOG_ERR);
+			dol_syslog(__METHOD__.': '.$this->db->lasterror(), LOG_ERR);
+			$this->error = 'LscPolicyUnavailable';
 			return -1;
 		}
 

@@ -67,6 +67,7 @@ class box_lmdbsalescommissions_agent extends ModeleBoxes
 		$summary = $service->getKpiSummary($filters, $user);
 		$tierProgress = $service->getTierProgress($filters, $user);
 		$values = array(
+			'LscReward' => (float) $summary['reward_acquired'],
 			'LmdbSalesCommissionsRuleTypeMargin' => (float) $summary['margin_commission_acquired'],
 			'LmdbSalesCommissionsModeDispatch' => (float) $summary['dispatch_commission_acquired'],
 			'LmdbSalesCommissionsTierCommissionAcquired' => (float) $summary['tier_commission_acquired'],

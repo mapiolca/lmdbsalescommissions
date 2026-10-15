@@ -67,14 +67,15 @@ class CleanupDB {
  public $tierRuleAvailable = false;
  public $transaction_opened = 0;
  public $lines = array(); public $dues = array(); public $proposals = array();
+ public $snapshots = array();
  public $queries = array(); public $saved = null; public $fail = ''; public $failures = array();
  public function query($sql) {
   $this->queries[] = $sql;
   foreach ($this->failures as $failure) { if (strpos($sql, $failure) !== false) { return false; } }
   if ($this->fail !== '' && strpos($sql, $this->fail) !== false) { return false; }
-  if ($sql === 'BEGIN') { $this->saved = serialize(array($this->lines, $this->dues, $this->proposals)); return true; }
+  if ($sql === 'BEGIN') { $this->saved = serialize(array($this->lines, $this->dues, $this->proposals, $this->snapshots)); return true; }
   if ($sql === 'COMMIT') { $this->saved = null; return true; }
-  if ($sql === 'ROLLBACK') { if ($this->saved !== null) { list($this->lines, $this->dues, $this->proposals) = unserialize($this->saved); } return true; }
+  if ($sql === 'ROLLBACK') { if ($this->saved !== null) { list($this->lines, $this->dues, $this->proposals, $this->snapshots) = unserialize($this->saved); } return true; }
   if (preg_match('/UPDATE testprefix_propal SET fk_statut = 0.*rowid = (\d+)/', $sql, $m)) { $this->proposals[(int) $m[1]]['fk_statut'] = 0; return true; }
   if (strpos($sql, 'SELECT rowid, entity, fk_statut FROM testprefix_propal') === 0) {
    preg_match('/rowid = (\d+) AND entity = (\d+)/', $sql, $m); $p = $this->proposals[(int) $m[1]] ?? null;
@@ -121,6 +122,12 @@ class CleanupDB {
   if ($this->tierRuleAvailable && strpos($sql, 'SELECT rowid, threshold_amount') === 0) {
    return new CleanupResult(array(array('rowid' => 1, 'threshold_amount' => 100000, 'bonus_amount' => 1000, 'commission_rate' => null), array('rowid' => 2, 'threshold_amount' => 200000, 'bonus_amount' => 2500, 'commission_rate' => null)));
   }
+  if (strpos($sql, 'INSERT INTO testprefix_lmdbsalescommissions_margin_revision ') === 0) { return true; }
+  if (strpos($sql, 'DELETE FROM testprefix_lmdbsalescommissions_margin_snapshot ') === 0) {
+   preg_match('/entity = (\d+) AND fk_propal = (\d+)/', $sql, $m);
+   $this->snapshots = array_values(array_filter($this->snapshots, static function ($s) use ($m) { return $s['entity'] !== (int) $m[1] || $s['fk_propal'] !== (int) $m[2]; }));
+   return true;
+  }
   if (strpos($sql, 'SELECT ') === 0) { return new CleanupResult(array()); }
   throw new RuntimeException('Unimplemented simulated SQL: '.$sql);
  }
@@ -159,6 +166,7 @@ $checks = 0;
 function check($condition, $label) { global $checks; $checks++; if (!$condition) { throw new RuntimeException('FAILED: '.$label); } }
 function seeded($paid = false) {
  $db = new CleanupDB();
+ $db->snapshots = array(array('entity' => 1, 'fk_propal' => 100), array('entity' => 2, 'fk_propal' => 100), array('entity' => 1, 'fk_propal' => 200));
  $db->proposals[100] = array('rowid' => 100, 'entity' => 1, 'fk_statut' => 2);
  foreach (array(1 => 1, 2 => 2, 3 => 1) as $id => $entity) {
   $db->lines[$id] = array('rowid' => $id, 'entity' => $entity, 'source_type' => $id === 3 ? 'tier_period' : 'proposal', 'fk_source' => 100, 'source_ref' => 'P100', 'paid_total' => $id === 1 && $paid ? 20 : 0, 'commission_total' => 40, 'mode' => 'margin', 'status' => 1, 'date_acquired' => null, 'fk_user' => 10);
@@ -169,7 +177,7 @@ function seeded($paid = false) {
 $proposalId = (object) array('id' => 100, 'entity' => 1);
 // Before-change reproduction: native draft emitted MODIFY while the old status was signed.
 $db = seeded(); $proposal = new CleanupProposal($db);
-$old = shell_exec('git show main:core/triggers/interface_99_modLmdbSalesCommissions_LmdbSalesCommissionsTriggers.class.php');
+$old = shell_exec('git show 83f1d47560b2c90cb981b8dea0b4852cc8756a4c:core/triggers/interface_99_modLmdbSalesCommissions_LmdbSalesCommissionsTriggers.class.php');
 if (is_string($old) && strpos($old, 'class InterfaceLmdbSalesCommissionsTriggers') !== false) {
  $old = preg_replace('/^<\?php/', '', $old);
  eval(str_replace('class InterfaceLmdbSalesCommissionsTriggers', 'class CleanupBeforeTrigger', $old));
@@ -184,6 +192,7 @@ check($proposal->setDraft($user) > 0, 'native setDraft succeeds');
 check(!isset($db->lines[1], $db->dues[1]) && $db->proposals[100]['fk_statut'] === 0, 'draft removes lines and dues');
 check(isset($db->lines[2], $db->lines[3], $db->dues[2], $db->dues[3]), 'other entity and periodic bonus preserved');
 check($proposal->date_signature > 0, 'native historical signature retained');
+check($db->snapshots === array(array('entity' => 2, 'fk_propal' => 100), array('entity' => 1, 'fk_propal' => 200)), 'draft clears only owner margin snapshot for fresh controls and rewards');
 check((new LmdbSalesCommissionProposalDispatchService($db))->isProposalEditable($proposal), 'commission dispatch unlocked in draft');
 check((new LmdbSalesCommissionProposalTurnoverDispatchService($db))->isProposalEditable($proposal), 'turnover dispatch unlocked in draft');
 $proposal->statut = 1; $proposal->status = 1;
@@ -192,10 +201,11 @@ $db = seeded(); $db->begin(); $trigger = new InterfaceLmdbSalesCommissionsTrigge
 check($trigger->runTrigger('PROPAL_DELETE', new CleanupProposal($db), $user, $langs, new Conf()) === 0, 'delete trigger succeeds');
 check(!isset($db->lines[1], $db->dues[1]) && $db->transaction_opened === 1, 'inner success retains native outer transaction');
 $db->rollback(); check(isset($db->lines[1], $db->dues[1]), 'later native failure rolls cleanup back');
+check(count($db->snapshots) === 3, 'later native failure restores the frozen margin decisions');
 $db = seeded(); $service = new LmdbSalesCommissionProposalCleanup($db);
 check($service->deleteForProposal($proposalId, $user, 'delete') === 1, 'unpaid delete');
 check($service->deleteForProposal($proposalId, $user, 'delete') === 0, 'repeated cleanup is idempotent');
-foreach (array('DELETE FROM testprefix_lmdbsalescommissions_due', 'DELETE FROM testprefix_lmdbsalescommissions_line', 'COMMIT', 'BEGIN') as $failure) {
+foreach (array('DELETE FROM testprefix_lmdbsalescommissions_due', 'DELETE FROM testprefix_lmdbsalescommissions_line', 'DELETE FROM testprefix_lmdbsalescommissions_margin_snapshot', 'COMMIT', 'BEGIN') as $failure) {
  $db = seeded(); $db->fail = $failure; $service = new LmdbSalesCommissionProposalCleanup($db);
  check($service->deleteForProposal($proposalId, $user, 'delete') < 0 && isset($db->lines[1], $db->dues[1]), 'SQL rollback: '.$failure);
 }
@@ -320,6 +330,7 @@ $line = (object) array('id' => 1, 'entity' => 1, 'commission_total' => 100, 'fk_
 check($dues->generateForLine($line, $user) < 0 && $dues->error !== '', 'payment distribution read error propagated');
 $db->fail = 'SUM(CASE';
 $refresh = new ReflectionMethod($dues, 'refreshLineTotals');
+$refresh->setAccessible(true); // PHP 8.0 requires explicit access to private test targets.
 check($refresh->invoke($dues, 1, 1, $user) < 0 && $dues->error !== '', 'due totals read error propagated');
 $db = seeded(); $db->lines[1]['mode'] = 'turnover'; $db->lines[1]['date_acquired'] = 'invalid-date';
 $service = new LmdbSalesCommissionProposalCleanup($db);

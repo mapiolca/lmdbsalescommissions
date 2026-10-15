@@ -30,6 +30,9 @@ class ResolverDatabase
    $types = array_map(static function ($type) { return trim($type, " '\t"); }, explode(',', $matches[1]));
    $rows = array_values(array_filter($rows, static function ($row) use ($types) { return in_array($row->rule_type, $types, true); }));
   }
+  if (preg_match("/r\.rule_type = '([^']+)'/", $sql, $matches)) {
+   $rows = array_values(array_filter($rows, static function ($row) use ($matches) { return $row->rule_type === $matches[1]; }));
+  }
   return (object) array('rows' => $rows);
  }
  public function fetch_object($result) { return array_shift($result->rows); }
@@ -51,7 +54,7 @@ $langs = new ResolverTranslations();
 $conf = (object) array('entity'=>1);
 $db = new ResolverDatabase();
 $db->rules = array(candidate(1, 'margin'), candidate(2, 'margin_policy'), candidate(3, 'margin_policy'));
-$before = shell_exec('git show main:class/lmdbsalescommissionruleresolver.class.php');
+$before = shell_exec('git show 83f1d47560b2c90cb981b8dea0b4852cc8756a4c:class/lmdbsalescommissionruleresolver.class.php');
 if (is_string($before) && strpos($before, 'class LmdbSalesCommissionRuleResolver') !== false) {
  eval(str_replace('class LmdbSalesCommissionRuleResolver', 'class ResolverBeforePatch', preg_replace('/^<\?php/', '', $before)));
  $profile = (new ResolverBeforePatch($db))->resolveForUser(10, 1800000000, 1, 'proposal');
@@ -75,4 +78,9 @@ foreach (array('fr_FR', 'en_US') as $locale) {
    'real '.$type.' conflict remains blocked and translated in '.$locale);
  }
 }
+$db->rules = array(candidate(1, 'margin'), candidate(2, 'margin_policy'), candidate(3, 'margin_excess'));
+$profile = $resolver->resolveForUser(10, 1800000000, 1, 'proposal');
+check(array_keys($profile['selected']) === array('margin'), 'ordinary commissions exclude excess rewards and margin policies');
+$profile = $resolver->resolveForUser(10, 1800000000, 1, 'proposal', 'margin_excess');
+check(array_keys($profile['selected']) === array('margin_excess') && count($profile['candidates']) === 1, 'excess reward remains independently resolvable');
 echo 'OK '.$checks.' assertions (simulated SQL, fr_FR/en_US catalogs)'.PHP_EOL;

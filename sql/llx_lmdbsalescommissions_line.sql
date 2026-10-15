@@ -1,6 +1,8 @@
 CREATE TABLE llx_lmdbsalescommissions_line
 (
 	rowid integer AUTO_INCREMENT PRIMARY KEY,
+	fk_reward_rule integer DEFAULT NULL,
+	snapshot_reward text DEFAULT NULL,
 	entity integer DEFAULT 1 NOT NULL,
 	fk_user integer NOT NULL,
 	fk_soc integer DEFAULT NULL,

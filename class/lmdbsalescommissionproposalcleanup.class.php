@@ -171,6 +171,8 @@ class LmdbSalesCommissionProposalCleanup
 			foreach ($snapshot['lines'] as $line) {
 				$this->execute('DELETE FROM '.MAIN_DB_PREFIX."lmdbsalescommissions_line WHERE entity = ".$entity." AND source_type = 'proposal' AND fk_source = ".$id.' AND rowid = '.((int) $line['rowid']));
 			}
+			// The authorized draft/delete starts a new commission lifecycle, including margin rewards.
+			$this->execute('DELETE FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_margin_snapshot WHERE entity = '.$entity.' AND fk_propal = '.$id);
 			require_once __DIR__.'/lmdbsalescommissiontierservice.class.php';
 			$tierService = new LmdbSalesCommissionTierService($this->db);
 			foreach ($periods as $period) {

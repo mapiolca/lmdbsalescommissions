@@ -31,6 +31,8 @@ function lmdbsalescommissionsAdminPrepareHead()
 	$head[$h][2] = 'rules';
 	$h++;
 
+	$head[$h++] = array(dol_buildpath('/lmdbsalescommissions/admin/marginpolicies.php', 1), $langs->trans('LscPolicies'), 'marginpolicies');
+
 	$head[$h][0] = dol_buildpath('/lmdbsalescommissions/admin/paymentterms.php', 1);
 	$head[$h][1] = $langs->trans('LmdbSalesCommissionsPaymentTerms');
 	$head[$h][2] = 'paymentterms';
@@ -475,6 +477,7 @@ function lmdbsalescommissionsGetLineStatusLabel($langs, $status)
 function lmdbsalescommissionsGetModeLabel($langs, $mode)
 {
 	$labels = array(
+		'margin_excess' => 'LscReward',
 		'margin' => 'LmdbSalesCommissionsRuleTypeMargin',
 		'tier' => 'LmdbSalesCommissionsRuleTypeTier',
 		'tracking' => 'LmdbSalesCommissionsModeTracking',
@@ -519,6 +522,7 @@ function lmdbsalescommissionsGetRuleSourceLabel($langs, $ruleSource)
 		'group' => 'Group',
 		'default' => 'Default',
 		'none' => 'None',
+		'margin_excess' => 'LscReward',
 		'dispatch' => 'LmdbSalesCommissionsManualDispatch',
 		'turnover' => 'LmdbSalesCommissionsTurnoverDispatch',
 		'automatic' => 'LmdbSalesCommissionsTurnoverDispatchAutomaticSource',

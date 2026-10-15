@@ -195,7 +195,7 @@ print '<td>'.$form->selectarray('source', $sourceOptions, (string) $filters['sou
 print '</tr>';
 print '<tr class="oddeven">';
 print '<td>'.$langs->trans('LmdbSalesCommissionsCommissionType').'</td>';
-$typeOptions = array('all' => $langs->trans('All'), 'margin' => $langs->trans('LmdbSalesCommissionsRuleTypeMargin'), 'tier' => $langs->trans('LmdbSalesCommissionsRuleTypeTier'), 'dispatch' => $langs->trans('LmdbSalesCommissionsModeDispatch'));
+$typeOptions = array('all' => $langs->trans('All'), 'margin_excess' => $langs->trans('LscReward'), 'margin' => $langs->trans('LmdbSalesCommissionsRuleTypeMargin'), 'tier' => $langs->trans('LmdbSalesCommissionsRuleTypeTier'), 'dispatch' => $langs->trans('LmdbSalesCommissionsModeDispatch'));
 print '<td>'.$form->selectarray('commission_type', $typeOptions, (string) $filters['commission_type'], 0, 0, 0, '', 0, 0, 0, '', 'minwidth150', 1).'</td>';
 print '<td>'.$langs->trans('Status').'</td>';
 $statusOptions = array(

@@ -997,7 +997,7 @@ class LmdbSalesCommissionDashboardWidget extends ModeleBoxes
 		foreach ($rows as $row) {
 			$severityLabel = $langs->trans($row['severity'] === 'error' ? 'Error' : 'Warning');
 			$this->info_box_contents[] = array(
-				array('td' => 'class="center"', 'text' => lmdbsalescommissionsStatusBadge($severityLabel, $row['severity'] === 'error' ? -1 : 0), 'asis' => 1),
+				array('td' => 'class="center"', 'text' => dolGetBadge($severityLabel, '', $row['severity'] === 'error' ? 'danger' : 'warning'), 'asis' => 1),
 				array('text' => $langs->trans((string) $row['type'])),
 				array('text' => (string) $row['element']),
 				array('text' => '<span class="opacitymedium">'.$langs->trans((string) $row['description']).'</span>', 'asis' => 1),
