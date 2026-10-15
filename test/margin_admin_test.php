@@ -3,10 +3,12 @@
 define('DOL_DOCUMENT_ROOT', realpath($argv[1] ?? __DIR__.'/.core-cache/20.0.0/htdocs'));
 define('DOL_URL_ROOT', '/erp');
 define('MAIN_DB_PREFIX', 'admin_test_');
-$conf = (object) array('entity' => 1, 'use_javascript_ajax' => 1, 'browser' => (object) array('layout' => 'classic'));
+$conf = (object) array('entity' => 1, 'use_javascript_ajax' => 1, 'global' => (object) array('MAIN_USE_JQUERY_MULTISELECT' => 1), 'browser' => (object) array('layout' => 'classic'));
 function getDolGlobalInt($key, $default = 0) { return $key === 'LMDBSALESCOMMISSIONS_MARGIN_ENABLED' ? 1 : $default; }
 function getDolGlobalString($key, $default = '') { return $key === 'MAIN_USE_JQUERY_MULTISELECT' ? '1' : $default; }
 function dol_escape_htmltag($value, ...$args) { return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8'); }
+function dolPrintHTMLForAttribute($value) { return dol_escape_htmltag($value); }
+function dol_htmlentitiesbr($value) { return dol_escape_htmltag($value); }
 function dol_escape_js($value) { return addslashes($value); }
 function dol_syslog($message, $level = 0) {}
 function dol_nboflines_bis($text, ...$args) { return substr_count($text, "\n") + 1; }
@@ -51,6 +53,7 @@ class AdminDb {
 			if ($this->fail === 'complexsite') { return false; }
 			$this->complexSite = false; return true;
 		}
+		if (strpos($sql, 'DELETE FROM admin_test_lmdbsalescommissions_margin_category') === 0 || strpos($sql, 'DELETE FROM admin_test_lmdbsalescommissions_margin_product') === 0) { return true; }
 		throw new RuntimeException('Unexpected query');
 	}
 	public function num_rows($result) { return $result->count; }
@@ -81,10 +84,14 @@ function parseView($html) {
 $db = new AdminDb(); $user = new User(); $langs = new AdminLangs();
 $rule = new AdminRule($db); $rule->id = 1; $rule->entity = 1; $rule->rule_type = 'margin_policy';
 $rule->ref = 'RULE "<&'; $rule->label = 'Label'; $rule->policy_context = 'general'; $rule->policy_effect = 'sale'; $rule->rate = 30; $rule->active = 1;
+$rule->policy_scope = 'offer';
 $form = new Form($db); $pageUrl = '/erp/custom/lmdbsalescommissions/admin/marginpolicies.php';
 $contexts = array('general' => 'General', 'pv' => 'PV'); $effects = array('sale' => 'Sale', 'commission' => 'Commission', 'both' => 'Both');
-$formValues = array('ref' => $rule->ref, 'label' => 'Label', 'rate' => '30', 'policy_context' => 'general', 'policy_effect' => 'sale');
-$policies = array((object) array('rowid' => 1, 'ref' => $rule->ref, 'label' => 'Label', 'policy_context' => 'general', 'policy_effect' => 'sale', 'active' => 1));
+$scopes = array('offer' => 'Offer', 'category' => 'Category', 'product' => 'Product');
+$categoryOptions = array(11 => 'Panels', 12 => 'Batteries'); $productOptions = array(21 => 'PV-1 - Panel', 22 => 'SVC-1 - Installation');
+$selectedCategories = array('11'); $selectedProducts = array('22');
+$formValues = array('ref' => $rule->ref, 'label' => 'Label', 'rate' => '30', 'policy_context' => 'general', 'policy_effect' => 'sale', 'policy_scope' => 'offer');
+$policies = array((object) array('rowid' => 1, 'ref' => $rule->ref, 'label' => 'Label', 'policy_context' => 'general', 'policy_effect' => 'sale', 'policy_scope' => 'offer', 'active' => 1));
 $bands = array(); $travelBands = array(); $mode = ''; $id = 0;
 $travelValues = array('metric' => 'minutes', 'min_value' => '', 'uplift' => '');
 $travelAvailable = true;
@@ -98,17 +105,20 @@ $html = $render(); $view = parseView($html);
 check($view->query('//a[@id="lsc-new-policy"]')->length === 1, 'One native create entry');
 check($view->query('//div[@id="lsc-policy-editor"]')->length === 0, 'No permanent creation form');
 check($view->query('//table[@id="lsc-policies"]/tr[2]/td[1]/a')->length === 0, 'Reference is plain text');
-check($view->query('//table[@id="lsc-policies"]/tr[2]/td[6]/a')->length === 2, 'Edit and delete in final column');
+check($view->query('//table[@id="lsc-policies"]/tr[2]/td[7]/a')->length === 2, 'Edit and delete in final column');
 check($view->query('//a[contains(@href,"assignments.php")]')->length === 0, 'Redundant assignments link removed');
 check($view->query('//a[@role="switch" and contains(@href,"action=activate")]/ancestor::tr/td')->length === 2, 'Activation row has two cells');
 check($view->query('//a[@role="switch"]')->item(0)->getAttribute('aria-checked') === 'true', 'Activation state exposed');
-check($view->query('//table[@id="lsc-policies"]//td[5]/a[@role="switch" and @aria-checked="true" and contains(@href,"action=togglepolicy") and contains(@href,"token=test-csrf")]/span[@data-picto="switch_on"]')->length === 1, 'Active policy has a token-protected native switch');
+check($view->query('//table[@id="lsc-policies"]//td[6]/a[@role="switch" and @aria-checked="true" and contains(@href,"action=togglepolicy") and contains(@href,"token=test-csrf")]/span[@data-picto="switch_on"]')->length === 1, 'Active policy has a token-protected native switch');
 $policies[0]->active = 0; $view = parseView($render());
-check($view->query('//table[@id="lsc-policies"]//td[5]/a[@role="switch" and @aria-checked="false"]/span[@data-picto="switch_off"]')->length === 1, 'Inactive policy has a native OFF switch');
+check($view->query('//table[@id="lsc-policies"]//td[6]/a[@role="switch" and @aria-checked="false"]/span[@data-picto="switch_off"]')->length === 1, 'Inactive policy has a native OFF switch');
 $policies[0]->active = 1;
 $mode = 'create'; $html = $render(); $view = parseView($html);
 check($view->query('//form[@id="lsc-policy-form" and @method="POST"]')->length === 1, 'Editor saves by POST');
 check($view->query('//form[@id="lsc-policy-form"]/input[@name="token"]')->length === 1, 'Editor has CSRF token');
+check($view->query('//select[@id="policy_scope"]/option[@value="offer" and @selected]')->length === 1, 'Existing rules keep offer scope');
+check($view->query('//select[@id="categories" and @multiple]/option[@value="11" and @selected]')->length === 1, 'Multiple native categories retain selection');
+check($view->query('//select[@id="products" and @multiple]/option[@value="22" and @selected]')->length === 1, 'Multiple native products retain selection');
 check(strpos($html, '<&') === false && $view->query('//input[@name="ref"]')->item(0)->getAttribute('value') === $rule->ref, 'Field values escaped');
 check(strpos($html, 'select2') !== false, 'Native Select2 initialization present');
 check($view->query('//div[@id="lsc-policy-bands"]')->length === 1, 'Bands are available at first creation, even before selecting a technical context');
@@ -167,7 +177,7 @@ check($view->query('//form[@method="POST"]/input[@name="action" and @value="conf
 $mode = 'edit'; $view = parseView($render());
 check($view->query('//form[@id="lsc-policy-form"]')->length === 1, 'No-JS editor remains available');
 $mode = ''; $policies = array(); $view = parseView($render());
-check($view->query('//table[@id="lsc-policies"]//td[@colspan="6"]')->length === 1, 'Native empty table spans all columns');
+check($view->query('//table[@id="lsc-policies"]//td[@colspan="7"]')->length === 1, 'Native empty table spans all columns');
 foreach (array('rule_assignment', 'line', 'margin_approval', 'margin_request') as $dependency) {
 	$db->referenced = $dependency;
 	check($rule->delete($user) === -1 && $rule->error === 'LscPolicyInUse', 'Referenced control preserved: '.$dependency);

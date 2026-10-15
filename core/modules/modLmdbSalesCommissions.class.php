@@ -425,12 +425,12 @@ class modLmdbSalesCommissions extends DolibarrModules
 		$exists = $this->db->num_rows($q) > 0;
 		$this->db->free($q);
 		if (!$exists) { return $tableMustExist ? -1 : 0; }
-		foreach (array('policy_context' => 'varchar(16)', 'policy_effect' => 'varchar(16)', 'reward_mode' => 'varchar(16)', 'reward_value' => 'double(24,8)') as $column => $definition) {
+		foreach (array('policy_context' => 'varchar(16)', 'policy_effect' => 'varchar(16)', 'policy_scope' => "varchar(16) DEFAULT 'offer'", 'reward_mode' => 'varchar(16)', 'reward_value' => 'double(24,8)') as $column => $definition) {
 			$resql = $this->db->query("SHOW COLUMNS FROM ".$table." LIKE '".$column."'");
 			if (!$resql) { return -1; }
 			$exists = $this->db->num_rows($resql) > 0;
 			$this->db->free($resql);
-			if (!$exists && !$this->db->query("ALTER TABLE ".$table." ADD ".$column." ".$definition." DEFAULT NULL")) { return -1; }
+			if (!$exists && !$this->db->query("ALTER TABLE ".$table." ADD ".$column." ".$definition.($column === 'policy_scope' ? '' : ' DEFAULT NULL'))) { return -1; }
 		}
 		return 1;
 	}

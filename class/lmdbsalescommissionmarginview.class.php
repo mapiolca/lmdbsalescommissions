@@ -126,7 +126,7 @@ class LmdbSalesCommissionMarginView
 			$html .= $summary ? '<td class="right">'.($estimate['amount'] ?? '—').'</td><td>'.$status.'</td><td>' : '<td>'.implode('</td><td>', array_slice($policyValues, 1)).'</td><td>';
 			$rulesHtml = !empty($decision['frozen']) ? '<p>'.$langs->trans('LscFrozen').'</p>' : '';
 			$rulesHtml .= '<div class="div-table-responsive-no-min"><table class="noborder centpercent"><tbody><tr class="liste_titre">';
-			$ruleHeaders = $summary ? array('LscRules', 'Status') : array('LmdbSalesCommissionsProposalEstimateTableRuleSource', 'LmdbSalesCommissionsProposalEstimateTableRule', 'LscPolicyContext', 'LscPolicyEffect', 'LscThreshold', 'Result');
+			$ruleHeaders = $summary ? array('LscRules', 'Status') : array('LmdbSalesCommissionsProposalEstimateTableRuleSource', 'LmdbSalesCommissionsProposalEstimateTableRule', 'LscPolicyScope', 'LscPolicyContext', 'LscPolicyEffect', 'LscActualRate', 'LscThreshold', 'Result');
 			foreach ($ruleHeaders as $key) { $rulesHtml .= '<th scope="col">'.$langs->trans($key).'</th>'; }
 			$rulesHtml .= '</tr>';
 			foreach ($decision['checks'] ?? array() as $check) {
@@ -141,7 +141,11 @@ class LmdbSalesCommissionMarginView
 						: ($check['complex_site_state'] ? $langs->trans('LscComplexSiteApplied', price($check['complex_site_uplift'])) : $langs->trans('LscComplexSiteNotApplied'));
 					$thresholdLabel .= '<br><span class="opacitymedium">'.dol_escape_htmltag($complexLabel).'</span>';
 				}
-				$cells = array($originLabel !== '' ? $langs->trans($originLabel) : '—', dol_escape_htmltag($check['origin']), $langs->trans('LscContext_'.$check['context']), $langs->trans('LscEffect_'.$check['effect']), $thresholdLabel, $langs->trans('LscReason_'.$check['reason']));
+				$scopeKey = array('offer' => 'LscScopeOffer', 'category' => 'LscScopeCategory', 'product' => 'LscScopeProduct')[$check['scope'] ?? 'offer'] ?? 'LscScopeOffer';
+				$scopeLabel = $langs->trans($scopeKey);
+				if (isset($check['target_lines']) && is_array($check['target_lines'])) { $scopeLabel .= ' ('.count($check['target_lines']).' '.$langs->trans('LscTargetLines').')'; }
+				$actualRate = array_key_exists('rate', $check) ? $check['rate'] : ($decision['inputs']['rate'] ?? null);
+				$cells = array($originLabel !== '' ? $langs->trans($originLabel) : '—', dol_escape_htmltag($check['origin']), dol_escape_htmltag($scopeLabel), $langs->trans('LscContext_'.$check['context']), $langs->trans('LscEffect_'.$check['effect']), $actualRate === null ? $langs->trans('Unknown') : dol_escape_htmltag((string) $actualRate).' %', $thresholdLabel, $langs->trans('LscReason_'.$check['reason']));
 				if ($summary) {
 					$ruleId = (int) ($check['rule_id'] ?? 0);
 					$ruleLabel = dol_escape_htmltag($ruleLabelError ? $langs->trans('LscPolicyUnavailable') : ($ruleLabels[$ruleId] ?? $check['origin']));

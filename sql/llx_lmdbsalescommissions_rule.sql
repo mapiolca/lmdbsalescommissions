@@ -7,6 +7,7 @@ CREATE TABLE llx_lmdbsalescommissions_rule
 	rule_type varchar(32) NOT NULL,
 	policy_context varchar(16) DEFAULT NULL,
 	policy_effect varchar(16) DEFAULT NULL,
+	policy_scope varchar(16) DEFAULT 'offer',
 	reward_mode varchar(16) DEFAULT NULL,
 	reward_value double(24,8) DEFAULT NULL,
 	rate double(10,4) DEFAULT NULL,

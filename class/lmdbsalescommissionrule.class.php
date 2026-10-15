@@ -13,6 +13,8 @@ class LmdbSalesCommissionRule extends LmdbSalesCommissionCommon
 	public $policy_context;
 	/** @var string|null sale, commission or both */
 	public $policy_effect;
+	/** @var string|null offer, category or product */
+	public $policy_scope;
 	/** @var string|null fixed or percentage */
 	public $reward_mode;
 	/** @var float|string|null Reward amount or rate */
@@ -49,6 +51,8 @@ class LmdbSalesCommissionRule extends LmdbSalesCommissionCommon
 			if (!$this->db->query('DELETE FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_margin_band WHERE '.$where)) { throw new RuntimeException('LscPolicyUnavailable'); }
 			if (!$this->db->query('DELETE FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_margin_travel_band WHERE '.$where)) { throw new RuntimeException('LscPolicyUnavailable'); }
 			if (!$this->db->query('DELETE FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_margin_complex_site WHERE '.$where)) { throw new RuntimeException('LscPolicyUnavailable'); }
+			if (!$this->db->query('DELETE FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_margin_category WHERE '.$where)) { throw new RuntimeException('LscPolicyUnavailable'); }
+			if (!$this->db->query('DELETE FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_margin_product WHERE '.$where)) { throw new RuntimeException('LscPolicyUnavailable'); }
 			// CommonObject v20 derives a different code from the class name; use our stable CRUD prefix.
 			if (parent::delete($user, 1) <= 0) { throw new RuntimeException('LscPolicyUnavailable'); }
 			if (!$notrigger && $this->call_trigger($this->TRIGGER_PREFIX.'_DELETE', $user) < 0) { throw new RuntimeException('LscPolicyUnavailable'); }
@@ -107,6 +111,7 @@ class LmdbSalesCommissionRule extends LmdbSalesCommissionCommon
 		'reward_value' => array('type' => 'double(24,8)', 'label' => 'LscRewardValue', 'enabled' => '1', 'visible' => 0),
 		'policy_context' => array('type' => 'varchar(16)', 'label' => 'LscPolicyContext', 'enabled' => '1', 'visible' => 0),
 		'policy_effect' => array('type' => 'varchar(16)', 'label' => 'LscPolicyEffect', 'enabled' => '1', 'visible' => 0),
+		'policy_scope' => array('type' => 'varchar(16)', 'label' => 'LscPolicyScope', 'enabled' => '1', 'visible' => 0, 'default' => 'offer'),
 		'rate' => array('type' => 'double(10,4)', 'label' => 'Rate', 'enabled' => '1', 'visible' => 1, 'position' => 40),
 		'fk_tier_grid' => array('type' => 'integer', 'label' => 'LmdbSalesCommissionsTierGrid', 'enabled' => '1', 'visible' => 1, 'position' => 50),
 		'fk_payment_term' => array('type' => 'integer', 'label' => 'LmdbSalesCommissionsPaymentTerms', 'enabled' => '1', 'visible' => 1, 'position' => 55),

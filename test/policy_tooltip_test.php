@@ -74,6 +74,12 @@ $html = $get();
 verify($parentChecks === 1, 'Native parent access requested');
 foreach (array('LABEL &lt;script&gt;', 'REF-71', 'LscFrozen', 'LscRuleCurrentMetadata', 'LscContext_pv', 'LscEffect_commission', '170,00', '180,00', '1 275,95', '105,00', '100,00', '70,00', ']0,00 ; 10,00]', '#4') as $expected) { verify(strpos($html,$expected)!==false, 'Missing detail '.$expected); }
 verify(strpos($html,'<script>')===false && strpos($html,'<img')===false, 'Stored labels and description escaped');
+$db->decision['checks'][0]['scope'] = 'category';
+$db->decision['checks'][0]['target_lines'] = array(1, 2);
+$db->decision['checks'][0]['rate'] = 42.5;
+$scopedHtml = $get();
+verify(strpos($scopedHtml, 'LscScopeCategory') !== false && strpos($scopedHtml, 'LscTargetLines') !== false && strpos($scopedHtml, '42,50') !== false, 'Tooltip displays the selected-line rate and scope');
+verify(strpos($scopedHtml, '180,00') === false, 'Global proposal rate is not substituted for a category control');
 $db->decision['checks'][0]['complex_site_configured'] = true;
 $db->decision['checks'][0]['complex_site_state'] = true;
 $db->decision['checks'][0]['complex_site_uplift'] = 20.0;

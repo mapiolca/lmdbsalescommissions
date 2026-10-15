@@ -6,6 +6,7 @@ if (!$res && file_exists('../../../main.inc.php')) { $res = include '../../../ma
 if (!$res) { die('Include of main fails'); }
 require_once DOL_DOCUMENT_ROOT.'/core/lib/admin.lib.php';
 require_once DOL_DOCUMENT_ROOT.'/core/class/html.form.class.php';
+require_once DOL_DOCUMENT_ROOT.'/categories/class/categorie.class.php';
 require_once __DIR__.'/../lib/lmdbsalescommissions.lib.php';
 require_once __DIR__.'/../class/lmdbsalescommissionrule.class.php';
 require_once __DIR__.'/../class/lmdbsalescommissionmarginengine.class.php';
@@ -26,11 +27,21 @@ $rule = new LmdbSalesCommissionRule($db);
 if ($id && ($rule->fetch($id) <= 0 || (int) $rule->entity !== (int) $conf->entity || $rule->rule_type !== 'margin_policy')) { accessforbidden(); }
 $contexts = array('general' => $langs->trans('LscGeneral'), 'pv' => $langs->trans('LscPv'), 'storage' => $langs->trans('LscStorage'), 'mixed' => $langs->trans('LscMixed'));
 $effects = array('sale' => $langs->trans('LscSale'), 'commission' => $langs->trans('LscCommission'), 'both' => $langs->trans('LscBoth'));
+$scopes = array('offer' => $langs->trans('LscScopeOffer'), 'category' => $langs->trans('LscScopeCategory'), 'product' => $langs->trans('LscScopeProduct'));
 $form = new Form($db);
+$nativeCategory = new Categorie($db);
+$productCategoryType = (int) $nativeCategory->MAP_ID[Categorie::TYPE_PRODUCT];
 $bands = array();
 $travelBands = array();
 $complexSite = null;
+$selectedCategories = array(); $selectedProducts = array();
 if ($id) {
+	foreach (array('category' => 'fk_category', 'product' => 'fk_product') as $type => $column) {
+		$q = $db->query('SELECT '.$column.' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_margin_'.$type.' WHERE entity = '.((int) $conf->entity).' AND fk_rule = '.$id.' ORDER BY '.$column);
+		if (!$q) { dol_print_error($db); exit; }
+		while (is_object($row = $db->fetch_object($q))) { if ($type === 'category') { $selectedCategories[] = (string) $row->$column; } else { $selectedProducts[] = (string) $row->$column; } }
+		$db->free($q);
+	}
 	$q = $db->query('SELECT * FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_margin_band WHERE entity = '.((int) $conf->entity).' AND fk_rule = '.$id.' ORDER BY rowid');
 	if (!$q) { dol_print_error($db); exit; }
 	while (is_object($row = $db->fetch_object($q))) {
@@ -103,14 +114,35 @@ if ($action !== '') {
 				|| !LmdbSalesCommissionMarginEngine::validComplexSiteUplift(array('uplift_without_travel' => (float) $complexWithout, 'uplift_with_travel' => $complexWith === '' ? null : (float) $complexWith)))) { throw new RuntimeException('LscInvalidComplexSiteUplift'); }
 			$context = GETPOST('policy_context', 'aZ09');
 			$effect = GETPOST('policy_effect', 'aZ09');
+			$scope = GETPOST('policy_scope', 'aZ09');
+			$selectedCategories = $scope === 'category' ? array_values(array_unique(array_map('intval', GETPOST('categories', 'array:int')))) : array();
+			$selectedProducts = $scope === 'product' ? array_values(array_unique(array_map('intval', GETPOST('products', 'array:int')))) : array();
 			$rate = str_replace(',', '.', trim(GETPOST('rate', 'alphanohtml')));
-			if (!isset($contexts[$context], $effects[$effect]) || ($context !== 'general' && $effect !== 'commission') || ($context === 'general' && (!is_numeric($rate) || !is_finite((float) $rate) || (float) $rate < 0))) { throw new RuntimeException('LscInvalidPolicy'); }
+			if (!isset($contexts[$context], $effects[$effect], $scopes[$scope]) || ($context !== 'general' && $effect !== 'commission') || ($context === 'general' && (!is_numeric($rate) || !is_finite((float) $rate) || (float) $rate < 0))) { throw new RuntimeException('LscInvalidPolicy'); }
+			if (($scope === 'category' && !$selectedCategories) || ($scope === 'product' && !$selectedProducts)) { throw new RuntimeException('LscInvalidPolicyScope'); }
+			foreach (array_merge($selectedCategories, $selectedProducts) as $selectedId) { if ($selectedId <= 0) { throw new RuntimeException('LscInvalidPolicyScope'); } }
+			if ($scope === 'category') {
+				if (!isModEnabled('category') || !$user->hasRight('categorie', 'lire')) { throw new RuntimeException('LscInvalidPolicyScope'); }
+				$ids = $db->sanitize(implode(',', $selectedCategories));
+				$q = $db->query('SELECT rowid FROM '.MAIN_DB_PREFIX.'categorie WHERE rowid IN ('.$ids.') AND type = '.$productCategoryType.' AND entity IN ('.$db->sanitize(getEntity('category')).')');
+				if (!$q || $db->num_rows($q) !== count($selectedCategories)) { throw new RuntimeException('LscInvalidPolicyScope'); }
+				$db->free($q);
+			} elseif ($scope === 'product') {
+				if (!$user->hasRight('produit', 'lire') && !$user->hasRight('service', 'lire')) { throw new RuntimeException('LscInvalidPolicyScope'); }
+				$ids = $db->sanitize(implode(',', $selectedProducts));
+				$readableTypes = array();
+				if ($user->hasRight('produit', 'lire')) { $readableTypes[] = 0; }
+				if ($user->hasRight('service', 'lire')) { $readableTypes[] = 1; }
+				$q = $db->query('SELECT rowid FROM '.MAIN_DB_PREFIX.'product WHERE rowid IN ('.$ids.') AND entity IN ('.$db->sanitize(getEntity('product')).') AND fk_product_type IN ('.$db->sanitize(implode(',', $readableTypes)).')');
+				if (!$q || $db->num_rows($q) !== count($selectedProducts)) { throw new RuntimeException('LscInvalidPolicyScope'); }
+				$db->free($q);
+			}
 			if ($id && $rule->policy_context !== $context && $bands) { throw new RuntimeException('LscPolicyContextHasBands'); }
 			$rule->entity = (int) $conf->entity;
 			$rule->ref = trim(GETPOST('ref', 'alphanohtml'));
 			$rule->label = trim(GETPOST('label', 'alphanohtml'));
 			$rule->rule_type = 'margin_policy';
-			$rule->policy_context = $context; $rule->policy_effect = $effect;
+			$rule->policy_context = $context; $rule->policy_effect = $effect; $rule->policy_scope = $scope;
 			$rule->rate = $context === 'general' ? (float) $rate : null;
 			$rule->source_type = 'proposal'; $rule->period_type = 'monthly'; $rule->cumulative = 1; $rule->priority = 0;
 			$rule->active = $id ? (int) $rule->active : 0;
@@ -119,6 +151,12 @@ if ($action !== '') {
 			$result = $id ? $rule->update($user) : $rule->create($user);
 			if ($result <= 0) { throw new RuntimeException('LscInvalidPolicy'); }
 			if (!$id) { $id = $result; }
+			foreach (array('category' => $selectedCategories, 'product' => $selectedProducts) as $type => $selectedIds) {
+				if (!$db->query('DELETE FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_margin_'.$type.' WHERE entity = '.((int) $conf->entity).' AND fk_rule = '.$id)) { throw new RuntimeException('LscPolicyUnavailable'); }
+				foreach ($selectedIds as $selectedId) {
+					if (!$db->query('INSERT INTO '.MAIN_DB_PREFIX.'lmdbsalescommissions_margin_'.$type.' (entity,fk_rule,fk_'.$type.') VALUES ('.((int) $conf->entity).','.$id.','.$selectedId.')')) { throw new RuntimeException('LscPolicyUnavailable'); }
+				}
+			}
 			if ($pendingComplex) {
 				$sql = 'INSERT INTO '.MAIN_DB_PREFIX.'lmdbsalescommissions_margin_complex_site (entity,fk_rule,uplift_without_travel,uplift_with_travel) VALUES ('.((int) $conf->entity).','.$id.','.(float) $complexWithout.','.($complexWith === '' ? 'NULL' : (string) (float) $complexWith).')';
 				if (!$db->query($sql)) { throw new RuntimeException('LscInvalidComplexSiteUplift'); }
@@ -191,8 +229,12 @@ if ($action !== '') {
 	}
 }
 $formValues = array();
-foreach (array('ref', 'label', 'rate', 'policy_context', 'policy_effect') as $key) {
+foreach (array('ref', 'label', 'rate', 'policy_context', 'policy_effect', 'policy_scope') as $key) {
 	$formValues[$key] = $action === 'savepolicy' ? GETPOST($key, 'alphanohtml') : (string) ($rule->$key ?? '');
+}
+if ($action === 'savepolicy') {
+	$selectedCategories = $formValues['policy_scope'] === 'category' ? array_map('strval', GETPOST('categories', 'array:int')) : array();
+	$selectedProducts = $formValues['policy_scope'] === 'product' ? array_map('strval', GETPOST('products', 'array:int')) : array();
 }
 $bandValues = array();
 foreach (array('kwc_min', 'kwc_max', 'kwc_inclusive', 'kwh_min', 'kwh_max', 'kwh_inclusive', 'threshold') as $key) {
@@ -208,10 +250,29 @@ $complexValues = array(
 	'with' => ($action === 'savecomplexsite' || ($action === 'savepolicy' && !$id)) ? GETPOST('complex_with_travel', 'alphanohtml') : ($complexSite === null || $complexSite['uplift_with_travel'] === null ? '' : (string) $complexSite['uplift_with_travel']),
 );
 $policies = array();
-$q = $db->query("SELECT rowid, ref, label, policy_context, policy_effect, active FROM ".MAIN_DB_PREFIX."lmdbsalescommissions_rule WHERE rule_type = 'margin_policy' AND entity = ".((int) $conf->entity).' ORDER BY ref');
+$q = $db->query("SELECT rowid, ref, label, policy_context, policy_effect, policy_scope, active FROM ".MAIN_DB_PREFIX."lmdbsalescommissions_rule WHERE rule_type = 'margin_policy' AND entity = ".((int) $conf->entity).' ORDER BY ref');
 if (!$q) { dol_print_error($db); exit; }
 while (is_object($row = $db->fetch_object($q))) { $policies[] = $row; }
 $db->free($q);
+$categoryOptions = array(); $productOptions = array();
+if ($mode === 'create' || $mode === 'edit') {
+	if (isModEnabled('category') && $user->hasRight('categorie', 'lire')) {
+		$categoryIds = $db->sanitize(getEntity('category'));
+		$q = $db->query('SELECT rowid, label FROM '.MAIN_DB_PREFIX.'categorie WHERE type = '.$productCategoryType.' AND entity IN ('.$categoryIds.') ORDER BY label, rowid');
+		if (!$q) { dol_print_error($db); exit; }
+		while (is_object($row = $db->fetch_object($q))) { $categoryOptions[(int) $row->rowid] = $row->label; }
+		$db->free($q);
+	}
+	if ($user->hasRight('produit', 'lire') || $user->hasRight('service', 'lire')) {
+		$readableTypes = array();
+		if ($user->hasRight('produit', 'lire')) { $readableTypes[] = 0; }
+		if ($user->hasRight('service', 'lire')) { $readableTypes[] = 1; }
+		$q = $db->query('SELECT rowid, ref, label FROM '.MAIN_DB_PREFIX.'product WHERE entity IN ('.$db->sanitize(getEntity('product')).') AND fk_product_type IN ('.$db->sanitize(implode(',', $readableTypes)).') ORDER BY ref, rowid');
+		if (!$q) { dol_print_error($db); exit; }
+		while (is_object($row = $db->fetch_object($q))) { $productOptions[(int) $row->rowid] = $row->ref.' - '.$row->label; }
+		$db->free($q);
+	}
+}
 llxHeader('', $langs->trans('LscPolicies'), '', '', 0, 0, array(dol_buildpath('/lmdbsalescommissions/js/marginpolicies.js', 1)));
 print load_fiche_titre($langs->trans('LscPolicies'), lmdbsalescommissionsBuildModuleListLink(), 'title_setup');
 print dol_get_fiche_head(lmdbsalescommissionsAdminPrepareHead(), 'marginpolicies', $langs->trans('LmdbSalesCommissionsSetup'), -1, 'fa-percent_fas_#f0b400');

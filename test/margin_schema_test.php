@@ -4,7 +4,7 @@
  */
 $pdo = new PDO(getenv('LSC_TEST_DSN'), getenv('LSC_TEST_USER'), getenv('LSC_TEST_PASSWORD'), array(PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION));
 $prefix = 'long_test_prefix_';
-$tables = array('rule', 'rule_assignment', 'margin_band', 'margin_travel_band', 'margin_complex_site', 'margin_approval', 'margin_request', 'margin_revision', 'margin_snapshot', 'line', 'due');
+$tables = array('rule', 'rule_assignment', 'margin_band', 'margin_travel_band', 'margin_complex_site', 'margin_category', 'margin_product', 'margin_approval', 'margin_request', 'margin_revision', 'margin_snapshot', 'line', 'due');
 foreach ($tables as $table) {
 	$sql = file_get_contents(__DIR__.'/../sql/llx_lmdbsalescommissions_'.$table.'.sql');
 	$pdo->exec(str_replace('llx_', $prefix, $sql));
@@ -78,6 +78,24 @@ if ($decision['checks'][0]['rule_id'] !== 1) { throw new RuntimeException('Defau
 $decision = LmdbSalesCommissionMarginEngine::evaluate($service->policies(7,2),45.0,null,null);
 if ($decision['sale'] !== 'deny' || $decision['checks'][0]['rule_id'] !== 4) { throw new RuntimeException('Other entity membership'); }
 echo "MariaDB policy resolution, DATE bounds and entity-scoped assignments passed.\n";
+$categoryLinks = $prefix.'lmdbsalescommissions_margin_category';
+$productLinks = $prefix.'lmdbsalescommissions_margin_product';
+$pdo->exec("UPDATE $rules SET policy_scope = 'category' WHERE rowid = 3");
+$pdo->exec("UPDATE $rules SET policy_scope = 'product' WHERE rowid = 2");
+$pdo->exec("INSERT INTO $categoryLinks (entity,fk_rule,fk_category) VALUES (1,3,77),(1,3,88),(2,3,77)");
+$pdo->exec("INSERT INTO $productLinks (entity,fk_rule,fk_product) VALUES (1,2,101),(1,2,202)");
+try { $pdo->exec("INSERT INTO $categoryLinks (entity,fk_rule,fk_category) VALUES (1,3,77)"); throw new RuntimeException('Duplicate category link accepted'); }
+catch (PDOException $error) { if ($error->errorInfo[1] !== 1062) { throw $error; } }
+try { $pdo->exec("INSERT INTO $productLinks (entity,fk_rule,fk_product) VALUES (1,2,101)"); throw new RuntimeException('Duplicate product link accepted'); }
+catch (PDOException $error) { if ($error->errorInfo[1] !== 1062) { throw $error; } }
+$scopedPolicies = $service->policies(7, 1);
+$productPolicies = array_values(array_filter($scopedPolicies, static function ($policy) { return $policy['rule_id'] === 2; }));
+if (count($productPolicies) !== 1 || $productPolicies[0]['products'] !== array(101, 202)) { throw new RuntimeException('Product links not resolved'); }
+$pdo->exec("UPDATE $assignments SET active = 1 WHERE entity = 1 AND assignment_type = 'user'");
+$scopedPolicies = $service->policies(7, 1);
+$categoryPolicies = array_values(array_filter($scopedPolicies, static function ($policy) { return $policy['rule_id'] === 3; }));
+if (count($categoryPolicies) !== 1 || $categoryPolicies[0]['categories'] !== array(77, 88)) { throw new RuntimeException('Category links crossed entity boundary'); }
+echo "MariaDB normalized category/product links and owner-scoped policy loading passed.\n";
 
 // Real request persistence, simulated access/assessment: duplicate POSTs preserve the first request.
 function isModEnabled($key) { return true; }
@@ -122,7 +140,8 @@ $lines = $prefix.'lmdbsalescommissions_line';
 $dues = $prefix.'lmdbsalescommissions_due';
 $pdo->exec("INSERT INTO $lines (entity,fk_user,fk_source,mode,fk_rule,commission_total,date_creation) VALUES (1,7,10,'margin',1,123.45,NOW())");
 $pdo->exec("ALTER TABLE $lines DROP INDEX idx_lsc_reward_rule, DROP COLUMN fk_reward_rule, DROP COLUMN snapshot_reward");
-$pdo->exec("ALTER TABLE $rules DROP COLUMN reward_mode, DROP COLUMN reward_value");
+$pdo->exec("UPDATE $rules SET policy_scope = 'offer'");
+$pdo->exec("ALTER TABLE $rules DROP COLUMN policy_scope, DROP COLUMN reward_mode, DROP COLUMN reward_value");
 $descriptor = (new ReflectionClass(modLmdbSalesCommissions::class))->newInstanceWithoutConstructor();
 $descriptor->db = new MarginPolicyPdo($pdo);
 foreach (array('upgradeRuleSchema', 'upgradeCommissionLineDispatchSchema') as $name) {
@@ -130,6 +149,7 @@ foreach (array('upgradeRuleSchema', 'upgradeCommissionLineDispatchSchema') as $n
 	for ($pass=0; $pass<2; $pass++) { if ($method->invoke($descriptor,true)!==1) { throw new RuntimeException('Migration failed: '.$name); } }
 }
 if ((float) $pdo->query("SELECT commission_total FROM $lines WHERE rowid=1")->fetchColumn() !== 123.45) { throw new RuntimeException('Migration changed history'); }
+if ((int) $pdo->query("SELECT COUNT(*) FROM $rules WHERE rule_type = 'margin_policy' AND policy_scope = 'offer'")->fetchColumn() !== 4) { throw new RuntimeException('Existing policies lost their offer scope'); }
 $rewardInsert="INSERT INTO $lines (entity,fk_user,fk_source,mode,fk_rule,fk_reward_rule,commission_total,snapshot_reward,date_creation) VALUES (1,7,10,'margin_excess',0,42,50,'{\"acquired\":true}',NOW())";
 $pdo->beginTransaction(); $pdo->exec($rewardInsert);
 $lineId=(int) $pdo->lastInsertId();
