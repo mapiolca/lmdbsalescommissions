@@ -22,7 +22,7 @@ class InterfaceLmdbSalesCommissionsTriggers
 	public $description = 'LmdbSalesCommissionsTriggers';
 
 	/** @var string Version */
-	public $version = '1.2.0';
+	public $version = '1.2.1';
 
 	/** @var string Picto */
 	public $picto = 'fa-percent';
@@ -55,7 +55,7 @@ class InterfaceLmdbSalesCommissionsTriggers
 	 */
 	public function runTrigger($action, $object, User $user, Translate $langs, Conf $conf)
 	{
-		unset($langs, $conf);
+		$langs->load('lmdbsalescommissions@lmdbsalescommissions');
 
 		if (!isModEnabled('lmdbsalescommissions')) {
 			return 0;
@@ -82,8 +82,24 @@ class InterfaceLmdbSalesCommissionsTriggers
 				}
 			}
 			$status = property_exists($proposal, 'statut') ? (int) $proposal->statut : (property_exists($proposal, 'status') ? (int) $proposal->status : -1);
-			$signatureDate = property_exists($proposal, 'date_signature') ? (int) $proposal->date_signature : 0;
-			if ($status !== 1 || $signatureDate > 0) {
+			if ($action === 'PROPAL_MODIFY') {
+				require_once __DIR__.'/../../class/lmdbsalescommissionproposalcleanup.class.php';
+				$cleanup = new LmdbSalesCommissionProposalCleanup($this->db);
+				$state = $cleanup->proposalState((int) $proposal->id, (int) $proposal->entity);
+				if ($state === null) { $this->error = $cleanup->error ?: 'ErrorRecordNotFound'; return -1; }
+				$status = (int) $state['fk_statut'];
+				if ($status === 0) {
+					$service = new LmdbSalesCommissionLineService($this->db);
+					$nonce = isset($proposal->context['lmdb_cleanup_confirmation']) && is_string($proposal->context['lmdb_cleanup_confirmation']) ? $proposal->context['lmdb_cleanup_confirmation'] : '';
+					unset($proposal->context['lmdb_cleanup_confirmation']);
+					$result = $service->deleteProposalLines($proposal, $user, 'draft', $nonce);
+					$this->error = $langs->trans($service->error);
+					$this->errors = array_map(array($langs, 'trans'), $service->errors);
+					if ($result >= 0 && $this->errors) { setEventMessages('', $this->errors, 'warnings'); }
+					return $result < 0 ? -1 : 0;
+				}
+			}
+			if ($status !== 1) {
 				return 0;
 			}
 			$service = new LmdbSalesCommissionLineService($this->db);
@@ -113,11 +129,19 @@ class InterfaceLmdbSalesCommissionsTriggers
 				return -1;
 			}
 		} else {
-			$result = $service->cancelProposalLines($object, $user);
+			if ($action === 'PROPAL_DELETE') {
+				$nonce = isset($object->context['lmdb_cleanup_confirmation']) && is_string($object->context['lmdb_cleanup_confirmation']) ? $object->context['lmdb_cleanup_confirmation'] : '';
+				unset($object->context['lmdb_cleanup_confirmation']);
+				$result = $service->deleteProposalLines($object, $user, 'delete', $nonce);
+			} else {
+				$result = $service->cancelProposalLines($object, $user);
+			}
 			if ($result < 0) {
-				$this->error = $service->error;
+				$this->error = $langs->trans($service->error);
+				$this->errors = array_map(array($langs, 'trans'), $service->errors);
 				return -1;
 			}
+			if ($service->errors) { setEventMessages('', array_map(array($langs, 'trans'), $service->errors), 'warnings'); }
 			if ($action === 'PROPAL_DELETE') {
 				require_once dol_buildpath('/lmdbsalescommissions/class/lmdbsalescommissionproposaldispatchservice.class.php', 0);
 				require_once dol_buildpath('/lmdbsalescommissions/class/lmdbsalescommissionproposalturnoverdispatchservice.class.php', 0);

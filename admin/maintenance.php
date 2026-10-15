@@ -207,6 +207,10 @@ print '</table>';
 print '<div class="center"><input type="submit" class="button button-save" value="'.$langs->trans('LmdbSalesCommissionsArchiveObjective').'"></div>';
 print '</form>';
 
+if ($user->admin && $user->hasRight('lmdbsalescommissions', 'maintenance', 'recalculate')) {
+	print '<br><a class="butAction" href="'.dol_buildpath('/lmdbsalescommissions/admin/proposalcleanup.php', 1).'">'.$langs->trans('LscCleanupTitle').'</a>';
+}
+
 print '<br>';
 print '<form method="POST" action="'.$_SERVER['PHP_SELF'].'" name="rebuildduesform">';
 print '<input type="hidden" name="token" value="'.newToken().'">';

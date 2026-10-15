@@ -42,6 +42,9 @@ class LmdbSalesCommissionRuleResolver
 	/** @var DoliDB Database handler */
 	private $db;
 
+	/** @var string Last database read error */
+	public $error = '';
+
 	/**
 	 * Constructor.
 	 *
@@ -64,6 +67,7 @@ class LmdbSalesCommissionRuleResolver
 	public function resolveForUser($fkUser, $date = 0, $entity = 0, $sourceType = '')
 	{
 		global $conf;
+		$this->error = '';
 
 		$result = array(
 			'selected' => array(),
@@ -80,7 +84,9 @@ class LmdbSalesCommissionRuleResolver
 		$effectiveDate = $date > 0 ? $date : dol_now();
 		$effectiveEntity = $entity > 0 ? $entity : (int) $conf->entity;
 		$groups = $this->fetchUserGroups($fkUser, $effectiveEntity);
+		if ($this->error !== '') { $result['errors'][] = $this->error; return $result; }
 		$candidates = $this->fetchCandidates($fkUser, $groups, $effectiveDate, $effectiveEntity, $sourceType);
+		if ($this->error !== '') { $result['errors'][] = $this->error; return $result; }
 		$result['candidates'] = $candidates;
 
 		$grouped = array();
@@ -125,7 +131,8 @@ class LmdbSalesCommissionRuleResolver
 
 		$resql = $this->db->query($sql);
 		if (!$resql) {
-			dol_syslog(__METHOD__.': '.$this->db->lasterror(), LOG_ERR);
+			$this->error = $this->db->lasterror();
+			dol_syslog(__METHOD__.': '.$this->error, LOG_ERR);
 			return $groups;
 		}
 
@@ -158,6 +165,8 @@ class LmdbSalesCommissionRuleResolver
 		$sql .= ' INNER JOIN '.MAIN_DB_PREFIX.'lmdbsalescommissions_rule AS r ON r.rowid = a.fk_rule AND r.entity = a.entity';
 		$sql .= ' WHERE a.entity = '.((int) $entity);
 		$sql .= ' AND a.active = 1 AND r.active = 1';
+		// Only commission rules belong to this resolver; policies have their own engine.
+		$sql .= " AND r.rule_type IN ('margin', 'tier')";
 		$sql .= ' AND (a.date_start IS NULL OR a.date_start <= '.$dateSql.')';
 		$sql .= ' AND (a.date_end IS NULL OR a.date_end >= '.$dateSql.')';
 		$sql .= ' AND (r.date_start IS NULL OR r.date_start <= '.$dateSql.')';
@@ -177,7 +186,8 @@ class LmdbSalesCommissionRuleResolver
 
 		$resql = $this->db->query($sql);
 		if (!$resql) {
-			dol_syslog(__METHOD__.': '.$this->db->lasterror(), LOG_ERR);
+			$this->error = $this->db->lasterror();
+			dol_syslog(__METHOD__.': '.$this->error, LOG_ERR);
 			return $candidates;
 		}
 
@@ -222,6 +232,7 @@ class LmdbSalesCommissionRuleResolver
 	 */
 	private function resolveRuleType(array $rules)
 	{
+		global $langs;
 		$result = array(
 			'discarded' => array(),
 			'errors' => array(),
@@ -238,7 +249,9 @@ class LmdbSalesCommissionRuleResolver
 		if (count($rules) > 1) {
 			$second = $rules[1];
 			if ($selected['assignment_rank'] === $second['assignment_rank'] && $selected['assignment_priority'] === $second['assignment_priority'] && $selected['rule_id'] !== $second['rule_id']) {
-				$result['errors'][] = 'LmdbSalesCommissionsResolverConflict'.': '.$selected['rule_type'];
+				$langs->load('lmdbsalescommissions@lmdbsalescommissions');
+				$typeKey = $selected['rule_type'] === 'margin' ? 'LmdbSalesCommissionsRuleTypeMargin' : 'LmdbSalesCommissionsRuleTypeTier';
+				$result['errors'][] = $langs->trans('LmdbSalesCommissionsResolverConflictForType', $langs->trans($typeKey));
 				return $result;
 			}
 		}
