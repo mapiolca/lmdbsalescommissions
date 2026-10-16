@@ -273,7 +273,7 @@ if ($mode === 'create' || $mode === 'edit') {
 		$db->free($q);
 	}
 }
-llxHeader('', $langs->trans('LscPolicies'), '', '', 0, 0, array(dol_buildpath('/lmdbsalescommissions/js/marginpolicies.js', 1)));
+llxHeader('', $langs->trans('LscPolicies'), '', '', 0, 0, array(dol_buildpath('/lmdbsalescommissions/js/marginpolicies.js', 1).'?v='.filemtime(__DIR__.'/../js/marginpolicies.js')));
 print load_fiche_titre($langs->trans('LscPolicies'), lmdbsalescommissionsBuildModuleListLink(), 'title_setup');
 print dol_get_fiche_head(lmdbsalescommissionsAdminPrepareHead(), 'marginpolicies', $langs->trans('LmdbSalesCommissionsSetup'), -1, 'fa-percent_fas_#f0b400');
 require __DIR__.'/../tpl/marginpolicies.tpl.php';
