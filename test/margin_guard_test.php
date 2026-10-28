@@ -10,7 +10,9 @@ require_once DOL_DOCUMENT_ROOT.'/core/class/hookmanager.class.php';
 require_once __DIR__.'/../class/actions_lmdbsalescommissions.class.php';
 
 class GuardDb extends PolicyDb {
+	public $pendingCase = false;
 	public function query($sql) {
+		if (strpos($sql, '_margin_case') !== false) { return new PolicyRows($this->pendingCase ? array(array('rowid' => 1, 'entity' => 1, 'fk_propal' => 10, 'status' => 0)) : array()); }
 		if (strpos($sql, '_rule r') !== false) {
 			if (strpos($sql, 'r.entity = 1') === false) { throw new RuntimeException('Wrong policy entity'); }
 			return new PolicyRows(array(array('rowid'=>1,'assignment_type'=>'default','assignment_id'=>1,'policy_context'=>'general','policy_effect'=>'both','rate'=>30,'ref'=>'MINIMUM')));
@@ -117,4 +119,17 @@ expect($calculation['commission'], 0.0, 'manual proportional commission denied')
 $settings['LMDBSALESCOMMISSIONS_MARGIN_ENABLED']=0;
 $calculation = (new GuardDispatchService($db))->calculate($dispatch, new Propal($db), 2000);
 expect($calculation['commission'], 12.5, 'disabled control preserves manual calculation');
+$settings['LMDBSALESCOMMISSIONS_MARGIN_WORKFLOW_READY'] = 1;
+$db->pendingCase = true; $user->rightsList = array('lire', 'creer');
+$priorEffects = $endpoint->effects;
+foreach (array('PUT' => array('put', 'updateline'), 'POST' => array('validate', 'close', 'postLine'), 'DELETE' => array('delete', 'deleteLine')) as $verb => $methods) {
+	$restler->requestMethod = $verb;
+	foreach ($methods as $method) { $request($method, array('id' => 10, 'notrigger' => 1), 409); }
+}
+expect($endpoint->effects, $priorEffects, 'pending dossier produces no additional endpoint effects');
+$post = array(); $hookmanager = new HookManager($db); $hookmanager->initHooks(array('propallist'));
+$action = ''; $massaction = 'delete'; $toselect = array(10);
+expect($hookmanager->executeHooks('doActions', array(), $object, $action), 1, 'pending quote blocks native mass deletion');
+expect($massaction, '', 'mass action cleared before effects');
+$db->pendingCase = false; $settings['LMDBSALESCOMMISSIONS_MARGIN_WORKFLOW_READY'] = 0;
 print "Native guards: $tests total assertions passed.\n";

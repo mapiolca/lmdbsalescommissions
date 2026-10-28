@@ -31,6 +31,8 @@ jobs:
       - run: php test/native_margin_contract_test.php 'test/.core-cache/${{ matrix.dolibarr }}/htdocs' '${{ matrix.dolibarr }}'
       - run: php test/margin_guard_test.php 'test/.core-cache/${{ matrix.dolibarr }}/htdocs' '${{ matrix.dolibarr }}'
       - run: php test/margin_validation_test.php 'test/.core-cache/${{ matrix.dolibarr }}/htdocs' '${{ matrix.dolibarr }}'
+      - run: php test/margin_workflow_test.php 'test/.core-cache/${{ matrix.dolibarr }}/htdocs' '${{ matrix.dolibarr }}'
+      - run: php test/margin_workflow_notification_test.php 'test/.core-cache/${{ matrix.dolibarr }}/htdocs' '${{ matrix.dolibarr }}'
       - run: php test/margin_summary_test.php 'test/.core-cache/${{ matrix.dolibarr }}/htdocs'
       - run: php test/policy_tooltip_test.php 'test/.core-cache/${{ matrix.dolibarr }}/htdocs'
       - run: php test/margin_service_test.php 'test/.core-cache/${{ matrix.dolibarr }}/htdocs' '${{ matrix.dolibarr }}'
@@ -43,6 +45,7 @@ jobs:
       - run: php test/proposal_cleanup_test.php 'test/.core-cache/${{ matrix.dolibarr }}/htdocs'
       - run: php test/rule_resolver_test.php
       - run: php test/tier_calculator_test.php
+      - run: node test/margin_workflow_js_test.js
   schema:
     runs-on: ubuntu-latest
     services:

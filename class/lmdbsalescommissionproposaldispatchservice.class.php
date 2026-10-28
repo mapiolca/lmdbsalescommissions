@@ -228,9 +228,10 @@ class LmdbSalesCommissionProposalDispatchService
 	 * @param LmdbSalesCommissionProposalDispatch $dispatch Dispatch
 	 * @param object                              $proposal Proposal
 	 * @param int                                 $date     Business date
+	 * @param bool                                $ignoreMarginControl Theoretical amount before margin eligibility, for approval preview
 	 * @return DispatchCalculation|null
 	 */
-	public function calculate($dispatch, $proposal, $date)
+	public function calculate($dispatch, $proposal, $date, $ignoreMarginControl = false)
 	{
 		$this->resetErrors();
 		if (!$this->validate($dispatch, $proposal, $date)) {
@@ -255,8 +256,7 @@ class LmdbSalesCommissionProposalDispatchService
 		$commission = (string) $dispatch->value_type === self::VALUE_PERCENTAGE ? (float) price2num($base * $value / 100, 'MT') : (float) price2num($value, 'MT');
 		require_once __DIR__.'/lmdbsalescommissionmarginservice.class.php';
 		try {
-			$state = (new LmdbSalesCommissionMarginService($this->db))->commissionState($proposal, (int) $dispatch->fk_user);
-			if ($state !== 'allow') { $commission = 0.0; }
+			if (!$ignoreMarginControl) { $commission = (new LmdbSalesCommissionMarginService($this->db))->commissionAmount($proposal, (int) $dispatch->fk_user, $commission); }
 		} catch (Exception $e) { $this->error = $e->getMessage(); return null; }
 		$paymentTermId = $this->resolvePaymentTermId($dispatch, $date);
 		if ($paymentTermId < 0) {
@@ -285,7 +285,7 @@ class LmdbSalesCommissionProposalDispatchService
 	public function getCalculationForDisplay($dispatch, $proposal, $date)
 	{
 		$signatureDate = is_object($proposal) && property_exists($proposal, 'date_signature') ? (int) $proposal->date_signature : 0;
-		if ($signatureDate > 0 && !$this->isProposalEditable($proposal)) {
+		if ($signatureDate > 0 && (int) ($proposal->status ?? $proposal->statut ?? -1) >= 2) {
 			$snapshot = $this->fetchAcquiredCalculation($dispatch);
 			if (is_array($snapshot)) {
 				return $snapshot;
@@ -497,6 +497,10 @@ class LmdbSalesCommissionProposalDispatchService
 			return false;
 		}
 		$status = property_exists($proposal, 'statut') ? (int) $proposal->statut : (property_exists($proposal, 'status') ? (int) $proposal->status : -1);
+		if (getDolGlobalInt('LMDBSALESCOMMISSIONS_MARGIN_WORKFLOW_READY')) {
+			require_once __DIR__.'/lmdbsalescommissionmarginworkflow.class.php';
+			if ((new LmdbSalesCommissionMarginWorkflow($this->db))->pending($proposal) !== null) { return false; }
+		}
 		// date_signature is historical: native setDraft() may retain it. Status is authoritative.
 		return in_array($status, array(0, 1), true);
 	}

@@ -64,7 +64,7 @@ class modLmdbSalesCommissions extends DolibarrModules
 			),
 			'substitutions' => 1,
 		);
-		$this->dirs = array();
+		$this->dirs = array('/lmdbsalescommissions');
 		$this->config_page_url = array(
 			'setup.php@lmdbsalescommissions',
 		);
@@ -79,7 +79,7 @@ class modLmdbSalesCommissions extends DolibarrModules
 		$this->const = array();
 		$this->tabs = array(
 			'user:+lmdbsalescommissions:LmdbSalesCommissions:lmdbsalescommissions@lmdbsalescommissions:$user->hasRight("lmdbsalescommissions", "commission", "readown") || $user->hasRight("lmdbsalescommissions", "commission", "readall") || $user->hasRight("lmdbsalescommissions", "commission", "readgroup"):/lmdbsalescommissions/user_commissions.php?id=__ID__',
-			'propal:+lmdbsalescommissions_dispatch:LmdbSalesCommissionsProposalDispatch:lmdbsalescommissions@lmdbsalescommissions:$user->hasRight("lmdbsalescommissions", "marginpolicy", "approvesale") || $user->hasRight("lmdbsalescommissions", "marginpolicy", "approvecommission") || $user->hasRight("lmdbsalescommissions", "commission", "dispatch") || $user->hasRight("lmdbsalescommissions", "commission", "readown") || $user->hasRight("lmdbsalescommissions", "commission", "readall") || $user->hasRight("lmdbsalescommissions", "commission", "readgroup"):/lmdbsalescommissions/proposal_dispatch.php?id=__ID__',
+			'propal:+lmdbsalescommissions_dispatch:LmdbSalesCommissionsProposalDispatch:lmdbsalescommissions@lmdbsalescommissions:$user->hasRight("lmdbsalescommissions", "marginpolicy", "approvesale") || $user->hasRight("lmdbsalescommissions", "marginpolicy", "approvesubordinates") || $user->hasRight("lmdbsalescommissions", "marginpolicy", "approvecommission") || $user->hasRight("lmdbsalescommissions", "commission", "dispatch") || $user->hasRight("lmdbsalescommissions", "commission", "readown") || $user->hasRight("lmdbsalescommissions", "commission", "readall") || $user->hasRight("lmdbsalescommissions", "commission", "readgroup"):/lmdbsalescommissions/proposal_dispatch.php?id=__ID__',
 		);
 		$this->boxes = array(
 			array(
@@ -278,6 +278,12 @@ class modLmdbSalesCommissions extends DolibarrModules
 		$this->rights[$r][4] = 'marginpolicy';
 		$this->rights[$r][5] = 'approvecommission';
 
+		$r++;
+		$this->rights[$r][0] = $this->numero * 100 + $r;
+		$this->rights[$r][1] = 'LscPermissionApproveSubordinates';
+		$this->rights[$r][4] = 'marginpolicy';
+		$this->rights[$r][5] = 'approvesubordinates';
+
 		$this->menu = array();
 		$r = 0;
 
@@ -385,7 +391,13 @@ class modLmdbSalesCommissions extends DolibarrModules
 	 */
 	public function init($options = '')
 	{
+		global $conf;
 		$sql = array();
+		$sql[] = "INSERT INTO ".MAIN_DB_PREFIX."const (name,value,type,visible,entity) SELECT 'LMDBSALESCOMMISSIONS_MARGIN_WORKFLOW_READY','1','yesno',0,".(int) $conf->entity." FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM ".MAIN_DB_PREFIX."const WHERE name = 'LMDBSALESCOMMISSIONS_MARGIN_WORKFLOW_READY' AND entity = ".(int) $conf->entity.")";
+		foreach (array('CREATE', 'UPDATE') as $event) {
+			$name = 'LMDBSALESCOMMISSIONS_MARGIN_CASE_'.$event.'_TEMPLATE';
+			$sql[] = "INSERT INTO ".MAIN_DB_PREFIX."const (name,value,type,visible,entity) SELECT '".$name."','LscWorkflowDefaultMail','chaine',0,".(int) $conf->entity." FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM ".MAIN_DB_PREFIX."const WHERE name = '".$name."' AND entity = ".(int) $conf->entity.")";
+		}
 		if ($this->upgradeRuleSchema(false) < 0) { return -1; }
 		if ($this->upgradeCommissionLineDispatchSchema(false) < 0) {
 			return -1;

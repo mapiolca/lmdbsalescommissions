@@ -24,6 +24,8 @@ class ActionsLmdbSalesCommissions
 
 	/** @var array<int, string> Error messages */
 	public $errors = array();
+	/** @var array<int,string>|null Native HookManager warnings, reset between calls. */
+	public $warnings = array();
 
 	/** @var array<string, mixed> Hook results */
 	public $results = array();
@@ -48,6 +50,26 @@ class ActionsLmdbSalesCommissions
 	public function doActions($parameters, &$object, &$action, $hookmanager)
 	{
 		global $user, $langs, $toselect, $massaction;
+		if (getDolGlobalInt('LMDBSALESCOMMISSIONS_MARGIN_WORKFLOW_READY')) {
+			require_once __DIR__.'/lmdbsalescommissionmarginworkflow.class.php';
+			$contexts = explode(':', (string) ($parameters['context'] ?? ''));
+			try {
+				$workflow = new LmdbSalesCommissionMarginWorkflow($this->db);
+				if (in_array('propalcard', $contexts, true) && $action !== '' && is_object($object) && (int) $object->id > 0) { $workflow->assertUnlocked($object); }
+				if (in_array('propallist', $contexts, true) && in_array($massaction, array('delete', 'validate', 'sign', 'builddoc', 'presend', 'send'), true)) {
+					if (!class_exists('Propal')) { require_once DOL_DOCUMENT_ROOT.'/comm/propal/class/propal.class.php'; }
+					foreach (is_array($toselect) ? $toselect : array() as $id) {
+						$quote = new Propal($this->db);
+						if ($quote->fetch((int) $id) <= 0 || !restrictedArea($user, 'propal', $quote->id, 'propal', '', 'fk_soc', 'rowid', 0, 1, 'read')) { throw new RuntimeException('ErrorForbidden'); }
+						$workflow->assertUnlocked($quote);
+					}
+				}
+			} catch (Throwable $e) {
+				$langs->load('lmdbsalescommissions@lmdbsalescommissions');
+				setEventMessages($langs->trans($e->getMessage()), null, 'errors');
+				$action = ''; $massaction = ''; $toselect = array(); return 1;
+			}
+		}
 		if (in_array($action, array('modif', 'confirm_delete', 'lscconfirmdelete', 'lscconfirmdraft'), true)) {
 			return $this->handleProposalCleanup($parameters, $object, $action, $hookmanager);
 		}
@@ -83,6 +105,9 @@ class ActionsLmdbSalesCommissions
 	public function formConfirm($parameters, &$object, &$action, $hookmanager)
 	{
 		global $user, $langs;
+		if (getDolGlobalInt('LMDBSALESCOMMISSIONS_MARGIN_WORKFLOW_READY') && $action === 'validate' && in_array('propalcard', explode(':', (string) ($parameters['context'] ?? '')), true)) {
+			return $this->workflowConfirmation($object);
+		}
 		if (in_array($action, array('lscaskdelete', 'lscaskdraft'), true)) {
 			return $this->confirmProposalCleanup($parameters, $object, $action, $hookmanager);
 		}
@@ -354,7 +379,7 @@ class ActionsLmdbSalesCommissions
 		$rate = (float) ($marginRule['rate'] ?? 0);
 		$amount = price2num($base * $rate / 100, 'MT');
 		try {
-			if ((new LmdbSalesCommissionMarginService($this->db))->commissionState($object, $salesUserId) !== 'allow') { $amount = 0.0; }
+			$amount = (new LmdbSalesCommissionMarginService($this->db))->commissionAmount($object, $salesUserId, (float) $amount);
 		} catch (Exception $e) { return $identity + array('message' => $langs->trans('LscPolicyUnavailable')); }
 
 
@@ -380,7 +405,7 @@ class ActionsLmdbSalesCommissions
 	 */
 	public function notifsupported($parameters, &$object, &$action, $hookmanager)
 	{
-		unset($object, $action, $hookmanager);
+		global $conf;
 
 		$contexts = explode(':', (string) ($parameters['context'] ?? ''));
 		if (!in_array('notification', $contexts, true)) {
@@ -389,6 +414,17 @@ class ActionsLmdbSalesCommissions
 		if (!isModEnabled('lmdbsalescommissions')) {
 			return 0;
 		}
+		// The generic notification branch needs the module's documentary configuration.
+		$element = 'lmdbsalescommissionmargincase@lmdbsalescommissions';
+		if (isset($conf->lmdbsalescommissions) && is_object($conf->lmdbsalescommissions)) {
+			$conf->{$element} = clone $conf->lmdbsalescommissions;
+			$conf->{$element}->enabled = 1;
+		}
+		if (in_array($parameters['notifcode'] ?? '', array('LMDBSALESCOMMISSIONS_MARGIN_CASE_CREATE', 'LMDBSALESCOMMISSIONS_MARGIN_CASE_UPDATE'), true)) {
+			global $user;
+			require_once __DIR__.'/lmdbsalescommissionworkflownotification.class.php';
+			LmdbSalesCommissionWorkflowNotification::prepare($this->db, $user, $parameters['notifcode'], (int) $object->entity);
+		}
 
 		$supported = array(
 			'LMDBSALESCOMMISSIONS_LINE_CREATE',
@@ -396,6 +432,8 @@ class ActionsLmdbSalesCommissions
 			'LMDBSALESCOMMISSIONS_DUE_CREATE',
 			'LMDBSALESCOMMISSIONS_DUE_UPDATE',
 			'LMDBSALESCOMMISSIONS_OBJECTIVE_ARCHIVE_CREATE',
+			'LMDBSALESCOMMISSIONS_MARGIN_CASE_CREATE',
+			'LMDBSALESCOMMISSIONS_MARGIN_CASE_UPDATE',
 		);
 		if (isset($this->results['arrayofnotifsupported']) && is_array($this->results['arrayofnotifsupported'])) {
 			$supported = array_merge($this->results['arrayofnotifsupported'], $supported);
@@ -403,5 +441,86 @@ class ActionsLmdbSalesCommissions
 		$this->results['arrayofnotifsupported'] = array_values(array_unique($supported));
 
 		return 0;
+	}
+
+	/** Fallback for the native validation URL, including when JavaScript is unavailable. */
+	private function workflowConfirmation($proposal): int
+	{
+		global $user, $langs;
+		if (!isModEnabled('lmdbsalescommissions') || !empty($user->socid) || !$user->hasRight('propal', 'lire') || !$user->hasRight('propal', 'creer')
+			|| !is_object($proposal) || (int) ($proposal->status ?? $proposal->statut ?? -1) !== 0
+			|| !restrictedArea($user, 'propal', $proposal->id, 'propal', '', 'fk_soc', 'rowid', 0, 1, 'write')) { return 0; }
+		require_once __DIR__.'/lmdbsalescommissionmarginworkflowview.class.php';
+		$langs->load('lmdbsalescommissions@lmdbsalescommissions');
+		try { $decisions = (new LmdbSalesCommissionMarginWorkflow($this->db))->requestable($proposal, $user); }
+		catch (RuntimeException $e) {
+			if ($e->getMessage() === 'LscRequestNoDeniedSale') { return 0; }
+			$this->resprints = '<div class="warning">'.dol_escape_htmltag($langs->trans($e->getMessage())).'</div>';
+			return 1;
+		}
+		require_once DOL_DOCUMENT_ROOT.'/core/class/html.form.class.php';
+		$form = new Form($this->db);
+		$first = reset($decisions);
+		$fields = array(array('type' => 'hidden', 'name' => 'fingerprint', 'value' => $first['fingerprint']), array('type' => 'textarea', 'name' => 'reason', 'label' => $langs->trans('Reason'), 'value' => '', 'moreattr' => 'required'));
+		$this->resprints = $form->formconfirm(dol_buildpath('/lmdbsalescommissions/proposal_margin_workflow.php', 1).'?id='.(int) $proposal->id, $langs->trans('LscWorkflowRequest'), LmdbSalesCommissionMarginWorkflowView::checks($decisions), 'submitrequest', $fields, 'no', 1, 0, 800);
+		return 1;
+	}
+
+	/** Add native workflow controls without replacing the core action bar. */
+	public function addMoreActionsButtons($parameters, &$object, &$action, $hookmanager)
+	{
+		global $user;
+		if (!getDolGlobalInt('LMDBSALESCOMMISSIONS_MARGIN_WORKFLOW_READY') || !in_array('propalcard', explode(':', (string) ($parameters['context'] ?? '')), true)
+			|| !empty($user->socid) || !$user->hasRight('propal', 'lire') || !is_object($object) || (int) $object->id <= 0) { return 0; }
+		require_once __DIR__.'/lmdbsalescommissionmarginworkflowview.class.php';
+		try {
+			$this->resprints = LmdbSalesCommissionMarginWorkflowView::actions($this->db, $object, $user);
+			$pending = (new LmdbSalesCommissionMarginWorkflow($this->db))->pending($object) !== null;
+			$replace = $pending || strpos($this->resprints, 'lsc-workflow-request') !== false;
+			if ($replace) {
+				// Ergonomics only: doActions, API checks and triggers independently enforce the lock.
+				$this->resprints .= '<script>jQuery(function($){$(".tabsAction a").each(function(){if($(this).hasClass("lsc-workflow-action")){return;}var u=new URL(this.href,location.href);if('.($pending ? 'true' : 'false').'||u.searchParams.get("action")==="validate"){$(this).hide();}});});</script>';
+			}
+		} catch (RuntimeException $e) { $this->error = $e->getMessage(); return -1; }
+		return 0;
+	}
+
+	/** Select the pending flag with the native list, not with one query per row. */
+	public function printFieldListSelect($parameters, &$object, &$action, $hookmanager)
+	{
+		if (getDolGlobalInt('LMDBSALESCOMMISSIONS_MARGIN_WORKFLOW_READY') && in_array('propallist', explode(':', (string) ($parameters['context'] ?? '')), true)) {
+			$this->resprints = ', (SELECT c.rowid FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_margin_case c WHERE c.entity = p.entity AND c.active_proposal = p.rowid AND c.status = 0) AS lsc_pending_case';
+		}
+		return 0;
+	}
+
+	/** Transfer only the selected workflow flag to the object used by the core status renderer. */
+	public function printFieldListValue($parameters, &$object, &$action, $hookmanager)
+	{
+		global $objectstatic;
+		if (getDolGlobalInt('LMDBSALESCOMMISSIONS_MARGIN_WORKFLOW_READY') && in_array('propallist', explode(':', (string) ($parameters['context'] ?? '')), true)
+			&& isset($parameters['obj']) && is_object($parameters['obj']) && is_object($objectstatic)) {
+			$objectstatic->context['lsc_pending_case'] = !empty($parameters['obj']->lsc_pending_case);
+		}
+		return 0;
+	}
+
+	/** Native quote status extension; the persisted native status remains draft. */
+	public function LibStatut($parameters, &$object, &$action, $hookmanager)
+	{
+		global $langs;
+		if (!getDolGlobalInt('LMDBSALESCOMMISSIONS_MARGIN_WORKFLOW_READY') || !is_object($object) || ($object->element ?? '') !== 'propal' || (int) ($parameters['status'] ?? -1) !== 0) { return 0; }
+		$contexts = explode(':', (string) ($parameters['context'] ?? ''));
+		$pending = false;
+		if (in_array('propallist', $contexts, true)) { $pending = !empty($object->context['lsc_pending_case']); }
+		elseif (in_array('propalcard', $contexts, true) && (int) $object->id > 0) {
+			require_once __DIR__.'/lmdbsalescommissionmarginworkflow.class.php';
+			try { $pending = (new LmdbSalesCommissionMarginWorkflow($this->db))->pending($object) !== null; }
+			catch (RuntimeException $e) { $this->error = $e->getMessage(); return -1; }
+		}
+		if (!$pending) { return 0; }
+		$langs->load('lmdbsalescommissions@lmdbsalescommissions');
+		$this->resprints = dolGetStatus($langs->trans('LscWorkflowPending'), $langs->trans('LscWorkflowPending'), '', 'status1', (int) ($parameters['mode'] ?? 5));
+		return 1;
 	}
 }

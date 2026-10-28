@@ -56,10 +56,13 @@ if (method_exists($object, 'fetch_thirdparty')) {
 }
 
 restrictedArea($user, 'propal', $object->id, 'propal', '', 'fk_soc', 'rowid', 0, 0, 'read');
+if (getDolGlobalInt('LMDBSALESCOMMISSIONS_MARGIN_WORKFLOW_READY')) {
+	require_once __DIR__.'/class/lmdbsalescommissionmarginworkflowview.class.php';
+}
 $service = new LmdbSalesCommissionProposalDispatchService($db);
 $turnoverService = new LmdbSalesCommissionProposalTurnoverDispatchService($db);
 $canManage = $user->hasRight('lmdbsalescommissions', 'commission', 'dispatch');
-$canReadAny = $canManage || $user->hasRight('lmdbsalescommissions', 'commission', 'readown') || $user->hasRight('lmdbsalescommissions', 'commission', 'readall') || $user->hasRight('lmdbsalescommissions', 'commission', 'readgroup') || $user->hasRight('lmdbsalescommissions', 'marginpolicy', 'approvesale') || $user->hasRight('lmdbsalescommissions', 'marginpolicy', 'approvecommission');
+$canReadAny = $canManage || $user->hasRight('lmdbsalescommissions', 'commission', 'readown') || $user->hasRight('lmdbsalescommissions', 'commission', 'readall') || $user->hasRight('lmdbsalescommissions', 'commission', 'readgroup') || $user->hasRight('lmdbsalescommissions', 'marginpolicy', 'approvesale') || $user->hasRight('lmdbsalescommissions', 'marginpolicy', 'approvesubordinates') || $user->hasRight('lmdbsalescommissions', 'marginpolicy', 'approvecommission');
 if (!$canReadAny) {
 	accessforbidden();
 }
@@ -216,6 +219,7 @@ if (!$editable && $canManage) {
 }
 
 require_once __DIR__.'/class/lmdbsalescommissionmarginview.class.php';
+if (getDolGlobalInt('LMDBSALESCOMMISSIONS_MARGIN_WORKFLOW_READY')) { print LmdbSalesCommissionMarginWorkflowView::actions($db, $object, $user); }
 print LmdbSalesCommissionMarginView::render($db, $object, $user, true);
 
 $commissionAdd = $editable ? dolGetButtonTitle($langs->trans('LmdbSalesCommissionsNewCommissionDispatch'), '', 'fa fa-plus-circle', $_SERVER['PHP_SELF'].'?id='.((int) $object->id).'&mode=create') : '';

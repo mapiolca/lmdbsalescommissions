@@ -9,6 +9,9 @@ require_once DOL_DOCUMENT_ROOT.'/comm/propal/class/propal.class.php';
 require_once __DIR__.'/class/lmdbsalescommissionmarginservice.class.php';
 $langs->loadLangs(array('propal', 'lmdbsalescommissions@lmdbsalescommissions'));
 $id = GETPOSTINT('id');
+if (getDolGlobalInt('LMDBSALESCOMMISSIONS_MARGIN_WORKFLOW_READY')) {
+	header('Location: '.dol_buildpath('/lmdbsalescommissions/proposal_margin_workflow.php', 1).'?id='.$id.'&mode=request'); exit;
+}
 $action = GETPOST('action', 'aZ09');
 $reason = GETPOST('reason', 'alphanohtml');
 if (!isModEnabled('lmdbsalescommissions') || !empty($user->socid) || !$user->hasRight('propal', 'lire')

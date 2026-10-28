@@ -14,6 +14,7 @@ REVISIONS = {
     "25.0.0-alpha": "ef6e5818b0a5626f928cb9bc66bddb8be43ac32f",
 }
 FILES = [
+    "user/class/user.class.php", "core/class/notify.class.php", "core/class/html.formmail.class.php", "admin/notification.php", "core/triggers/interface_50_modNotification_Notification.class.php",
     "core/lib/functions.lib.php", "core/class/extrafields.class.php", "core/db/mysqli.class.php", "core/db/DoliDB.class.php",
     "core/lib/ajax.lib.php", "core/ajax/ajaxtooltip.php", "core/js/lib_foot.js.php",
     "core/ajax/onlineSign.php", "core/class/hookmanager.class.php",

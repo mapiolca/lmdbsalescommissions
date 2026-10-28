@@ -57,6 +57,8 @@ Une commission refusée ou indéterminée vaut zéro dans les calculs directs, y
 
 ## Dérogations et historique
 
+La version 1.3.0 introduit le [circuit de validation hiérarchique](margin-approval-workflow.md) : la vente passe désormais par un dossier commun, sans accord de vente individuel hors de ce circuit. Les anciennes demandes par règle restent consultables à titre historique. Le droit existant de dérogation de vente devient global ; le nouveau droit `marginpolicy.approvesubordinates` (45002416) ajoute le périmètre hiérarchique sans renuméroter les droits existants. Les accords de commission restent distincts.
+
 Deux droits supplémentaires, sans attribution administrateur implicite :
 
 - `marginpolicy.approvesale`, identifiant 45002414 ;

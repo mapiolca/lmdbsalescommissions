@@ -4,7 +4,7 @@
  */
 $pdo = new PDO(getenv('LSC_TEST_DSN'), getenv('LSC_TEST_USER'), getenv('LSC_TEST_PASSWORD'), array(PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION));
 $prefix = 'long_test_prefix_';
-$tables = array('rule', 'rule_assignment', 'margin_band', 'margin_travel_band', 'margin_complex_site', 'margin_category', 'margin_product', 'margin_approval', 'margin_request', 'margin_revision', 'margin_snapshot', 'line', 'due');
+$tables = array('rule', 'rule_assignment', 'margin_band', 'margin_travel_band', 'margin_complex_site', 'margin_category', 'margin_product', 'margin_approval', 'margin_request', 'margin_case', 'margin_revision', 'margin_snapshot', 'line', 'due');
 foreach ($tables as $table) {
 	$sql = file_get_contents(__DIR__.'/../sql/llx_lmdbsalescommissions_'.$table.'.sql');
 	$pdo->exec(str_replace('llx_', $prefix, $sql));
@@ -27,6 +27,30 @@ catch (PDOException $error) { if ($error->errorInfo[1] !== 1062) { throw $error;
 $pdo->exec(str_replace('(1,10,7,', '(2,10,7,', $insert));
 if ((int) $pdo->query("SELECT COUNT(*) FROM $snapshot")->fetchColumn() !== 2) { throw new RuntimeException('Entity uniqueness'); }
 echo "MariaDB DDL, long prefix, revision, rollback and entity uniqueness passed.\n";
+
+// A single nullable active key permits multiple historical requests, but only one pending request.
+$cases = $prefix.'lmdbsalescommissions_margin_case';
+$caseInsert = "INSERT INTO $cases (entity,fk_propal,fk_author,active_proposal,status,fingerprint,reason,snapshot_payload,fk_user_creat,date_creation) VALUES (1,10,7,10,0,'fingerprint','Reason','{}',7,NOW())";
+$pdo->exec($caseInsert);
+try { $pdo->exec($caseInsert); throw new RuntimeException('Two active dossiers accepted'); }
+catch (PDOException $error) { if ($error->errorInfo[1] !== 1062) { throw $error; } }
+$pdo->exec("UPDATE $cases SET active_proposal=NULL,status=2 WHERE entity=1 AND fk_propal=10");
+$pdo->exec($caseInsert);
+$pdo->exec("CREATE TABLE {$prefix}propal (rowid integer PRIMARY KEY, entity integer NOT NULL, fk_statut integer NOT NULL) ENGINE=InnoDB");
+$pdo->exec("INSERT INTO {$prefix}propal VALUES (10,1,0)");
+$pdo->beginTransaction();
+$pdo->query("SELECT rowid FROM {$prefix}propal WHERE entity=1 AND rowid=10 FOR UPDATE")->fetchColumn();
+$other = new PDO(getenv('LSC_TEST_DSN'), getenv('LSC_TEST_USER'), getenv('LSC_TEST_PASSWORD'), array(PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION));
+$other->exec('SET SESSION innodb_lock_wait_timeout=1');
+$other->beginTransaction();
+try { $other->query("SELECT rowid FROM {$prefix}propal WHERE entity=1 AND rowid=10 FOR UPDATE"); throw new RuntimeException('Concurrent decision acquired locked parent'); }
+catch (PDOException $error) { if ($error->errorInfo[1] !== 1205) { throw $error; } }
+$other->rollBack();
+$pdo->exec("UPDATE $cases SET active_proposal=NULL,status=1,retained_percent=50 WHERE entity=1 AND active_proposal=10");
+$pdo->exec("UPDATE {$prefix}propal SET fk_statut=1 WHERE entity=1 AND rowid=10");
+$pdo->rollBack();
+if ((int) $pdo->query("SELECT COUNT(*) FROM $cases WHERE entity=1 AND active_proposal=10 AND status=0")->fetchColumn() !== 1 || (int) $pdo->query("SELECT fk_statut FROM {$prefix}propal WHERE rowid=10")->fetchColumn() !== 0) { throw new RuntimeException('Dossier and native parent did not roll back together'); }
+echo "MariaDB workflow uniqueness, historical requests, parent lock contention and atomic rollback passed.\n";
 
 // Execute the actual policy SELECT against MariaDB, including entity-scoped group membership.
 define('MAIN_DB_PREFIX', $prefix);
