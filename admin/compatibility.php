@@ -22,7 +22,7 @@ $action = GETPOST('action', 'aZ09');
 if (!isModEnabled('lmdbsalescommissions')) {
 	accessforbidden();
 }
-if (!lmdbsalescommissionsCanConfigure($user)) {
+if (empty($user->admin) && !$user->hasRight('lmdbsalescommissions', 'admin', 'configure')) {
 	accessforbidden();
 }
 if ($action !== '') {
@@ -31,8 +31,8 @@ if ($action !== '') {
 
 llxHeader('', $langs->trans('LmdbSalesCommissionsCompatibility'), '', '', 0, 0, array(), lmdbsalescommissionsGetCssFiles(), '', lmdbsalescommissionsGetBodyClass());
 $head = lmdbsalescommissionsAdminPrepareHead();
-print dol_get_fiche_head($head, 'compatibility', $langs->trans('LmdbSalesCommissionsSetup'), -1, 'fa-percent');
 print load_fiche_titre($langs->trans('LmdbSalesCommissionsCompatibility'), lmdbsalescommissionsBuildModuleListLink(), 'title_setup');
+print dol_get_fiche_head($head, 'compatibility', $langs->trans('LmdbSalesCommissionsSetup'), -1, 'fa-percent_fas_#f0b400');
 
 print '<table class="noborder liste centpercent">';
 print '<tr class="liste_titre"><td>'.$langs->trans('Parameter').'</td><td>'.$langs->trans('Value').'</td></tr>';
@@ -59,8 +59,10 @@ foreach ($features as $code => $feature) {
 	print '<td>'.dol_escape_htmltag($code).'</td>';
 	print '<td>'.$langs->trans($feature['label']).'</td>';
 	print '<td>'.$langs->trans($feature['description']).'</td>';
-	print '<td>'.yn($isavailable).'</td>';
-	print '<td>'.($isavailable ? $langs->trans('Available') : $langs->trans($feature['reason'] ?? 'Unavailable')).'</td>';
+	$statusLabel = $langs->trans($isavailable ? 'Available' : 'Unavailable');
+	print '<td class="nowraponall">'.dolGetStatus($statusLabel, $statusLabel, '', $isavailable ? 'status4' : 'status8', 2).'</td>';
+	$reasonKey = $isavailable ? ($feature['available_reason'] ?? '') : ($feature['reason'] ?? 'Unavailable');
+	print '<td>'.($reasonKey !== '' ? dol_escape_htmltag($langs->trans($reasonKey)) : '').'</td>';
 	print '</tr>';
 }
 print '</table>';

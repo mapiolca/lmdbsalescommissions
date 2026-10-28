@@ -188,8 +188,8 @@ if ($action === 'archiveobjective') {
 
 llxHeader('', $langs->trans('LmdbSalesCommissionsMaintenance'), '', '', 0, 0, array(), lmdbsalescommissionsGetCssFiles(), '', lmdbsalescommissionsGetBodyClass());
 $head = lmdbsalescommissionsAdminPrepareHead();
-print dol_get_fiche_head($head, 'maintenance', $langs->trans('LmdbSalesCommissionsSetup'), -1, 'fa-percent');
 print load_fiche_titre($langs->trans('LmdbSalesCommissionsMaintenance'), lmdbsalescommissionsBuildModuleListLink(), 'title_setup');
+print dol_get_fiche_head($head, 'maintenance', $langs->trans('LmdbSalesCommissionsSetup'), -1, 'fa-percent_fas_#f0b400');
 
 $realizedValueInput = GETPOST('realized_value', 'alphanohtml');
 

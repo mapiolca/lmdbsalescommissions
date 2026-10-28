@@ -89,7 +89,9 @@ $entitySql = $db->sanitize(getEntity('lmdbsalescommissions_line'));
 $sql = 'SELECT';
 $sql .= " SUM(CASE WHEN mode = 'margin' AND status = 0 THEN commission_total ELSE 0 END) AS margin_estimated,";
 $sql .= " SUM(CASE WHEN mode = 'dispatch' AND status = 0 THEN commission_total ELSE 0 END) AS dispatch_estimated,";
+$sql .= " SUM(CASE WHEN mode = 'margin_excess' AND status = 0 THEN commission_total ELSE 0 END) AS reward_estimated,";
 $sql .= " SUM(CASE WHEN mode = 'margin' AND status = 1 THEN commission_total ELSE 0 END) AS margin_acquired,";
+$sql .= " SUM(CASE WHEN mode = 'margin_excess' AND status = 1 THEN commission_total ELSE 0 END) AS reward_acquired,";
 $sql .= " SUM(CASE WHEN mode = 'dispatch' AND status = 1 THEN commission_total ELSE 0 END) AS dispatch_acquired,";
 $sql .= " SUM(CASE WHEN mode = 'tier' AND status = 1 THEN commission_total ELSE 0 END) AS tier_acquired,";
 $sql .= ' SUM(CASE WHEN status = 1 THEN commission_total ELSE 0 END) AS acquired_total,';
@@ -101,8 +103,10 @@ $sql .= ' AND fk_user = '.((int) $id);
 $resql = $db->query($sql);
 $summary = array(
 	'margin_estimated' => 0.0,
+	'reward_estimated' => 0.0,
 	'dispatch_estimated' => 0.0,
 	'margin_acquired' => 0.0,
+	'reward_acquired' => 0.0,
 	'dispatch_acquired' => 0.0,
 	'tier_acquired' => 0.0,
 	'acquired_total' => 0.0,
@@ -153,7 +157,8 @@ print '<br>';
 print load_fiche_titre($langs->trans('LmdbSalesCommissionsUserTabSummary'), '', 'fa-percent');
 print '<table class="noborder liste centpercent">';
 print '<tr class="liste_titre"><td>'.$langs->trans('LmdbSalesCommissionsIndicator').'</td><td class="right">'.$langs->trans('Amount').'</td></tr>';
-print '<tr class="oddeven"><td>'.$langs->trans('LmdbSalesCommissionsEstimatedCommission').'</td><td class="right">'.lmdbsalescommissionsFormatTotalAmount($summary['margin_estimated'] + $summary['dispatch_estimated']).'</td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('LmdbSalesCommissionsEstimatedCommission').'</td><td class="right">'.lmdbsalescommissionsFormatTotalAmount($summary['margin_estimated'] + $summary['dispatch_estimated'] + $summary['reward_estimated']).'</td></tr>';
+print '<tr class="oddeven"><td>'.$langs->trans('LscReward').'</td><td class="right">'.lmdbsalescommissionsFormatTotalAmount($summary['reward_acquired']).'</td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('LmdbSalesCommissionsRuleTypeMargin').'</td><td class="right">'.lmdbsalescommissionsFormatTotalAmount($summary['margin_acquired']).'</td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('LmdbSalesCommissionsModeDispatch').'</td><td class="right">'.lmdbsalescommissionsFormatTotalAmount($summary['dispatch_acquired']).'</td></tr>';
 print '<tr class="oddeven"><td>'.$langs->trans('LmdbSalesCommissionsTierCommissionAcquired').'</td><td class="right">'.lmdbsalescommissionsFormatTotalAmount($summary['tier_acquired']).'</td></tr>';

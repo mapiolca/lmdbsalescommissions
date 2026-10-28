@@ -20,32 +20,14 @@ class LmdbSalesCommissionProposalService
 	 */
 	public static function getEstimatedMargin($proposal)
 	{
-		if (!is_object($proposal)) {
-			return null;
-		}
-
-		if (method_exists($proposal, 'getMarginInfosArray')) {
-			$marginInfos = $proposal->getMarginInfosArray();
-			if (is_array($marginInfos)) {
-				foreach (array('total_margin', 'margin', 'marge', 'total_marge') as $key) {
-					if (isset($marginInfos[$key]) && is_numeric($marginInfos[$key])) {
-						return (float) $marginInfos[$key];
-					}
-				}
-			}
-		}
-
-		foreach (array('total_margin', 'marge_marge', 'margin', 'marge') as $property) {
-			if (property_exists($proposal, $property) && is_numeric($proposal->{$property})) {
-				return (float) $proposal->{$property};
-			}
-		}
-
-		if (property_exists($proposal, 'lines') && is_array($proposal->lines)) {
-			return self::getEstimatedMarginFromLines($proposal->lines);
-		}
-
-		return null;
+		global $db;
+		if (!is_object($proposal) || !isset($proposal->lines) || !is_array($proposal->lines)) { return null; }
+		require_once DOL_DOCUMENT_ROOT.'/core/class/html.formmargin.class.php';
+		$copy = clone $proposal;
+		$copy->lines = array_map(static function ($line) { return clone $line; }, $proposal->lines);
+		$form = new FormMargin($db);
+		$info = $form->getMarginInfosArray($copy);
+		return isset($info['total_margin']) && is_numeric($info['total_margin']) ? (float) $info['total_margin'] : null;
 	}
 
 	/**
@@ -229,44 +211,6 @@ class LmdbSalesCommissionProposalService
 		}
 
 		return 0;
-	}
-
-	/**
-	 * Compute estimated margin from fetched proposal lines.
-	 *
-	 * @param array<int, object> $lines Proposal lines
-	 * @return float|null
-	 */
-	private static function getEstimatedMarginFromLines(array $lines)
-	{
-		$margin = 0.0;
-		$hasComputableLine = false;
-
-		foreach ($lines as $line) {
-			if (!is_object($line)) {
-				continue;
-			}
-			if (!property_exists($line, 'total_ht') || !is_numeric($line->total_ht)) {
-				continue;
-			}
-
-			$buyPrice = null;
-			foreach (array('pa_ht', 'buy_price_ht') as $property) {
-				if (property_exists($line, $property) && is_numeric($line->{$property})) {
-					$buyPrice = (float) $line->{$property};
-					break;
-				}
-			}
-			if ($buyPrice === null) {
-				continue;
-			}
-
-			$qty = property_exists($line, 'qty') && is_numeric($line->qty) ? (float) $line->qty : 1.0;
-			$margin += (float) $line->total_ht - ($buyPrice * $qty);
-			$hasComputableLine = true;
-		}
-
-		return $hasComputableLine ? $margin : null;
 	}
 
 	/**

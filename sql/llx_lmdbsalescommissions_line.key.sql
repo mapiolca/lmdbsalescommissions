@@ -11,3 +11,4 @@ ALTER TABLE llx_lmdbsalescommissions_line ADD INDEX idx_lmdbsalescommissions_lin
 ALTER TABLE llx_lmdbsalescommissions_line ADD INDEX idx_lmdbsalescommissions_line_turnover_dispatch (fk_proposal_turnover_dispatch);
 ALTER TABLE llx_lmdbsalescommissions_line ADD INDEX idx_lmdbsalescommissions_line_status (status);
 ALTER TABLE llx_lmdbsalescommissions_line ADD INDEX idx_lmdbsalescommissions_line_acquired (date_acquired);
+ALTER TABLE llx_lmdbsalescommissions_line ADD INDEX idx_lsc_reward_rule (fk_reward_rule);
