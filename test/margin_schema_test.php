@@ -32,6 +32,11 @@ echo "MariaDB DDL, long prefix, revision, rollback and entity uniqueness passed.
 define('MAIN_DB_PREFIX', $prefix);
 function dol_now() { return 2000; }
 function dol_syslog($message, $level = 0) {}
+$catalogEntities = '1';
+function getEntity($type) { global $catalogEntities; return $catalogEntities; }
+// Only category identity is simulated; catalogue visibility SELECTs run on MariaDB.
+class Categorie { public const TYPE_PRODUCT = 'product'; public $MAP_ID = array('product' => 0); public function __construct($db) {} }
+
 class MarginPolicyPdo
 {
 	private PDO $pdo;
@@ -42,6 +47,10 @@ class MarginPolicyPdo
 	public function free($result) { $result->closeCursor(); }
 	public function idate($date) { return gmdate('Y-m-d H:i:s', $date); }
 	public function escape($value) { return substr($this->pdo->quote($value), 1, -1); }
+	public function sanitize($value) {
+		if (!preg_match('/^[0-9]+(,[0-9]+)*$/D', $value)) { throw new RuntimeException('Invalid fixture ID list'); }
+		return $value;
+	}
 }
 require_once __DIR__.'/../class/lmdbsalescommissionmarginservice.class.php';
 $rules = $prefix.'lmdbsalescommissions_rule';
@@ -78,6 +87,10 @@ if ($decision['checks'][0]['rule_id'] !== 1) { throw new RuntimeException('Defau
 $decision = LmdbSalesCommissionMarginEngine::evaluate($service->policies(7,2),45.0,null,null);
 if ($decision['sale'] !== 'deny' || $decision['checks'][0]['rule_id'] !== 4) { throw new RuntimeException('Other entity membership'); }
 echo "MariaDB policy resolution, DATE bounds and entity-scoped assignments passed.\n";
+$pdo->exec("CREATE TABLE {$prefix}product (rowid integer PRIMARY KEY, entity integer NOT NULL, fk_product_type integer NOT NULL)");
+$pdo->exec("INSERT INTO {$prefix}product VALUES (101,1,0),(202,1,1)");
+$pdo->exec("CREATE TABLE {$prefix}categorie (rowid integer PRIMARY KEY, entity integer NOT NULL, type integer NOT NULL)");
+$pdo->exec("INSERT INTO {$prefix}categorie VALUES (77,1,0),(88,1,0)");
 $categoryLinks = $prefix.'lmdbsalescommissions_margin_category';
 $productLinks = $prefix.'lmdbsalescommissions_margin_product';
 $pdo->exec("UPDATE $rules SET policy_scope = 'category' WHERE rowid = 3");
@@ -96,6 +109,18 @@ $scopedPolicies = $service->policies(7, 1);
 $categoryPolicies = array_values(array_filter($scopedPolicies, static function ($policy) { return $policy['rule_id'] === 3; }));
 if (count($categoryPolicies) !== 1 || $categoryPolicies[0]['categories'] !== array(77, 88)) { throw new RuntimeException('Category links crossed entity boundary'); }
 echo "MariaDB normalized category/product links and owner-scoped policy loading passed.\n";
+$pdo->exec("UPDATE {$prefix}product SET entity = 2 WHERE rowid = 202");
+try { $service->policies(7, 1); throw new RuntimeException('Hidden product accepted'); }
+catch (RuntimeException $error) { if ($error->getMessage() !== 'LscPolicyUnavailable') { throw $error; } }
+$catalogEntities = '1,2'; $service->policies(7, 1);
+$catalogEntities = '1'; $pdo->exec("UPDATE {$prefix}product SET entity = 1 WHERE rowid = 202");
+$pdo->exec("UPDATE {$prefix}categorie SET entity = 2 WHERE rowid = 88");
+try { $service->policies(7, 1); throw new RuntimeException('Hidden category accepted'); }
+catch (RuntimeException $error) { if ($error->getMessage() !== 'LscPolicyUnavailable') { throw $error; } }
+$catalogEntities = '1,2'; $service->policies(7, 1);
+$catalogEntities = '1'; $pdo->exec("UPDATE {$prefix}categorie SET entity = 1 WHERE rowid = 88");
+echo "MariaDB missing/shared catalogue targets fail closed and respect entity visibility.\n";
+
 
 // Real request persistence, simulated access/assessment: duplicate POSTs preserve the first request.
 function isModEnabled($key) { return true; }
