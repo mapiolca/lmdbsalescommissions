@@ -126,6 +126,7 @@ class LmdbSalesCommissionMarginWorkflow
 			if ($case->create($actor, 1) <= 0) { throw new RuntimeException($case->error ?: 'LscPolicyUnavailable'); }
 			$case->ref = (string) $proposal->ref;
 			$case->socid = (int) $proposal->socid;
+			$case->total_ht = (float) $proposal->total_ht;
 			$case->fk_project = (int) ($proposal->fk_project ?? 0);
 			if ($case->call_trigger('LMDBSALESCOMMISSIONS_MARGIN_CASE_CREATE', $actor) < 0) { throw new RuntimeException($case->error ?: 'LscPolicyUnavailable'); }
 			if (!$this->db->commit()) { throw new RuntimeException('LscPolicyUnavailable'); }
@@ -222,6 +223,7 @@ class LmdbSalesCommissionMarginWorkflow
 			$case->context['trigger_reason'] = $approve ? 'validation_approved' : 'modification_authorized';
 			$case->ref = (string) $proposal->ref;
 			$case->socid = (int) $proposal->socid;
+			$case->total_ht = (float) $proposal->total_ht;
 			$case->fk_project = (int) ($proposal->fk_project ?? 0);
 			if ($case->call_trigger('LMDBSALESCOMMISSIONS_MARGIN_CASE_UPDATE', $actor) < 0) { throw new RuntimeException($case->error ?: 'LscPolicyUnavailable'); }
 			if (!$this->db->commit()) { throw new RuntimeException('LscPolicyUnavailable'); }

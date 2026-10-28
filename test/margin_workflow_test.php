@@ -131,6 +131,7 @@ class WorkflowDb {
 	public $revision = 1; public $failure = ''; public $nativeValidations = array(); public $events = array(); public $emails = array(); public $notifications = true;
 	public $commissionThreshold = 60.0; public $saleThreshold = 30.0; public $beneficiaries = array(7);
 	public $queries = array();
+	public $notificationContexts = array();
 	public $cost = 100.0;
 	private $depth = 0; private $backup;
 	public function __construct() { $this->proposals[10] = array('entity' => 1, 'status' => 0, 'statut' => 0, 'user_author_id' => 7, 'total_ht' => 125.0, 'ref' => 'P10'); }
@@ -150,6 +151,7 @@ class WorkflowDb {
 	}
 	public function event($action, $object, $actor) {
 		$this->events[] = $action;
+		$this->notificationContexts[] = array('ref' => $object->ref, 'total_ht' => $object->total_ht, 'socid' => $object->socid);
 		if (!$this->notifications) { return 0; }
 		if ($this->failure === 'notification') { return -1; }
 		$this->emails[] = array($action, $object->id, $object->status); return 0;
@@ -227,6 +229,7 @@ $fp = workflowFingerprint($db, $quote, $requester);
 $id = $flow->request($quote, $requester, 'Below target', $fp);
 checkWorkflow($id === 1 && $flow->pending($quote) !== null, 'Requester without advanced validation right creates a pending dossier');
 checkWorkflow($db->proposals[10]['status'] === 0, 'Native parent remains draft');
+checkWorkflow($db->notificationContexts[0] === array('ref' => 'P10', 'total_ht' => 125.0, 'socid' => 15), 'Native notification context includes parent identity, subscriptions and amount thresholds without duplicated columns');
 checkWorkflow($flow->request($quote, $requester, 'Repeated click', $fp) === $id && count($db->events) === 1, 'Double submission does not duplicate request or notification');
 refusedWorkflow('LscWorkflowLocked', static function () use ($flow, $quote) { $flow->assertUnlocked($quote); }, 'Pending economic changes refused');
 refusedWorkflow('LscApprovalDenied', static function () use ($flow, $quote, $requester, $id) { $flow->decide($quote, $requester, $id, false, 'Own request', null); }, 'Ordinary requester cannot decide');

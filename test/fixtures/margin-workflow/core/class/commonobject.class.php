@@ -10,6 +10,7 @@ class CommonObject
 	public $oldcopy;
 	public $ref;
 	public $fk_project;
+	public $total_ht;
 	public function createCommon($user, $notrigger = 0)
 	{
 		$this->fk_user_creat = $user->id;
