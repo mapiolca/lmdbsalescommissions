@@ -207,3 +207,7 @@ Le détail des primes utilise un tableau natif à trois colonnes (libellé, vale
 ## Intégration du correctif 1.2.1 — 15 octobre 2026
 
 Fusion de `main` (`60c6a3e`) dans la préparation 1.3.0 (`fbb5328`). Les hooks uniques combinent contrôle de vente et confirmation du nettoyage payé. Le résolveur sépare commissions ordinaires, politiques et primes de dépassement ; les erreurs de lecture restent bloquantes. Sous PHP 8.4.22, dix suites passent sur chacune des six révisions figées v20 à v25 alpha, dont 66 assertions de nettoyage et 150 assertions de marge/service. Les scénarios de réouverture, d’isolation d’entité et de rollback utilisent des données SQL simulées avec les contrats natifs. Le résolveur passe aussi 9 assertions avec les catalogues FR/EN. Les tests de nettoyage et de résolution sont désormais exécutés par la matrice CI existante. PHPStan absent ; aucun déploiement ni essai navigateur de cette fusion.
+
+## Recette des périmètres produit et catégorie
+
+Voir le [compte rendu des essais des 16 et 28 octobre 2026](recette-regles-cibles.md), avec les résultats navigateur, la comparaison PHPStan et les limites des parcours public et API.
