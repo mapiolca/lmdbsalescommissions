@@ -11,6 +11,11 @@ function dolPrintHTMLForAttribute($value) { return dol_escape_htmltag($value); }
 function dol_htmlentitiesbr($value) { return dol_escape_htmltag($value); }
 function dol_escape_js($value) { return addslashes($value); }
 function dol_syslog($message, $level = 0) {}
+$categoryEnabled = true;
+function isModEnabled($key) { global $categoryEnabled; return $key !== 'category' || $categoryEnabled; }
+function getEntity($type) { return '1'; }
+function dol_now() { return 2000; }
+
 function dol_nboflines_bis($text, ...$args) { return substr_count($text, "\n") + 1; }
 function newToken() { return 'test-csrf'; }
 function getNonce() { return 'test-nonce'; }
@@ -26,19 +31,46 @@ class AdminLangs {
 	public function transnoentities($key, ...$args) { return $this->trans($key, ...$args); }
 	public function transnoentitiesnoconv($key) { return $key; }
 }
+// Category identity is simulated; native Form/CommonObject are loaded below.
+class Categorie { public const TYPE_PRODUCT = 'product'; public $MAP_ID = array('product' => 0); public function __construct($db) {} }
 class User {
-	public $id = 5; public $admin = 1; public $socid = 0; public $permitted = true;
-	public function hasRight($module, $object, $action) { return $this->permitted; }
+	public $id = 5; public $admin = 1; public $socid = 0; public $permitted = true; public $denied = array();
+	public function hasRight($module, $object, $action = null) { return $this->permitted && !in_array($module.'.'.$object, $this->denied, true); }
 }
 class AdminDb {
 	public $referenced = ''; public $fail = ''; public $deleted = false; public $bands = array(7, 8); public $travelBands = array(12); public $complexSite = true; public $queries = array(); public $saved;
+	public $scopeLinks = array('category' => array(), 'product' => array());
+	public $catalogCategories = array(11, 12); public $catalogProducts = array(21 => 0, 22 => 1); public $policyRows = array();
+	public function sanitize($value) { return $value; }
+	public function idate($date) { return gmdate('Y-m-d H:i:s', $date); }
+	public function lasterror() { return 'Injected failure'; }
+	public function fetch_object($r) { return isset($r->offset) && isset($r->rows[$r->offset]) ? (object) $r->rows[$r->offset++] : false; }
+	public function result($rows) { return (object) array('count' => count($rows), 'rows' => $rows, 'offset' => 0); }
 	public function begin() { if ($this->fail === 'begin') { return 0; } $this->saved = array($this->deleted, $this->bands, $this->travelBands, $this->complexSite); return 1; }
 	public function commit() { return $this->fail !== 'commit'; }
 	public function rollback() { list($this->deleted, $this->bands, $this->travelBands, $this->complexSite) = $this->saved; return 1; }
 	public function query($sql) {
 		$this->queries[] = $sql;
 		if ($this->fail === 'query') { return false; }
+		if (strpos($sql, 'SELECT rowid FROM admin_test_product WHERE') === 0 || strpos($sql, 'SELECT rowid FROM admin_test_categorie WHERE') === 0) {
+			if (strpos($sql, 'entity IN (1)') === false) { throw new RuntimeException('Catalogue query without entity'); }
+			preg_match('/rowid IN \\(([^)]+)\\)/', $sql, $parts);
+			$ids = array_map('intval', explode(',', $parts[1]));
+			if (strpos($sql, 'admin_test_categorie') !== false) { $ids = array_intersect($ids, $this->catalogCategories); }
+			else {
+				preg_match('/fk_product_type IN \\(([^)]+)\\)/', $sql, $types);
+				$types = array_map('intval', explode(',', $types[1]));
+				$ids = array_filter($ids, function ($id) use ($types) { return isset($this->catalogProducts[$id]) && in_array($this->catalogProducts[$id], $types, true); });
+			}
+			return $this->result(array_map(static function ($id) { return array('rowid' => $id); }, array_values($ids)));
+		}
 		if (strpos($sql, 'entity = 1') === false) { throw new RuntimeException('Query without owner entity'); }
+		if (strpos($sql, 'SELECT r.*, a.assignment_type') === 0) { return $this->result($this->policyRows); }
+		foreach (array('category', 'product') as $type) {
+			if (strpos($sql, 'SELECT fk_'.$type.' FROM admin_test_lmdbsalescommissions_margin_'.$type) === 0) {
+				return $this->result(array_map(static function ($id) use ($type) { return array('fk_'.$type => $id); }, $this->scopeLinks[$type]));
+			}
+		}
 		if (strpos($sql, 'FOR UPDATE') !== false) { return (object) array('count' => 1); }
 		if (strpos($sql, 'SELECT') === 0) { return (object) array('count' => $this->referenced && strpos($sql, 'lmdbsalescommissions_'.$this->referenced.' ') !== false ? 1 : 0); }
 		if (strpos($sql, 'DELETE FROM admin_test_lmdbsalescommissions_margin_band') === 0) {
@@ -201,4 +233,43 @@ $rule->entity = 1;
 $rule->triggers = array();
 check($rule->delete($user) === 1 && $db->deleted && !$db->bands && !$db->travelBands && !$db->complexSite, 'Unused control and all uplift types deleted together');
 check($rule->triggers === array('LMDBSALESCOMMISSIONS_RULE_DELETE'), 'One stable CRUD trigger invalidates policy decisions');
+
+$targetDb = new AdminDb(); $targetRule = new AdminRule($targetDb); $targetRule->entity = 1;
+check($targetRule->validateMarginTargets($user, 'product', array(), array(21, 22)) === 1, 'Products and services are accepted together');
+check($targetRule->validateMarginTargets($user, 'category', array(11, 12), array()) === 1, 'Multiple native categories are accepted');
+foreach (array(array('product', array(), array()), array('category', array(), array()), array('product', array(), array(0)), array('product', array(), array(999)), array('category', array(999), array()), array('offer', array(), array(21))) as $selection) {
+	check($targetRule->validateMarginTargets($user, $selection[0], $selection[1], $selection[2]) < 0, 'Invalid scope selection is refused');
+}
+$targetRule->id = 1; $targetDb->scopeLinks['product'] = array(21, 22);
+$user->denied = array('service.lire');
+check($targetRule->validateMarginTargets($user, 'product', array(), array(21)) < 0 && $targetRule->error === 'LscPolicyScopeInaccessible', 'Partial product view cannot remove the hidden service');
+check($targetRule->validateMarginTargets($user, 'offer', array(), array()) < 0 && $targetDb->scopeLinks['product'] === array(21, 22), 'Changing scope cannot discard hidden stored links');
+$user->denied = array(); unset($targetDb->catalogProducts[22]);
+check($targetRule->validateMarginTargets($user, 'product', array(), array(21)) < 0, 'Removed or unshared product blocks replacement');
+$targetDb->scopeLinks = array('category' => array(11, 12), 'product' => array()); $targetDb->catalogCategories = array(11);
+check($targetRule->validateMarginTargets($user, 'category', array(11), array()) < 0, 'Removed or unshared category cannot be silently dropped');
+$targetDb->catalogCategories = array(11, 12);
+check($targetRule->validateMarginTargets($user, 'offer', array(), array()) === 1, 'A complete catalogue view can intentionally change scope');
+$user->permitted = false;
+check($targetRule->validateMarginTargets($user, 'offer', array(), array()) < 0, 'Admin status cannot replace configure permission');
+$user->permitted = true; $targetDb->fail = 'query';
+check($targetRule->validateMarginTargets($user, 'offer', array(), array()) < 0 && $targetRule->error === 'LscPolicyUnavailable', 'Read failure is distinct from an empty target list');
+
+require_once __DIR__.'/../class/lmdbsalescommissionmarginservice.class.php';
+$targetDb->fail = ''; $targetDb->scopeLinks = array('category' => array(), 'product' => array(21, 22)); $targetDb->catalogProducts = array(21 => 0, 22 => 1);
+$targetDb->policyRows = array(array('rowid' => 1, 'policy_scope' => 'product', 'policy_context' => 'general', 'policy_effect' => 'sale', 'rate' => 40, 'assignment_type' => 'user', 'assignment_id' => 1, 'ref' => 'SCOPE'));
+$targetService = new LmdbSalesCommissionMarginService($targetDb);
+check($targetService->policies(5, 1)[0]['products'] === array(21, 22), 'Live policy retains all accessible product targets');
+unset($targetDb->catalogProducts[22]);
+try { $targetService->policies(5, 1); throw new RuntimeException('Hidden product accepted'); }
+catch (RuntimeException $error) { check($error->getMessage() === 'LscPolicyUnavailable', 'Unshared product cannot silently fall back to offer'); }
+$targetDb->policyRows[0]['policy_scope'] = 'category'; $targetDb->scopeLinks = array('category' => array(11, 12), 'product' => array());
+check($targetService->policies(5, 1)[0]['categories'] === array(11, 12), 'Live policy retains all accessible category targets');
+$targetDb->catalogCategories = array(11);
+try { $targetService->policies(5, 1); throw new RuntimeException('Hidden category accepted'); }
+catch (RuntimeException $error) { check($error->getMessage() === 'LscPolicyUnavailable', 'Unshared category cannot silently fall back to offer'); }
+$targetDb->catalogCategories = array(11, 12); $categoryEnabled = false;
+try { $targetService->policies(5, 1); throw new RuntimeException('Disabled categories accepted'); }
+catch (RuntimeException $error) { check($error->getMessage() === 'LscPolicyUnavailable', 'Disabled category module leaves a controlled error'); }
+$categoryEnabled = true;
 print "Margin policy admin: $tests assertions passed using native Form and CommonObject contracts.\n";

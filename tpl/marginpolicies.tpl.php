@@ -1,6 +1,16 @@
 <?php
 /* Copyright (C) 2026 Pierre Ardoin <developpeur@lesmetiersdubatiment.fr> */
 /** Margin policy settings view. All mutations are handled by the secured admin page.
+ * @var Translate $langs
+ * @var string $pageUrl
+ * @var string $mode
+ * @var int $id
+ * @var bool $complexAvailable
+ * @var array<string,string> $contexts
+ * @var array<string,string> $effects
+ * @var list<array{rowid:int,threshold:float,kwc_min:float|null,kwc_max:float|null,kwc_inclusive:int,kwh_min:float|null,kwh_max:float|null,kwh_inclusive:int}> $bands
+ * @var array{without:string,with:string} $complexValues
+ * @var array{rowid:int,uplift_without_travel:float,uplift_with_travel:float|null}|null $complexSite
  * @var Form $form
  * @var LmdbSalesCommissionRule $rule
  * @var array<string,string> $formValues

@@ -534,3 +534,5 @@ LscCleanupTransactionFailed=Transaction failed while cleaning up commissions.
 LscCleanupConfirm=Permanently delete the displayed commissions and all their due dates for this proposal? Draft proposal dispatch settings will be preserved.
 LscCleanupDone=Deleted %s commission line(s) and their due dates.
 LscCleanupLines=Commission lines
+
+LscPolicyScopeInaccessible=This rule cannot be edited because some targets are no longer accessible. Existing links have been preserved.

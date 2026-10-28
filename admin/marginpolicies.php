@@ -11,6 +11,10 @@ require_once __DIR__.'/../lib/lmdbsalescommissions.lib.php';
 require_once __DIR__.'/../class/lmdbsalescommissionrule.class.php';
 require_once __DIR__.'/../class/lmdbsalescommissionmarginengine.class.php';
 require_once __DIR__.'/../class/lmdbsalescommissionscompatibility.class.php';
+/** @var Conf $conf */
+/** @var DoliDB $db */
+/** @var Translate $langs */
+/** @var User $user */
 $langs->loadLangs(array('admin', 'lmdbsalescommissions@lmdbsalescommissions'));
 if (!isModEnabled('lmdbsalescommissions') || !$user->admin || !empty($user->socid) || !$user->hasRight('lmdbsalescommissions', 'admin', 'configure')) { accessforbidden(); }
 $action = GETPOST('action', 'aZ09');
@@ -119,24 +123,7 @@ if ($action !== '') {
 			$selectedProducts = $scope === 'product' ? array_values(array_unique(array_map('intval', GETPOST('products', 'array:int')))) : array();
 			$rate = str_replace(',', '.', trim(GETPOST('rate', 'alphanohtml')));
 			if (!isset($contexts[$context], $effects[$effect], $scopes[$scope]) || ($context !== 'general' && $effect !== 'commission') || ($context === 'general' && (!is_numeric($rate) || !is_finite((float) $rate) || (float) $rate < 0))) { throw new RuntimeException('LscInvalidPolicy'); }
-			if (($scope === 'category' && !$selectedCategories) || ($scope === 'product' && !$selectedProducts)) { throw new RuntimeException('LscInvalidPolicyScope'); }
-			foreach (array_merge($selectedCategories, $selectedProducts) as $selectedId) { if ($selectedId <= 0) { throw new RuntimeException('LscInvalidPolicyScope'); } }
-			if ($scope === 'category') {
-				if (!isModEnabled('category') || !$user->hasRight('categorie', 'lire')) { throw new RuntimeException('LscInvalidPolicyScope'); }
-				$ids = $db->sanitize(implode(',', $selectedCategories));
-				$q = $db->query('SELECT rowid FROM '.MAIN_DB_PREFIX.'categorie WHERE rowid IN ('.$ids.') AND type = '.$productCategoryType.' AND entity IN ('.$db->sanitize(getEntity('category')).')');
-				if (!$q || $db->num_rows($q) !== count($selectedCategories)) { throw new RuntimeException('LscInvalidPolicyScope'); }
-				$db->free($q);
-			} elseif ($scope === 'product') {
-				if (!$user->hasRight('produit', 'lire') && !$user->hasRight('service', 'lire')) { throw new RuntimeException('LscInvalidPolicyScope'); }
-				$ids = $db->sanitize(implode(',', $selectedProducts));
-				$readableTypes = array();
-				if ($user->hasRight('produit', 'lire')) { $readableTypes[] = 0; }
-				if ($user->hasRight('service', 'lire')) { $readableTypes[] = 1; }
-				$q = $db->query('SELECT rowid FROM '.MAIN_DB_PREFIX.'product WHERE rowid IN ('.$ids.') AND entity IN ('.$db->sanitize(getEntity('product')).') AND fk_product_type IN ('.$db->sanitize(implode(',', $readableTypes)).')');
-				if (!$q || $db->num_rows($q) !== count($selectedProducts)) { throw new RuntimeException('LscInvalidPolicyScope'); }
-				$db->free($q);
-			}
+			if ($rule->validateMarginTargets($user, $scope, $selectedCategories, $selectedProducts) <= 0) { throw new RuntimeException($rule->error); }
 			if ($id && $rule->policy_context !== $context && $bands) { throw new RuntimeException('LscPolicyContextHasBands'); }
 			$rule->entity = (int) $conf->entity;
 			$rule->ref = trim(GETPOST('ref', 'alphanohtml'));

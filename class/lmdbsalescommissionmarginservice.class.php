@@ -114,6 +114,23 @@ class LmdbSalesCommissionMarginService
 				$policies[] = array('rule_id' => (int) $row['rowid'], 'context' => $row['policy_context'], 'effect' => $effect, 'scope' => $scope, 'categories' => $categories, 'products' => $products, 'rank' => array('user' => 1, 'group' => 2, 'default' => 3)[$row['assignment_type']], 'origin' => $row['ref'], 'origin_type' => $row['assignment_type'], 'assignment_id' => (int) $row['assignment_id'], 'threshold' => $row['rate'] === null ? null : (float) $row['rate'], 'bands' => $bands, 'travel_bands' => $travelBands, 'complex_site' => $complexSite);
 			}
 		}
+		// A deleted or newly hidden target must not silently become an offer fallback.
+		foreach (array('category' => 'categories', 'product' => 'products') as $type => $field) {
+			$ids = array();
+			foreach ($policies as $policy) { $ids = array_merge($ids, $policy[$field]); }
+			$ids = array_values(array_unique($ids));
+			if (!$ids) { continue; }
+			foreach ($ids as $targetId) { if ($targetId <= 0) { throw new RuntimeException('LscPolicyUnavailable'); } }
+			if ($type === 'category') {
+				if (!isModEnabled('category')) { throw new RuntimeException('LscPolicyUnavailable'); }
+				if (!class_exists('Categorie', false)) { require_once DOL_DOCUMENT_ROOT.'/categories/class/categorie.class.php'; }
+				$nativeCategory = new Categorie($this->db);
+				$sql = 'SELECT rowid FROM '.MAIN_DB_PREFIX.'categorie WHERE rowid IN ('.$this->db->sanitize(implode(',', $ids)).') AND type = '.((int) $nativeCategory->MAP_ID[Categorie::TYPE_PRODUCT]).' AND entity IN ('.$this->db->sanitize(getEntity('category')).')';
+			} else {
+				$sql = 'SELECT rowid FROM '.MAIN_DB_PREFIX.'product WHERE rowid IN ('.$this->db->sanitize(implode(',', $ids)).') AND entity IN ('.$this->db->sanitize(getEntity('product')).') AND fk_product_type IN (0,1)';
+			}
+			if (count($this->rows($sql)) !== count($ids)) { throw new RuntimeException('LscPolicyUnavailable'); }
+		}
 		return $policies;
 	}
 

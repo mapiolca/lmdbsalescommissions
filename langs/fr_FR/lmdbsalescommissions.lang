@@ -534,3 +534,5 @@ LscCleanupTransactionFailed=Échec de transaction pendant le nettoyage des commi
 LscCleanupConfirm=Supprimer définitivement les commissions et toutes les échéances affichées pour ce devis ? Les répartitions d’un devis en brouillon seront conservées.
 LscCleanupDone=%s ligne(s) de commission supprimée(s), avec leurs échéances.
 LscCleanupLines=Lignes de commission
+
+LscPolicyScopeInaccessible=Impossible de modifier cette règle : certaines cibles ne sont plus accessibles. Les liaisons existantes sont conservées.
