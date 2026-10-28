@@ -64,7 +64,7 @@ Par rapport à la version 1.0, cette version apporte principalement :
 - Compatibilité Multicompany.
 - Répartition manuelle d’une commission de devis entre plusieurs commerciaux, sur montant ou pourcentage de marge ou de CA.
 - Attribution du CA d’un devis entre plusieurs commerciaux, indépendamment de leurs commissions.
-- Contrôle de marge et demandes de dérogation, avec activation explicite par entité.
+- Contrôle de marge par offre, catégories de produits ou produits/services, avec sélection multiple, demandes de dérogation et activation explicite par entité.
 - Majoration des seuils de marge par trajet aller-retour stocké dans `lmdbzoning` et par qualification « Chantier complexe » du devis fournie par `lmdbpropalpv`.
 
 ## Structure du module

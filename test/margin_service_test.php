@@ -7,7 +7,8 @@ $settings = array('LMDBSALESCOMMISSIONS_MARGIN_ENABLED' => 1, 'LMDBSALESCOMMISSI
 $conf = (object) array('entity' => 1, 'global' => (object) array(), 'modules_parts' => array('hooks' => array('lmdbsalescommissions' => array('propalcard', 'propallist', 'api', 'ajaxonlinesign'))));
 function getDolGlobalInt($key, $default = 0) { global $settings; return (int) ($settings[$key] ?? $default); }
 function getDolGlobalString($key, $default = '') { global $settings; return (string) ($settings[$key] ?? $default); }
-function isModEnabled($key) { global $zoningEnabled, $propalPvEnabled; return $key === 'lmdbsalescommissions' || ($key === 'lmdbzoning' && !empty($zoningEnabled)) || ($key === 'lmdbpropalpv' && !empty($propalPvEnabled)); }
+function isModEnabled($key) { global $zoningEnabled, $propalPvEnabled, $categoryEnabled; return $key === 'lmdbsalescommissions' || ($key === 'lmdbzoning' && !empty($zoningEnabled)) || ($key === 'lmdbpropalpv' && !empty($propalPvEnabled)) || ($key === 'category' && !empty($categoryEnabled)); }
+function getEntity($type) { return '1'; }
 if (!function_exists('dol_include_once')) { function dol_include_once($path) { return 1; } }
 function dol_now() { return 2000; }
 function dol_syslog($message, $level = 0) {}
@@ -20,6 +21,7 @@ class PolicyRows {
 }
 class PolicyDb {
 	public $dispatch = array(); public $approvals = array(); public $snapshots = array(); public $revision = 1; public $fail = false; public $failSnapshot = 0; public $transaction;
+	public $productCategories = array(); public $visibleProducts = array();
 	public function query($sql) {
 		if ($this->fail) { return false; }
 		if (strpos($sql, 'INSERT INTO') === 0) {
@@ -41,6 +43,8 @@ class PolicyDb {
 			return new PolicyRows(array_values(array_filter($this->approvals, static function ($a) use ($m) { return $a['fingerprint'] === $m[1]; })));
 		}
 		if (strpos($sql, '_margin_snapshot') !== false) { return new PolicyRows($this->snapshots); }
+		if (strpos($sql, 'FROM test_prefix_product WHERE') !== false) { return new PolicyRows(array_map(static function ($id) { return array('rowid' => $id); }, $this->visibleProducts)); }
+		if (strpos($sql, 'FROM test_prefix_categorie_product cp') !== false) { return new PolicyRows($this->productCategories); }
 		if (strpos($sql, 'FROM test_prefix_user') !== false) { return new PolicyRows(array(array('rowid' => 7))); }
 		throw new RuntimeException('Unexpected query: '.$sql);
 	}
@@ -48,6 +52,7 @@ class PolicyDb {
 	public function free($r) {}
 	public function num_rows($r) { return count($r->rows); }
 	public function escape($s) { return addslashes($s); }
+	public function sanitize($s) { return $s; }
 	public function idate($date) { return gmdate('Y-m-d H:i:s', $date); }
 	public function lasterror() { return 'Injected failure'; }
 	public function begin() { $this->transaction = array($this->snapshots, $this->approvals); }

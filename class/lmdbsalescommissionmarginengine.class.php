@@ -5,8 +5,8 @@
  * @phpstan-type Band array{kwc_min:?float,kwc_max:?float,kwc_inclusive:int,kwh_min:?float,kwh_max:?float,kwh_inclusive:int,threshold:float}
  * @phpstan-type TravelBand array{metric:string,min_value:float,uplift:float}
  * @phpstan-type ComplexSiteUplift array{uplift_without_travel:float,uplift_with_travel:?float}
- * @phpstan-type Policy array{rule_id:int,context:string,effect:string,rank:int,origin:string,origin_type?:string,assignment_id?:int,threshold:?float,bands:list<Band>,travel_bands?:list<TravelBand>,complex_site?:ComplexSiteUplift|null}
- * @phpstan-type Check array{rule_id:int,context:string,effect:string,origin:string,origin_type?:string,assignment_id?:int,threshold:?float,base_threshold:?float,travel_uplift:float,travel_metric:string,travel_value:?float,complex_site_configured:bool,complex_site_state:?bool,complex_site_uplift:float,state:string,reason:string,approval_id?:int,approval?:array{reason:string,approver:int,date:string}}
+ * @phpstan-type Policy array{rule_id:int,context:string,effect:string,scope?:string,categories?:list<int>,products?:list<int>,rank:int,origin:string,origin_type?:string,assignment_id?:int,threshold:?float,bands:list<Band>,travel_bands?:list<TravelBand>,complex_site?:ComplexSiteUplift|null}
+ * @phpstan-type Check array{rule_id:int,context:string,effect:string,scope?:string,target_lines?:list<int|string|null>,rate?:?float,origin:string,origin_type?:string,assignment_id?:int,threshold:?float,base_threshold:?float,travel_uplift:float,travel_metric:string,travel_value:?float,complex_site_configured:bool,complex_site_state:?bool,complex_site_uplift:float,state:string,reason:string,approval_id?:int,approval?:array{reason:string,approver:int,date:string}}
  */
 class LmdbSalesCommissionMarginEngine
 {

@@ -1,6 +1,7 @@
 <?php
 /* Copyright (C) 2026 Pierre Ardoin <developpeur@lesmetiersdubatiment.fr> */
 require_once __DIR__.'/lmdbsalescommissionmarginengine.class.php';
+require_once __DIR__.'/lmdbsalescommissionmarginscope.class.php';
 require_once __DIR__.'/lmdbsalescommissionproposalservice.class.php';
 require_once __DIR__.'/lmdbsalescommissionscompatibility.class.php';
 
@@ -75,6 +76,16 @@ class LmdbSalesCommissionMarginService
 		$sql .= " AND (a.assignment_type = 'default' OR (a.assignment_type = 'user' AND a.fk_user = ".((int) $beneficiary).") OR (a.assignment_type = 'group' AND EXISTS (SELECT 1 FROM ".MAIN_DB_PREFIX.'usergroup_user gu WHERE gu.fk_usergroup = a.fk_usergroup AND gu.fk_user = '.((int) $beneficiary).' AND gu.entity = '.((int) $entity).'))) ORDER BY r.rowid, a.rowid';
 		$policies = array();
 		foreach ($this->rows($sql) as $row) {
+			$scope = (string) ($row['policy_scope'] ?? 'offer');
+			if (!in_array($scope, array('offer', 'category', 'product'), true)) { throw new RuntimeException('LscPolicyUnavailable'); }
+			$categories = array(); $products = array();
+			if ($scope === 'category') {
+				foreach ($this->rows('SELECT fk_category FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_margin_category WHERE entity = '.((int) $entity).' AND fk_rule = '.((int) $row['rowid']).' ORDER BY fk_category') as $link) { $categories[] = (int) $link['fk_category']; }
+				if (!$categories) { throw new RuntimeException('LscPolicyUnavailable'); }
+			} elseif ($scope === 'product') {
+				foreach ($this->rows('SELECT fk_product FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_margin_product WHERE entity = '.((int) $entity).' AND fk_rule = '.((int) $row['rowid']).' ORDER BY fk_product') as $link) { $products[] = (int) $link['fk_product']; }
+				if (!$products) { throw new RuntimeException('LscPolicyUnavailable'); }
+			}
 			$bands = array();
 			foreach ($this->rows('SELECT * FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_margin_band WHERE entity = '.((int) $entity).' AND fk_rule = '.((int) $row['rowid']).' ORDER BY rowid') as $band) {
 				$typed = array('threshold' => (float) $band['threshold']);
@@ -100,8 +111,25 @@ class LmdbSalesCommissionMarginService
 				if (!in_array($effect, array('sale', 'commission'), true) || !in_array($row['policy_context'], array('general', 'pv', 'storage', 'mixed'), true) || ($row['policy_context'] !== 'general' && $effect !== 'commission')) {
 					throw new RuntimeException('LscPolicyUnavailable');
 				}
-				$policies[] = array('rule_id' => (int) $row['rowid'], 'context' => $row['policy_context'], 'effect' => $effect, 'rank' => array('user' => 1, 'group' => 2, 'default' => 3)[$row['assignment_type']], 'origin' => $row['ref'], 'origin_type' => $row['assignment_type'], 'assignment_id' => (int) $row['assignment_id'], 'threshold' => $row['rate'] === null ? null : (float) $row['rate'], 'bands' => $bands, 'travel_bands' => $travelBands, 'complex_site' => $complexSite);
+				$policies[] = array('rule_id' => (int) $row['rowid'], 'context' => $row['policy_context'], 'effect' => $effect, 'scope' => $scope, 'categories' => $categories, 'products' => $products, 'rank' => array('user' => 1, 'group' => 2, 'default' => 3)[$row['assignment_type']], 'origin' => $row['ref'], 'origin_type' => $row['assignment_type'], 'assignment_id' => (int) $row['assignment_id'], 'threshold' => $row['rate'] === null ? null : (float) $row['rate'], 'bands' => $bands, 'travel_bands' => $travelBands, 'complex_site' => $complexSite);
 			}
+		}
+		// A deleted or newly hidden target must not silently become an offer fallback.
+		foreach (array('category' => 'categories', 'product' => 'products') as $type => $field) {
+			$ids = array();
+			foreach ($policies as $policy) { $ids = array_merge($ids, $policy[$field]); }
+			$ids = array_values(array_unique($ids));
+			if (!$ids) { continue; }
+			foreach ($ids as $targetId) { if ($targetId <= 0) { throw new RuntimeException('LscPolicyUnavailable'); } }
+			if ($type === 'category') {
+				if (!isModEnabled('category')) { throw new RuntimeException('LscPolicyUnavailable'); }
+				if (!class_exists('Categorie', false)) { require_once DOL_DOCUMENT_ROOT.'/categories/class/categorie.class.php'; }
+				$nativeCategory = new Categorie($this->db);
+				$sql = 'SELECT rowid FROM '.MAIN_DB_PREFIX.'categorie WHERE rowid IN ('.$this->db->sanitize(implode(',', $ids)).') AND type = '.((int) $nativeCategory->MAP_ID[Categorie::TYPE_PRODUCT]).' AND entity IN ('.$this->db->sanitize(getEntity('category')).')';
+			} else {
+				$sql = 'SELECT rowid FROM '.MAIN_DB_PREFIX.'product WHERE rowid IN ('.$this->db->sanitize(implode(',', $ids)).') AND entity IN ('.$this->db->sanitize(getEntity('product')).') AND fk_product_type IN (0,1)';
+			}
+			if (count($this->rows($sql)) !== count($ids)) { throw new RuntimeException('LscPolicyUnavailable'); }
 		}
 		return $policies;
 	}
@@ -181,7 +209,58 @@ class LmdbSalesCommissionMarginService
 			$value = $technicalNeeded ? ($copy->array_options[$field] ?? null) : null;
 			$tech[$key] = is_numeric($value) && is_finite((float) $value) && (float) $value >= 0 ? (float) $value : null;
 		}
-		return array('cost' => $cost, 'sale' => $sale, 'rate' => $rate, 'kwc' => $tech['kwc'], 'kwh' => $tech['kwh'], 'lines' => $lineData, 'resolved_costs' => $resolvedCosts, 'cost_settings' => $costSettings, 'total_ht' => $copy->total_ht, 'discount' => $copy->remise_percent ?? null, 'currency' => $copy->multicurrency_code ?? null, 'currency_rate' => $copy->multicurrency_tx ?? null);
+		return array('cost' => $cost, 'sale' => $sale, 'rate' => $rate, 'kwc' => $tech['kwc'], 'kwh' => $tech['kwh'], 'lines' => $lineData, 'resolved_costs' => $resolvedCosts, 'cost_settings' => $costSettings, 'total_ht' => $copy->total_ht, 'discount' => $copy->remise_percent ?? null, 'currency' => $copy->multicurrency_code ?? null, 'currency_rate' => $copy->multicurrency_tx ?? null, '_margin_object' => $copy);
+	}
+
+	/** @param object $proposal Copy with native lines
+	 * @param list<int> $indexes Selected line indexes
+	 * @return float|null Markup on the selected lines' native cost */
+	private function lineRate($proposal, array $indexes)
+	{
+		if (!$indexes) { return null; }
+		$copy = clone $proposal;
+		$copy->lines = array();
+		foreach ($indexes as $index) { $copy->lines[] = clone $proposal->lines[$index]; }
+		$margin = (new FormMargin($this->db))->getMarginInfosArray($copy);
+		$cost = isset($margin['pa_total']) && is_numeric($margin['pa_total']) ? (float) $margin['pa_total'] : null;
+		$sale = isset($margin['pv_total']) && is_numeric($margin['pv_total']) ? (float) $margin['pv_total'] : null;
+		if ($cost === null || $cost <= 0 || $sale === null) { return null; }
+		foreach ($copy->lines as $line) {
+			if ((int) ($line->product_type ?? 0) !== 9 && ($line->qty ?? 0) != 0 && (!isset($line->pa_ht) || !is_numeric($line->pa_ht))) { return null; }
+		}
+		return ($sale - $cost) / $cost * 100;
+	}
+
+	/** @param list<array<string,mixed>> $rules Policies for one beneficiary
+	 * @param array<string,mixed> $inputs Commercial snapshot
+	 * @param object|null $marginObject Native proposal copy
+	 * @param array<int,list<int>> $categoryMap Product/category links
+	 * @param array<string,mixed>|null $travel Stored journey
+	 * @return array<string,mixed> */
+	private function evaluateRules(array $rules, array $inputs, $marginObject, array $categoryMap, $travel, ?bool $complexSite = null)
+	{
+		$scoped = false;
+		foreach ($rules as $rule) { if (($rule['scope'] ?? 'offer') !== 'offer') { $scoped = true; break; } }
+		if (!$scoped) {
+			$decision = LmdbSalesCommissionMarginEngine::evaluate($rules, $inputs['rate'], $inputs['kwc'], $inputs['kwh'], $travel, $complexSite);
+			foreach ($decision['checks'] as &$check) { $check['scope'] = 'offer'; $check['target_lines'] = array_column($inputs['lines'] ?? array(), 'id'); }
+			unset($check);
+			return $decision;
+		}
+		$decision = array('sale' => 'allow', 'commission' => 'allow', 'checks' => array());
+		foreach (LmdbSalesCommissionMarginScope::select($rules, $inputs['lines'], $categoryMap, $inputs['kwc'], $inputs['kwh']) as $selected) {
+			$indexes = $selected['line_indexes'];
+			$rate = $marginObject === null ? null : $this->lineRate($marginObject, $indexes);
+			$one = LmdbSalesCommissionMarginEngine::evaluate(array($selected), $rate, $inputs['kwc'], $inputs['kwh'], $travel, $complexSite);
+			foreach ($one['checks'] as $check) {
+				$check['scope'] = $selected['scope'];
+				$check['target_lines'] = array_map(static function ($index) use ($inputs) { return $inputs['lines'][$index]['id']; }, $indexes);
+				$check['rate'] = $rate;
+				if ($selected['scope_conflict']) { $check['state'] = 'unknown'; $check['reason'] = 'conflict'; }
+				$decision['checks'][] = $check;
+			}
+		}
+		return LmdbSalesCommissionMarginEngine::aggregate($decision);
 	}
 
 	/** Read the optional qualification only after a selected rule requires it.
@@ -237,11 +316,32 @@ class LmdbSalesCommissionMarginService
 			foreach ($rules as $rule) { $hasRules = true; $technicalNeeded = $technicalNeeded || $rule['context'] !== 'general'; $travelNeeded = $travelNeeded || !empty($rule['travel_bands']); }
 		}
 		$inputs = $hasRules ? $this->inputs($proposal, $technicalNeeded) : array('cost' => null, 'sale' => null, 'rate' => null, 'kwc' => null, 'kwh' => null);
+		$marginObject = $inputs['_margin_object'] ?? null;
+		unset($inputs['_margin_object']);
+		$categoryMap = array();
+		$categoryNeeded = false;
+		foreach ($policies as $rules) { foreach ($rules as $rule) { $categoryNeeded = $categoryNeeded || ($rule['scope'] ?? 'offer') === 'category'; } }
+		if ($categoryNeeded) {
+			if (!isModEnabled('category')) { throw new RuntimeException('LscPolicyUnavailable'); }
+			if (!class_exists('Categorie', false)) { require_once DOL_DOCUMENT_ROOT.'/categories/class/categorie.class.php'; }
+			$nativeCategory = new Categorie($this->db);
+			$productCategoryType = (int) $nativeCategory->MAP_ID[Categorie::TYPE_PRODUCT];
+			$productIds = array_values(array_unique(array_filter(array_map('intval', array_column($inputs['lines'], 'fk_product')))));
+			if ($productIds) {
+				$ids = $this->db->sanitize(implode(',', $productIds));
+				$visibleProducts = $this->rows('SELECT rowid FROM '.MAIN_DB_PREFIX.'product WHERE rowid IN ('.$ids.') AND entity IN ('.$this->db->sanitize(getEntity('product')).')');
+				if (count($visibleProducts) !== count($productIds)) { throw new RuntimeException('LscPolicyUnavailable'); }
+				$sql = 'SELECT cp.fk_product, cp.fk_categorie FROM '.MAIN_DB_PREFIX.'categorie_product cp INNER JOIN '.MAIN_DB_PREFIX.'categorie c ON c.rowid = cp.fk_categorie';
+				$sql .= ' WHERE cp.fk_product IN ('.$ids.') AND c.type = '.$productCategoryType.' AND c.entity IN ('.$this->db->sanitize(getEntity('category')).') ORDER BY cp.fk_product, cp.fk_categorie';
+				foreach ($this->rows($sql) as $link) { $categoryMap[(int) $link['fk_product']][] = (int) $link['fk_categorie']; }
+			}
+		}
+		$inputs['product_categories'] = $categoryMap;
 		$travel = $travelNeeded ? $this->travelData($proposal, $actor) : null;
 		if ($travelNeeded) { $inputs['travel'] = $travel; }
 		$complexNeeded = false;
 		foreach ($policies as $rules) {
-			foreach (LmdbSalesCommissionMarginEngine::evaluate($rules, $inputs['rate'], $inputs['kwc'], $inputs['kwh'], $travel)['checks'] as $check) {
+			foreach ($this->evaluateRules($rules, $inputs, $marginObject, $categoryMap, $travel)['checks'] as $check) {
 				if ($check['reason'] === 'complex_site_missing') { $complexNeeded = true; break 2; }
 			}
 		}
@@ -257,7 +357,7 @@ class LmdbSalesCommissionMarginService
 		$approvals = $this->rows('SELECT rowid, fk_user, fk_rule, effect, reason, fk_user_creat, date_creation FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_margin_approval WHERE '.$where." AND fingerprint = '".$this->db->escape($fingerprint)."'");
 		$result = array();
 		foreach ($policies as $id => $rules) {
-			$decision = LmdbSalesCommissionMarginEngine::evaluate($rules, $inputs['rate'], $inputs['kwc'], $inputs['kwh'], $travel, $inputs['complex_site']);
+			$decision = $this->evaluateRules($rules, $inputs, $marginObject, $categoryMap, $travel, $inputs['complex_site']);
 			foreach ($decision['checks'] as &$check) {
 				if ($id <= 0) { $check['state'] = 'unknown'; $check['reason'] = 'beneficiary_missing'; }
 				foreach ($approvals as $approval) {

@@ -58,15 +58,19 @@ class LmdbSalesCommissionPolicyTooltip extends Propal
 		}
 		$html .= '<p><strong>'.dol_escape_htmltag($langs->trans(!empty($decision['frozen']) ? 'LscFrozen' : 'LscAppliedRules')).'</strong></p>';
 		$source = array('user' => 'User', 'group' => 'Group', 'default' => 'Default')[$check['origin_type'] ?? ''] ?? 'Unknown';
+		$scopeKey = array('offer' => 'LscScopeOffer', 'category' => 'LscScopeCategory', 'product' => 'LscScopeProduct')[$check['scope'] ?? 'offer'] ?? 'LscScopeOffer';
+		$actualRate = array_key_exists('rate', $check) ? $check['rate'] : ($decision['inputs']['rate'] ?? null);
 		$fields = array(
 			'LmdbSalesCommissionsProposalEstimateTableRuleSource' => $langs->trans($source),
+			'LscPolicyScope' => $langs->trans($scopeKey),
 			'LscPolicyContext' => $langs->trans('LscContext_'.$check['context']),
 			'LscPolicyEffect' => $langs->trans('LscEffect_'.$effect),
 			'LscRuleBaseThreshold' => isset($check['base_threshold']) ? price($check['base_threshold']).' %' : '—',
 			'LscThreshold' => isset($check['threshold']) ? price($check['threshold']).' %' : '—',
-			'LscActualRate' => isset($decision['inputs']['rate']) ? price($decision['inputs']['rate']).' %' : $langs->trans('Unknown'),
+			'LscActualRate' => $actualRate !== null ? price($actualRate).' %' : $langs->trans('Unknown'),
 			'Result' => $langs->trans('LscReason_'.$check['reason']),
 		);
+		if (isset($check['target_lines']) && is_array($check['target_lines'])) { $fields['LscTargetLines'] = (string) count($check['target_lines']); }
 		foreach (array('kwc' => 'kWc', 'kwh' => 'kWh') as $key => $unit) {
 			$fields[$unit] = isset($decision['inputs'][$key]) ? price($decision['inputs'][$key]).' '.$unit : '—';
 		}

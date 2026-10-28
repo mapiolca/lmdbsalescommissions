@@ -13,12 +13,67 @@ class LmdbSalesCommissionRule extends LmdbSalesCommissionCommon
 	public $policy_context;
 	/** @var string|null sale, commission or both */
 	public $policy_effect;
+	/** @var string|null offer, category or product */
+	public $policy_scope;
 	/** @var string|null fixed or percentage */
 	public $reward_mode;
 	/** @var float|string|null Reward amount or rate */
 	public $reward_value;
 	public $element = 'lmdbsalescommissions_rule';
 	public $table_element = 'lmdbsalescommissions_rule';
+
+	/** Validate the new selection and every stored link before replacing margin targets.
+	 * An editor without a complete catalogue view must not remove hidden relations.
+	 * @param User $user Actor
+	 * @param string $scope offer, category or product
+	 * @param list<int> $categories Selected native category IDs
+	 * @param list<int> $products Selected native product/service IDs
+	 * @return int Positive when all targets are writable, negative on error
+	 */
+	public function validateMarginTargets($user, $scope, array $categories, array $products)
+	{
+		global $conf;
+		$this->error = 'LscInvalidPolicyScope';
+		if (!$user->hasRight('lmdbsalescommissions', 'admin', 'configure') || !$user->admin || !empty($user->socid)
+			|| !in_array($scope, array('offer', 'category', 'product'), true)
+			|| ($scope === 'category' && !$categories) || ($scope === 'product' && !$products)
+			|| ($scope !== 'category' && $categories) || ($scope !== 'product' && $products)) { return -1; }
+		$targets = array('category' => $categories, 'product' => $products);
+		if ((int) $this->id > 0) {
+			if ((int) $this->entity !== (int) $conf->entity) { return -1; }
+			foreach (array('category', 'product') as $type) {
+				$q = $this->db->query('SELECT fk_'.$type.' FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_margin_'.$type.' WHERE entity = '.((int) $this->entity).' AND fk_rule = '.((int) $this->id));
+				if (!$q) { $this->error = 'LscPolicyUnavailable'; return -1; }
+				while (is_object($row = $this->db->fetch_object($q))) { $targets[$type][] = (int) $row->{'fk_'.$type}; }
+				$this->db->free($q);
+			}
+		}
+		foreach ($targets as $type => $ids) {
+			foreach ($ids as $targetId) { if (!is_int($targetId) || $targetId <= 0) { return -1; } }
+			$ids = array_values(array_unique($ids));
+			if (!$ids) { continue; }
+			$this->error = (int) $this->id > 0 ? 'LscPolicyScopeInaccessible' : 'LscInvalidPolicyScope';
+			if ($type === 'category') {
+				if (!isModEnabled('category') || !$user->hasRight('categorie', 'lire')) { return -1; }
+				if (!class_exists('Categorie', false)) { require_once DOL_DOCUMENT_ROOT.'/categories/class/categorie.class.php'; }
+				$nativeCategory = new Categorie($this->db);
+				$sql = 'SELECT rowid FROM '.MAIN_DB_PREFIX.'categorie WHERE rowid IN ('.$this->db->sanitize(implode(',', $ids)).') AND type = '.((int) $nativeCategory->MAP_ID[Categorie::TYPE_PRODUCT]).' AND entity IN ('.$this->db->sanitize(getEntity('category')).')';
+			} else {
+				$types = array();
+				if ($user->hasRight('produit', 'lire')) { $types[] = 0; }
+				if ($user->hasRight('service', 'lire')) { $types[] = 1; }
+				if (!$types) { return -1; }
+				$sql = 'SELECT rowid FROM '.MAIN_DB_PREFIX.'product WHERE rowid IN ('.$this->db->sanitize(implode(',', $ids)).') AND entity IN ('.$this->db->sanitize(getEntity('product')).') AND fk_product_type IN ('.$this->db->sanitize(implode(',', $types)).')';
+			}
+			$q = $this->db->query($sql);
+			if (!$q) { $this->error = 'LscPolicyUnavailable'; return -1; }
+			$complete = $this->db->num_rows($q) === count($ids);
+			$this->db->free($q);
+			if (!$complete) { return -1; }
+		}
+		$this->error = '';
+		return 1;
+	}
 
 	/** Delete an unused margin policy and its bands atomically; retain referenced policies.
 	 * @param User $user Actor
@@ -49,6 +104,8 @@ class LmdbSalesCommissionRule extends LmdbSalesCommissionCommon
 			if (!$this->db->query('DELETE FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_margin_band WHERE '.$where)) { throw new RuntimeException('LscPolicyUnavailable'); }
 			if (!$this->db->query('DELETE FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_margin_travel_band WHERE '.$where)) { throw new RuntimeException('LscPolicyUnavailable'); }
 			if (!$this->db->query('DELETE FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_margin_complex_site WHERE '.$where)) { throw new RuntimeException('LscPolicyUnavailable'); }
+			if (!$this->db->query('DELETE FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_margin_category WHERE '.$where)) { throw new RuntimeException('LscPolicyUnavailable'); }
+			if (!$this->db->query('DELETE FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_margin_product WHERE '.$where)) { throw new RuntimeException('LscPolicyUnavailable'); }
 			// CommonObject v20 derives a different code from the class name; use our stable CRUD prefix.
 			if (parent::delete($user, 1) <= 0) { throw new RuntimeException('LscPolicyUnavailable'); }
 			if (!$notrigger && $this->call_trigger($this->TRIGGER_PREFIX.'_DELETE', $user) < 0) { throw new RuntimeException('LscPolicyUnavailable'); }
@@ -107,6 +164,7 @@ class LmdbSalesCommissionRule extends LmdbSalesCommissionCommon
 		'reward_value' => array('type' => 'double(24,8)', 'label' => 'LscRewardValue', 'enabled' => '1', 'visible' => 0),
 		'policy_context' => array('type' => 'varchar(16)', 'label' => 'LscPolicyContext', 'enabled' => '1', 'visible' => 0),
 		'policy_effect' => array('type' => 'varchar(16)', 'label' => 'LscPolicyEffect', 'enabled' => '1', 'visible' => 0),
+		'policy_scope' => array('type' => 'varchar(16)', 'label' => 'LscPolicyScope', 'enabled' => '1', 'visible' => 0, 'default' => 'offer'),
 		'rate' => array('type' => 'double(10,4)', 'label' => 'Rate', 'enabled' => '1', 'visible' => 1, 'position' => 40),
 		'fk_tier_grid' => array('type' => 'integer', 'label' => 'LmdbSalesCommissionsTierGrid', 'enabled' => '1', 'visible' => 1, 'position' => 50),
 		'fk_payment_term' => array('type' => 'integer', 'label' => 'LmdbSalesCommissionsPaymentTerms', 'enabled' => '1', 'visible' => 1, 'position' => 55),

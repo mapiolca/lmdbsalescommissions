@@ -45,4 +45,14 @@ jQuery(function ($) {
 	}
 	context.off('change.lscPolicy').on('change.lscPolicy', updateContext);
 	updateContext();
+	var scope = editor.find('#policy_scope');
+	function updateScope() {
+		var selected = scope.val();
+		var categories = editor.find('#lsc-policy-categories');
+		var products = editor.find('#lsc-policy-products');
+		categories.toggle(selected === 'category').find('select').prop('disabled', selected !== 'category');
+		products.toggle(selected === 'product').find('select').prop('disabled', selected !== 'product');
+	}
+	scope.off('change.lscPolicy').on('change.lscPolicy', updateScope);
+	updateScope();
 });

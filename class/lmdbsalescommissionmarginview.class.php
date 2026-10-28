@@ -121,17 +121,17 @@ class LmdbSalesCommissionMarginView
 			$rate = $decision['inputs']['rate'] ?? null;
 			$policyValues = array(dol_escape_htmltag($label));
 			foreach (array('sale', 'commission') as $effect) { $policyValues[] = $decision !== null ? $langs->trans('LscState_'.$effect.'_'.$decision[$effect]) : '—'; }
-			$policyValues[] = $rate === null ? $langs->trans('Unknown') : dol_escape_htmltag((string) $rate).' %';
+			$policyValues[] = $rate === null ? $langs->trans('Unknown') : price($rate).' %';
 			$html .= '<tr class="oddeven"><td>'.$beneficiaryHtml.'</td>';
 			$html .= $summary ? '<td class="right">'.($estimate['amount'] ?? '—').'</td><td>'.$status.'</td><td>' : '<td>'.implode('</td><td>', array_slice($policyValues, 1)).'</td><td>';
 			$rulesHtml = !empty($decision['frozen']) ? '<p>'.$langs->trans('LscFrozen').'</p>' : '';
 			$rulesHtml .= '<div class="div-table-responsive-no-min"><table class="noborder centpercent"><tbody><tr class="liste_titre">';
-			$ruleHeaders = $summary ? array('LscRules', 'Status') : array('LmdbSalesCommissionsProposalEstimateTableRuleSource', 'LmdbSalesCommissionsProposalEstimateTableRule', 'LscPolicyContext', 'LscPolicyEffect', 'LscThreshold', 'Result');
+			$ruleHeaders = $summary ? array('LscRules', 'Status') : array('LmdbSalesCommissionsProposalEstimateTableRuleSource', 'LmdbSalesCommissionsProposalEstimateTableRule', 'LscPolicyScope', 'LscPolicyContext', 'LscPolicyEffect', 'LscActualRate', 'LscThreshold', 'Result');
 			foreach ($ruleHeaders as $key) { $rulesHtml .= '<th scope="col">'.$langs->trans($key).'</th>'; }
 			$rulesHtml .= '</tr>';
 			foreach ($decision['checks'] ?? array() as $check) {
 				$originLabel = array('user' => 'User', 'group' => 'Group', 'default' => 'Default')[$check['origin_type'] ?? ''] ?? '';
-				$thresholdLabel = $check['threshold'] === null ? '—' : dol_escape_htmltag((string) $check['threshold']).' %';
+				$thresholdLabel = $check['threshold'] === null ? '—' : price($check['threshold']).' %';
 				if (($check['travel_metric'] ?? '') !== '' && ($check['travel_value'] ?? null) !== null) {
 					$unit = $langs->trans($check['travel_metric'] === 'minutes' ? 'LscTravelMinutes' : 'LscTravelKilometres');
 					$thresholdLabel .= '<br><span class="opacitymedium">'.dol_escape_htmltag($langs->trans('LscTravelApplied', (string) $check['base_threshold'], (string) $check['travel_uplift'], price($check['travel_value'], 0, $langs, 0, 2, 2), $unit)).'</span>';
@@ -141,7 +141,11 @@ class LmdbSalesCommissionMarginView
 						: ($check['complex_site_state'] ? $langs->trans('LscComplexSiteApplied', price($check['complex_site_uplift'])) : $langs->trans('LscComplexSiteNotApplied'));
 					$thresholdLabel .= '<br><span class="opacitymedium">'.dol_escape_htmltag($complexLabel).'</span>';
 				}
-				$cells = array($originLabel !== '' ? $langs->trans($originLabel) : '—', dol_escape_htmltag($check['origin']), $langs->trans('LscContext_'.$check['context']), $langs->trans('LscEffect_'.$check['effect']), $thresholdLabel, $langs->trans('LscReason_'.$check['reason']));
+				$scopeKey = array('offer' => 'LscScopeOffer', 'category' => 'LscScopeCategory', 'product' => 'LscScopeProduct')[$check['scope'] ?? 'offer'] ?? 'LscScopeOffer';
+				$scopeLabel = $langs->trans($scopeKey);
+				if (isset($check['target_lines']) && is_array($check['target_lines'])) { $scopeLabel .= ' ('.count($check['target_lines']).' '.$langs->trans('LscTargetLines').')'; }
+				$actualRate = array_key_exists('rate', $check) ? $check['rate'] : ($decision['inputs']['rate'] ?? null);
+				$cells = array($originLabel !== '' ? $langs->trans($originLabel) : '—', dol_escape_htmltag($check['origin']), dol_escape_htmltag($scopeLabel), $langs->trans('LscContext_'.$check['context']), $langs->trans('LscEffect_'.$check['effect']), $actualRate === null ? $langs->trans('Unknown') : price($actualRate).' %', $thresholdLabel, $langs->trans('LscReason_'.$check['reason']));
 				if ($summary) {
 					$ruleId = (int) ($check['rule_id'] ?? 0);
 					$ruleLabel = dol_escape_htmltag($ruleLabelError ? $langs->trans('LscPolicyUnavailable') : ($ruleLabels[$ruleId] ?? $check['origin']));
