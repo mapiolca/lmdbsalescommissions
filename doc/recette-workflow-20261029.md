@@ -105,6 +105,12 @@ Résultats réels `0681c77`, avec lecture avant/après et comparaison des donné
 
 Une série intermédiaire a reçu un HTTP 403 **Imunify360 avant Dolibarr** ; elle a été arrêtée dès la première lecture, sans mutation. La reprise après les autres essais est entièrement passée. Aucun filtrage Imunify, IP autorisée, User-Agent, proxy ou sécurité TLS n’a été modifié pour la faire passer. Les rapports locaux ignorés `live-api-unlocked.json` et `live-api-pending.json` contiennent les résultats sans jeton.
 
+## Complément : pictogrammes et libellés des modèles
+
+Au code `a78c342ee841eb6f9651bcb80e9008775111c14f`, servi temporairement et confirmé dans Git Version Control, une actualisation native du module a rendu visibles les deux pictogrammes de pourcentage jaunes dans l’administration Notifications. Le nom technique `LscWorkflowDefaultMail` et le type `lscmargincase` restent inchangés ; le libellé sélectionné devient « Validation et dérogation de marge des devis ». Les deux valeurs sélectionnées restent `LscWorkflowDefaultMail:lscmargincase`. Le catalogue anglais fournit « Proposal margin approval and exception » ; ses traductions sont testées, sans changement de langue utilisateur pendant la recette réelle.
+
+Le hook charge explicitement son catalogue. Le core dérive la classe Font Awesome du type de modèle ; une feuille déclarée nativement associe uniquement cet alias au glyphe de pourcentage existant. Aucun modèle ni abonnement n’a été modifié ou envoyé pour cet essai. Les six suites de notifications passent avec 99 assertions cumulatives chacune, PHPStan niveau 5 reste sans erreur, le paquet vérifie 143 fichiers et 72 bootstraps. [CI PR](https://github.com/mapiolca/lmdbsalescommissions/actions/runs/40872787188) et [CI branche](https://github.com/mapiolca/lmdbsalescommissions/actions/runs/40872781727) réussies. La capture de preuve reste hors du dépôt. Au retour sur la branche initiale `8230ff3`, l’actualisation native ne supprimait pas la partie CSS absente de son ancien descripteur : sa déclaration technique a été neutralisée à `[]` dans l’écran natif des constantes de TEST 1. Aucun lien CSS manquant n’est ensuite émis. L’actualisation de la branche corrigée redéclarera sa feuille selon le descripteur ; aucun réglage métier ni sélection de modèle n’a été changé.
+
 ## Couverture restant à compléter avant feu vert
 
 | Exigence | Preuve disponible | Recette réelle encore nécessaire |
