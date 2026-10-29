@@ -2,7 +2,7 @@
 
 ## Décision de déploiement
 
-**Validation globale non acquise.** Les blocages SMTP, API et PHPStan ont été levés pendant la reprise. Les demandes et les deux décisions sont reçues par email ; les refus API en brouillon et pendant l’attente sont vérifiés sur develop. Les profils hiérarchiques distincts, la fixation réelle à la signature et les autres limites ci-dessous restent à terminer avant activation du blocage en production.
+**Validation globale non acquise.** Les blocages SMTP, API et PHPStan ont été levés pendant la reprise. Les demandes et les deux décisions sont reçues par email ; les refus API en brouillon et pendant l’attente sont vérifiés sur develop. La signature autorisée du devis fictif 36 a ensuite confirmé la commission figée de 37,50 EUR et ses trois échéances. Les profils hiérarchiques distincts, le demandeur sans validation native et les autres limites ci-dessous restent à terminer avant activation du blocage en production.
 
 PR : [#10](https://github.com/mapiolca/lmdbsalescommissions/pull/10), version **1.3.0**, base `ecb535452d04e44fce4982717272196d118a6fa5`. Code de la reprise réelle : **`0681c77386d4f1646cff1a5cc110a24742f2fb32`**, puis **`b2fe02732fb6a1fd79f1344d8114ae972a4ce799`** pour les accents des notifications. La tête servie a été confirmée dans Git Version Control de cPanel, sans déploiement par terminal.
 
@@ -123,17 +123,39 @@ Le rendu réel concerne Dolibarr 25 alpha / PHP 8.3.36 sur develop. Le devis de 
 
 Après l’essai, le candidat a été désactivé avec son descripteur encore servi pour retirer ses déclarations techniques. Git Version Control a rétabli la branche initiale **feature/margin-excess-bonus / 8230ff3** ; après le message d’échec de contact distant, son rechargement confirme cette branche et ce SHA. Le module d’origine a ensuite été réactivé nativement : état actif confirmé, nouveau lien CSS absent, ancien ensemble d’onglets restauré et devis 47 en Brouillon. Aucun changement de branche ni déploiement n’a utilisé le terminal. Les dossiers et modèles ne sont pas supprimés et les autres réglages de recette restent inchangés.
 
+## Reprise : compte commercial réel et signature autorisée
+
+Après accord explicite de l’utilisateur pour signer uniquement le devis fictif 36, la branche `fix/margin-approval-workflow` au SHA `18757e3a3cae54eec2fe7df6c3f5b1ef796661db` a été servie temporairement via Git Version Control et le module actualisé nativement dans TEST 1. La branche initiale relevée reste `feature/margin-excess-bonus / 8230ff3`.
+
+Avant confirmation, la fiche `PR2610-0009` affiche 37,50 EUR **Non acquise**. Le contrôle automatique a d’abord refusé la signature à cause du destinataire d’origine `erp@…` annoncé par la modale. La lecture de la configuration native a confirmé **Envoyer tous les emails à developpeur@lesmetiersdubatiment.fr** ; le core `CMailFile` remplace la destination et vide CC/CCI avec ce réglage. La même confirmation native a ensuite été acceptée, sans modification de configuration ni autre mode de signature.
+
+| Contrôle réel | Résultat |
+|---|---|
+| Statut après confirmation | **Signée (à facturer)** ; seule la confirmation native de signature a été exécutée |
+| Détail des décisions | Vente et commission autorisées par dérogation ; marge 25 %, commission de l’auteur conservée à **100 %**, **Décision figée à la signature** |
+| Suivi des commissions filtré sur `PR2610-0009` | Commission sur marge **Acquise**, base 250 EUR, taux 15 %, commission **37,50 EUR** ; CA attribué **1 250 EUR** conservé, prime de dépassement nulle |
+| Échéance signature, révision 1 | **10 % = 3,75 EUR, À verser**, datée du 29/10/2026 |
+| Échéance acompte, révision 1 | **40 % = 15 EUR, En attente** |
+| Échéance facture finale, révision 1 | **50 % = 18,75 EUR, En attente** |
+| Rechargement des échéances | Toujours trois lignes, total **37,50 EUR**, aucune ligne marquée versée et aucun doublon |
+
+Le connecteur de boîte mail a refusé la recherche de réception car son quota journalier est épuisé : aucune recherche ni lecture supplémentaire n’a été exécutée. La réception de l’email de signature n’est donc pas revendiquée, contrairement aux notifications de demande et décision vérifiées lors de la session précédente. Les captures de signature et d’échéances restent hors du dépôt.
+
+La connexion au compte existant `utilisateur.test` (id 3) dans le navigateur interne a réussi, sans création ni modification de compte, mot de passe ou jeton. Sur le devis fictif 47, le bouton **Demander la validation** et sa confirmation native sont accessibles ; l’annulation conserve le Brouillon et ne crée aucun nouveau dossier. L’historique est accessible, les pourcentages de commission des autres auteurs restent masqués et aucun bouton d’approbation n’est proposé. L’accès direct à l’administration des modules est refusé.
+
+Ce compte **hérite déjà du droit natif de validation** et sa fiche indique **Responsable hiérarchique : Aucun**. Aucun droit, groupe ou lien hiérarchique n’a été modifié : ces constats ne valident ni la demande sans droit natif de validation ni l’approbation par un responsable de subordonnés. Le responsable de recette et le profil adapté restent à préciser. Une reconnexion administrateur dans le navigateur interne est demandée pour terminer la restauration du module ; la session du compte de test a été fermée. Le devis 36 signé et ses échéances sont conservés ; le devis 47 reste en Brouillon sans nouveau dossier actif.
+
 ## Couverture restant à compléter avant feu vert
 
 | Exigence | Preuve disponible | Recette réelle encore nécessaire |
 |---|---|---|
-| Demande sans droit natif de validation | Tests isolés | Compte commercial distinct ; essais réels effectués avec Codex administrateur |
-| Hiérarchie directe/indirecte, refus hors hiérarchie et autoapprobation limitée | `getAllChildIds()` natif avec comptes simulés | Comptes responsables/commerciaux distincts, droits limités, accès métier révoqué |
+| Demande sans droit natif de validation | Tests isolés ; ouverture/annulation avec le compte réel utilisateur.test | Ce compte hérite déjà de la validation native : il reste à disposer d’un profil sans ce droit |
+| Hiérarchie directe/indirecte, refus hors hiérarchie et autoapprobation limitée | `getAllChildIds()` natif avec comptes simulés ; compte commercial réel sans droit de dérogation | Aucun responsable configuré pour utilisateur.test ; comptes responsables/commerciaux avec hiérarchie et droits limités, accès métier révoqué |
 | Droit de commission distinct absent, autres bénéficiaires et répartitions manuelles | Tests isolés des calculs et permissions | Refus réel sans ce droit ; fixe/proportionnel, plusieurs bénéficiaires, exports et échéances après signature |
 | Règles inconnues, données ou règles modifiées pendant l’attente | Tests isolés | Accord périmé et règles modifiées sur instance : expiration du pilotage de la modale d’édition avant toute saisie ; aucun seuil changé |
 | Rejeux et concurrence | Tests isolés, verrous SQL MariaDB réel et deux soumissions/décisions HTTP réelles depuis deux onglets du même compte | Course entre sessions de comptes différents, sans éventuelle sérialisation de session PHP ; rollback des autres effets installés |
 | Liste et actions de masse | Rendu réel corrigé, gardes isolés | Validation/signature/génération de masse refusées sans effets secondaires |
-| API native / signature publique | API réelle : lectures, écriture normale, refus lifecycle et verrouillage en attente ; gardes de signature isolés | Signature publique et fixation réelle de commission ; autres profils et entités API |
+| API native / signature publique | API réelle : lectures, écriture normale, refus lifecycle et verrouillage en attente ; signature native réelle, commission 37,50 EUR figée à 100 % et trois échéances | Signature publique, autres profils et entités API ; commissions partielles à la signature |
 | Suppression pendant l’attente | Contrôles analysés et tests isolés | Le clic réel a été refusé par le contrôle automatique d’approbation en raison du risque de suppression ; aucune suppression exécutée |
 | Deux entités actives et partage | Tests isolés et refus réel depuis TEST 2 inactive | Installation/paramétrage dans deux entités actives, accès autorisés/refusés et conservation des réglages |
 | Historique signé, versements et paliers | Tests de non-régression/CI | Comparaison avant/après sur données de recette signées et payées, sans recalcul historique automatique |
