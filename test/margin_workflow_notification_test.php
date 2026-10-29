@@ -86,4 +86,35 @@ $notifySource = file_get_contents($workflowNativeRoot.'/core/class/notify.class.
 checkWorkflow($legacy ? strpos($notifySource, '$object_type.\'_send\'') !== false : strpos($notifySource, 'getEMailTemplate($this->db, $object_type,') !== false, 'Native notification sender uses documented version-specific transport type');
 $adminSource = file_get_contents($workflowNativeRoot.'/admin/notification.php');
 checkWorkflow(strpos($adminSource, '$model = $notifiedevent[\'elementtype\']') !== false, 'Native administration uses documented visible type');
+// Exercise shipped substitutions, including plain-text email subjects.
+// Persistence and the HTML/plain translation distinction are simulated.
+foreach (array('comm/propal/class/propal.class.php', 'user/class/user.class.php') as $file) {
+	if (!is_dir(dirname(DOL_DOCUMENT_ROOT.'/'.$file))) { mkdir(dirname(DOL_DOCUMENT_ROOT.'/'.$file), 0777, true); }
+	file_put_contents(DOL_DOCUMENT_ROOT.'/'.$file, '<?php // Classes already supplied by the workflow fixture.');
+}
+function dol_nl2br($text) { return nl2br($text); }
+eval(nativeWorkflowMethod(__DIR__.'/../core/substitutions/functions_lmdbsalescommissions.lib.php', 'lmdbsalescommissions_completesubstitutionarray'));
+class WorkflowMailLangs extends WorkflowLangs {
+	public $translations = array();
+	public function trans($key, ...$args) { return htmlentities($this->translations[$key] ?? $key, ENT_QUOTES, 'UTF-8'); }
+	public function transnoentities($key, ...$args) { return $this->translations[$key] ?? $key; }
+}
+$mailLangs = new WorkflowMailLangs();
+foreach (file(__DIR__.'/../langs/fr_FR/lmdbsalescommissions.lang', FILE_IGNORE_NEW_LINES) as $line) {
+	if (strpos($line, '=') !== false) { list($key, $value) = explode('=', $line, 2); $mailLangs->translations[$key] = $value; }
+}
+$case = new LmdbSalesCommissionMarginCase($db);
+$case->fk_propal = 10; $case->entity = 1; $case->fk_author = 7; $case->fk_user_creat = 7; $case->fk_user_decider = 9;
+$case->reason = '<script>unsafe</script>'; $case->decision_reason = 'Retour motivé';
+$case->snapshot_commission_base = 37.5; $case->retained_percent = 50;
+$case->snapshot_payload = json_encode(array(array('inputs' => array('rate' => 25), 'checks' => array(array('effect' => 'sale', 'state' => 'deny', 'origin' => 'Minimum 30', 'threshold' => 30)))));
+foreach (array(0 => 'En attente de dérogation', 1 => 'Dérogation approuvée', 2 => 'Modification réautorisée') as $status => $label) {
+	$case->status = $status; $substitutions = array();
+	lmdbsalescommissions_completesubstitutionarray($substitutions, $mailLangs, $case);
+	$subject = strtr('__LSC_WORKFLOW_DECISION__ : __LSC_WORKFLOW_PROPOSAL_REF__', $substitutions);
+	checkWorkflow($subject === $label.' : P10', 'French email subject keeps readable accents for decision '.$status);
+	checkWorkflow(strpos($substitutions['__LSC_WORKFLOW_REASON__'], '<script>') === false, 'Free-text reason remains HTML-escaped');
+	checkWorkflow($substitutions['__LSC_WORKFLOW_COMMISSION__'] === '50 % (18.75)' && $substitutions['__LSC_WORKFLOW_MARGIN__'] === '25 %', 'Native monetary normalization and margin substitutions preserved');
+}
+
 echo 'Workflow notification models: '.$checks." cumulative assertions passed; SMTP not executed.\n";

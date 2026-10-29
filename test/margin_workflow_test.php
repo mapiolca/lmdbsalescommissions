@@ -80,6 +80,9 @@ class User {
 	public $error = '';
 	public $rightsList = array('lire', 'creer', 'approvesale', 'approvecommission');
 	public $children = array(7, 8);
+	public function __construct($db = null) {}
+	public function fetch($id) { $this->id = (int) $id; return $id > 0 ? 1 : 0; }
+	public function getFullName($langs) { return 'User '.$this->id; }
 	public function hasRight($module, $object, $action = null) { return in_array($action ?? $object, $this->rightsList, true); }
 	public function getAllChildIds($include = 0) { return $this->children; }
 }
