@@ -543,6 +543,7 @@ LscWorkflowDefaultMail=Validation et dérogation de marge des devis
 Lscmargincase=Dérogation de marge sur devis
 LscWorkflowHistory=Historique des validations
 LscWorkflowRequest=Demander la validation
+LscWorkflowRequestHelp=La marge du devis est inférieure à un seuil obligatoire. Indiquez pourquoi vous demandez une dérogation. Après confirmation, le devis sera placé « En attente de dérogation » et ne pourra plus être modifié. Un responsable habilité pourra le valider ou réautoriser sa modification. L’accord sur la vente ne rétablit pas automatiquement la commission.
 LscWorkflowPending=En attente de dérogation
 LscWorkflowApproved=Dérogation approuvée
 LscWorkflowReturned=Modification réautorisée

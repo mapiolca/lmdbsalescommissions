@@ -363,11 +363,19 @@ if (file_put_contents(__DIR__.'/.tools/workflow-action-controls.json', json_enco
 checkWorkflow($buttonResult === 0 && strpos($buttons, 'lsc-workflow-request') !== false, 'Native action hook prints the request button without suppressing the core action bar');
 checkWorkflow(strpos($buttons, 'searchParams.get("action")') !== false && $hookmanager->resPrint === '', 'Validation replacement reaches the page without unused hook output');
 checkWorkflow($hookmanager->executeHooks('formConfirm', array(), $quote, $action) > 0 && strpos($hookmanager->resPrint, 'submitrequest') !== false && strpos($hookmanager->resPrint, 'test-only-token') !== false, 'Native confirmation requests validation with CSRF even without validation right');
+$ajaxRequestConfirmation = $hookmanager->resPrint;
 checkWorkflow(strpos($hookmanager->resPrint, 'confirm_validate') === false, 'Request confirmation does not perform native validation');
 $db->saleThreshold = 20.0;
 checkWorkflow($hookmanager->executeHooks('formConfirm', array(), $quote, $action) === 0 && $hookmanager->resPrint === '', 'Commission-only rule preserves native modal and clears prior hook output');
 $db->saleThreshold = 30.0; $conf->use_javascript_ajax = 0;
 checkWorkflow($hookmanager->executeHooks('formConfirm', array(), $quote, $action) > 0 && strpos($hookmanager->resPrint, 'submitrequest') !== false, 'Native non-JavaScript confirmation remains available');
+foreach (array('ajax' => $ajaxRequestConfirmation, 'no_js' => $hookmanager->resPrint) as $channel => $confirmation) {
+	$helpPosition = strpos($confirmation, 'LscWorkflowRequestHelp');
+	$rulesPosition = strpos($confirmation, 'LscAppliedRules');
+	$reasonPosition = strpos($confirmation, '<textarea');
+	checkWorkflow($helpPosition !== false && $rulesPosition !== false && $reasonPosition !== false && $helpPosition < $rulesPosition && $rulesPosition < $reasonPosition, 'Request explains the process, then shows rules before the reason: '.$channel);
+	checkWorkflow(preg_match('~<label for="reason" class="fieldrequired">Reason</label>.*<textarea[^>]*name="reason"[^>]*class="[^"]*centpercent"[^>]*required rows="4"~s', $confirmation) === 1, 'Reason keeps its native mandatory label, full width and four rows: '.$channel);
+}
 $conf->use_javascript_ajax = 1;
 $id = $flow->request($quote, $requester, 'Again', workflowFingerprint($db, $quote, $requester));
 $hookmanager->initHooks(array('propallist'));

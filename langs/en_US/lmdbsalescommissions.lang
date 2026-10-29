@@ -542,6 +542,7 @@ LscWorkflowTitle=Approval of proposals below minimum margin
 LscWorkflowDefaultMail=Proposal margin approval and exception
 Lscmargincase=Proposal margin exception
 LscWorkflowRequest=Request validation
+LscWorkflowRequestHelp=This proposal is below a mandatory margin threshold. Explain why you are requesting an exception. Once confirmed, it will await approval and cannot be edited. An authorized approver may validate it or allow changes. Sales approval does not automatically restore commission.
 LscWorkflowHistory=Validation history
 LscWorkflowPending=Awaiting margin exception
 LscWorkflowApproved=Exception approved

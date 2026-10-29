@@ -495,8 +495,13 @@ class ActionsLmdbSalesCommissions
 		require_once DOL_DOCUMENT_ROOT.'/core/class/html.form.class.php';
 		$form = new Form($this->db);
 		$first = reset($decisions);
-		$fields = array(array('type' => 'hidden', 'name' => 'fingerprint', 'value' => $first['fingerprint']), array('type' => 'textarea', 'name' => 'reason', 'label' => $langs->trans('Reason'), 'value' => '', 'moreattr' => 'required'));
-		$this->resprints = $form->formconfirm(dol_buildpath('/lmdbsalescommissions/proposal_margin_workflow.php', 1).'?id='.(int) $proposal->id, $langs->trans('LscWorkflowRequest'), LmdbSalesCommissionMarginWorkflowView::checks($decisions), 'submitrequest', $fields, 'no', 1, 0, 800);
+		$fields = array(
+			'text' => '<p>'.dol_escape_htmltag($langs->trans('LscWorkflowRequestHelp')).'</p>',
+			array('type' => 'hidden', 'name' => 'fingerprint', 'value' => $first['fingerprint']),
+			array('type' => 'onecolumn', 'value' => LmdbSalesCommissionMarginWorkflowView::checks($decisions)),
+			array('type' => 'textarea', 'name' => 'reason', 'label' => '<label for="reason" class="fieldrequired">'.$langs->trans('Reason').'</label>', 'value' => '', 'morecss' => 'centpercent', 'moreattr' => 'required rows="4"'),
+		);
+		$this->resprints = $form->formconfirm(dol_buildpath('/lmdbsalescommissions/proposal_margin_workflow.php', 1).'?id='.(int) $proposal->id, $langs->trans('LscWorkflowRequest'), '', 'submitrequest', $fields, 'no', 1, 0, 800);
 		return 1;
 	}
 
