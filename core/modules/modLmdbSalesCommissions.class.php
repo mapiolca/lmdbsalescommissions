@@ -58,7 +58,7 @@ class modLmdbSalesCommissions extends DolibarrModules
 
 		$this->module_parts = array(
 			'triggers' => 1,
-			'css' => array('/lmdbsalescommissions/css/lmdbsalescommissions.css'),
+			'css' => array('/lmdbsalescommissions/css/notifications.css'),
 			'hooks' => array(
 				'propalcard', 'propallist', 'api', 'ajaxonlinesign',
 				'notification', 'elementproperties',

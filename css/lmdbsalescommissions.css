@@ -1,13 +1,3 @@
-/* Native Notifications derives the Font Awesome class from the stable object type.
- * Register that alias to the bundled percent glyph without renaming persisted types. */
-.fa-lscmargincase::before {
-	content: "\f295";
-}
-
-.fa-lscmargincase {
-	color: #f0b400;
-}
-
 body.mod-lmdbsalescommissions .fa-percent,
 body.mod-lmdbsalescommissions .fa.fa-percent,
 body.mod-lmdbsalescommissions .fas.fa-percent,
