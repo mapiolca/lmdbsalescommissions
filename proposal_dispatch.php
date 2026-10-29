@@ -206,6 +206,7 @@ $paymentModeOptions = array(
 	LmdbSalesCommissionProposalDispatchService::PAYMENT_EXPLICIT => $langs->trans('LmdbSalesCommissionsDispatchPaymentExplicit'),
 );
 
+$hookmanager->initHooks(array('lmdbsalescommissionproposaldispatch', 'globalcard'));
 llxHeader('', $langs->trans('LmdbSalesCommissionsProposalDispatch'), '', '', 0, 0, array(), lmdbsalescommissionsGetCssFiles(), '', lmdbsalescommissionsGetBodyClass());
 $head = propal_prepare_head($object);
 print dol_get_fiche_head($head, 'lmdbsalescommissions_dispatch', $langs->trans('Proposal'), -1, 'propal');

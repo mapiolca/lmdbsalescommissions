@@ -377,6 +377,37 @@ $hookmanager->executeHooks('printFieldListValue', $parameters, $listObject, $act
 // Use a manager with only the list context, as on the native list page.
 $hookmanager = new HookManager($db); $hookmanager->initHooks(array('propallist'));
 checkWorkflow($hookmanager->executeHooks('LibStatut', array('status' => 0, 'mode' => 5), $quote, $action) === 0 && $hookmanager->resPrint === '', 'Next list row retains native draft without stale pending flag');
+$conf->modules_parts['hooks']['lmdbsalescommissions'][] = 'lmdbsalescommissionmarginworkflow';
+$hookmanager = new HookManager($db); $hookmanager->initHooks(array('lmdbsalescommissionmarginworkflow', 'globalcard'));
+checkWorkflow($hookmanager->executeHooks('LibStatut', array('status' => 0, 'mode' => 5), $quote, $action) > 0 && strpos($hookmanager->resPrint, 'LscWorkflowPending') !== false, 'History tab native banner retains pending business status');
+$user = new User(); $user->rightsList[] = 'validate';
+$actions = LmdbSalesCommissionMarginWorkflowView::actions($db, $quote, $user, false);
+checkWorkflow(strpos($actions, 'mode=approve') !== false && strpos($actions, 'mode=return') !== false && strpos($actions, 'LscWorkflowPending') === false && strpos($actions, 'LscWorkflowHistory') === false, 'History action bar keeps decisions without duplicate banner status or self link');
+checkWorkflow(strpos(LmdbSalesCommissionMarginWorkflowView::actions($db, $quote, $user), 'LscWorkflowPending') !== false, 'Existing embedded actions keep their status badge');
+$flow->decide($quote, $user, $id, false, 'History return', null);
+checkWorkflow($hookmanager->executeHooks('LibStatut', array('status' => 0, 'mode' => 5), $quote, $action) === 0 && $hookmanager->resPrint === '', 'History banner returns to native draft after the decision');
+eval(nativeWorkflowMethod($workflowNativeRoot.'/core/lib/functions.lib.php', 'complete_head_from_modules'));
+$conf->modules_parts['hooks']['lmdbsalescommissions'][] = 'globalcard';
+$conf->modules_parts['hooks']['lmdbsalescommissions'][] = 'propalnote';
+foreach (array('globalcard', 'propalnote') as $context) {
+	$hookmanager = new HookManager($db); $hookmanager->initHooks(array($context));
+	$head = array(array('/note', 'Notes', 'note'), array('/documents', 'Documents', 'document'), array('/agenda', 'Agenda', 'agenda')); $h = count($head);
+	complete_head_from_modules($conf, $langs, $quote, $head, $h, 'propal', 'add', 'core');
+	checkWorkflow(count($head) === 3, 'History does not precede native transverse tabs: '.$context);
+	complete_head_from_modules($conf, $langs, $quote, $head, $h, 'propal', 'add', 'external');
+	checkWorkflow(count($head) === 4 && $head[3][2] === 'lmdbsalescommissions_validations' && strpos($head[3][0], '?id=10') !== false, 'Native tab completion appends linked history: '.$context);
+	complete_head_from_modules($conf, $langs, $quote, $head, $h, 'propal', 'add', 'external');
+	checkWorkflow(count($head) === 4, 'Repeated tab completion creates no duplicate: '.$context);
+}
+foreach (array('external', 'no_read', 'unavailable', 'other_object') as $denial) {
+	$head = array(); $h = 0; $target = $denial === 'other_object' ? new stdClass() : $quote;
+	$user->socid = $denial === 'external' ? 15 : 0;
+	$user->rightsList = $denial === 'no_read' ? array() : array('lire');
+	$settings['LMDBSALESCOMMISSIONS_MARGIN_WORKFLOW_READY'] = $denial === 'unavailable' ? 0 : 1;
+	complete_head_from_modules($conf, $langs, $target, $head, $h, 'propal', 'add', 'external');
+	checkWorkflow($head === array(), 'History tab hidden for '.$denial.' without stale hook results');
+}
+$user->socid = 0; $settings['LMDBSALESCOMMISSIONS_MARGIN_WORKFLOW_READY'] = 1;
 $nativeProposal = file_get_contents($workflowNativeRoot.'/comm/propal/class/propal.class.php');
 checkWorkflow(strpos($nativeProposal, "executeHooks('LibStatut'") !== false, 'Native quote status hook available');
 checkWorkflow(strpos(file_get_contents($workflowNativeRoot.'/comm/propal/card.php'), "executeHooks('addMoreActionsButtons'") !== false, 'Native action hook available');

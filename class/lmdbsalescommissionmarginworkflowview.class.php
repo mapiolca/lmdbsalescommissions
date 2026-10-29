@@ -19,8 +19,12 @@ class LmdbSalesCommissionMarginWorkflowView
 		return $html.'</table></div>';
 	}
 
-	/** @return string Native links; the request page checks permissions and fingerprints again. */
-	public static function actions($db, $proposal, $actor): string
+	/**
+	 * Native actions; the request page checks permissions and fingerprints again.
+	 * @param bool $withStatus Show the pending badge when no native status banner is available
+	 * @return string
+	 */
+	public static function actions($db, $proposal, $actor, bool $withStatus = true): string
 	{
 		global $langs;
 		if (!LmdbSalesCommissionMarginWorkflow::available()) { return ''; }
@@ -29,7 +33,7 @@ class LmdbSalesCommissionMarginWorkflowView
 		$pending = $workflow->pending($proposal);
 		$html = '';
 		if ($pending) {
-			$html = '<span class="lsc-workflow-pending">'.dolGetStatus($langs->trans('LscWorkflowPending'), '', '', 'status1', 5).'</span> ';
+			$html = $withStatus ? '<span class="lsc-workflow-pending">'.dolGetStatus($langs->trans('LscWorkflowPending'), '', '', 'status1', 5).'</span> ' : '';
 			try {
 				$workflow->assertDecisionAccess($proposal, $actor, false);
 				$html .= '<a class="butAction lsc-workflow-action" href="'.$url.'&mode=return">'.$langs->trans('LscWorkflowReturn').'</a>';
@@ -42,7 +46,6 @@ class LmdbSalesCommissionMarginWorkflowView
 				$html = '<a class="butAction lsc-workflow-action lsc-workflow-request" href="'.$url.'&mode=request">'.$langs->trans('LscWorkflowRequest').'</a>';
 			} catch (RuntimeException $e) { if ($e->getMessage() !== 'LscRequestNoDeniedSale') { $html = '<span class="warning">'.dol_escape_htmltag($langs->trans($e->getMessage())).'</span>'; } }
 		}
-		if ($pending || $workflow->history($proposal, 1)) { $html .= ' <a class="lsc-workflow-action" href="'.$url.'">'.img_picto('', 'search').' '.$langs->trans('LscWorkflowHistory').'</a>'; }
 		return $html;
 	}
 

@@ -27,7 +27,7 @@ class ActionsLmdbSalesCommissions
 	/** @var array<int,string>|null Native HookManager warnings, reset between calls. */
 	public $warnings = array();
 
-	/** @var array<string, mixed> Hook results */
+	/** @var array<array-key, mixed> Hook results, including native tab lists */
 	public $results = array();
 
 	/** @var string|null Printed hook result */
@@ -394,6 +394,27 @@ class ActionsLmdbSalesCommissions
 		);
 	}
 
+	/** Append the history after native transverse tabs, without evaluated user expressions.
+	 * globalcard covers quote cards/documents/Agenda/contacts; propalnote has its own context.
+	 * @param array<string,mixed> $parameters @return int */
+	public function completeTabsHead($parameters, &$object, &$action, $hookmanager)
+	{
+		global $user, $langs;
+		$this->results = array();
+		if (!($object instanceof Propal) || (int) $object->id <= 0
+			|| ($parameters['mode'] ?? '') !== 'add' || ($parameters['filterorigmodule'] ?? '') !== 'external'
+			|| !empty($user->socid) || !$user->hasRight('propal', 'lire')) { return 0; }
+		require_once __DIR__.'/lmdbsalescommissionmarginworkflow.class.php';
+		if (!LmdbSalesCommissionMarginWorkflow::available()) { return 0; }
+		foreach ((array) ($parameters['head'] ?? array()) as $tab) {
+			if (is_array($tab) && ($tab[2] ?? '') === 'lmdbsalescommissions_validations') { return 0; }
+		}
+		$langs->load('lmdbsalescommissions@lmdbsalescommissions');
+		$this->results[] = array(dol_buildpath('/lmdbsalescommissions/proposal_margin_workflow.php', 1).'?id='.(int) $object->id,
+			$langs->trans('LscWorkflowHistory'), 'lmdbsalescommissions_validations');
+		return 0;
+	}
+
 	/** Resolve the short notification/Agenda identity without a duplicate object class.
 	 * @param array<string,mixed> $parameters @return int */
 	public function getElementProperties($parameters, &$object, &$action, $hookmanager)
@@ -531,7 +552,7 @@ class ActionsLmdbSalesCommissions
 		$contexts = explode(':', (string) ($parameters['context'] ?? ''));
 		$pending = false;
 		if (in_array('propallist', $contexts, true)) { $pending = !empty($object->context['lsc_pending_case']); }
-		elseif (in_array('propalcard', $contexts, true) && (int) $object->id > 0) {
+		elseif ((in_array('propalcard', $contexts, true) || in_array('lmdbsalescommissionmarginworkflow', $contexts, true)) && (int) $object->id > 0) {
 			require_once __DIR__.'/lmdbsalescommissionmarginworkflow.class.php';
 			try { $pending = (new LmdbSalesCommissionMarginWorkflow($this->db))->pending($object) !== null; }
 			catch (RuntimeException $e) { $this->error = $e->getMessage(); return -1; }

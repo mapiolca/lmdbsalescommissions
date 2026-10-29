@@ -2,7 +2,7 @@
 
 Une marge obligatoire insuffisante remplace **Valider** par **Demander la validation**. La confirmation native présente les contrôles bloquants et exige un motif. Une simple cible de commission insuffisante ne déclenche pas ce circuit. Une donnée obligatoire indéterminée doit être corrigée.
 
-Le dossier est **En attente de dérogation** ; le devis reste techniquement en Brouillon. Les modifications de fiche, lignes, remises, qualification technique et répartitions, la validation, la signature et la suppression sont refusées pendant cette attente. Les listes affichent le badge métier sans ajouter de statut numérique au core. Un lien donne accès à l’historique paginé, y compris après la décision.
+Le dossier est **En attente de dérogation** ; le devis reste techniquement en Brouillon. Les modifications de fiche, lignes, remises, qualification technique et répartitions, la validation, la signature et la suppression sont refusées pendant cette attente. Les listes affichent le badge métier sans ajouter de statut numérique au core. L’onglet **Historique des validations**, placé après les onglets transverses du devis, donne accès à l’historique paginé, y compris après la décision. Il reprend la bannière native du devis (référence, référence client, tiers, projet accessible et statut), avec les décisions dans la barre d’actions native. L’adresse existante des demandes est conservée pour les liens et notifications déjà transmis. La réactivation du module actualise les onglets et le contexte de statut, sans modifier les demandes.
 
 ## Droits et mise à niveau
 

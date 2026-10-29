@@ -13,9 +13,10 @@ if (!$res) { die('Include of main fails'); }
  */
 require_once DOL_DOCUMENT_ROOT.'/comm/propal/class/propal.class.php';
 require_once DOL_DOCUMENT_ROOT.'/core/class/html.form.class.php';
+require_once DOL_DOCUMENT_ROOT.'/core/lib/propal.lib.php';
 require_once __DIR__.'/class/lmdbsalescommissionmarginworkflow.class.php';
 require_once __DIR__.'/class/lmdbsalescommissionmarginworkflowview.class.php';
-$langs->loadLangs(array('propal', 'users', 'lmdbsalescommissions@lmdbsalescommissions'));
+$langs->loadLangs(array('propal', 'companies', 'users', 'lmdbsalescommissions@lmdbsalescommissions'));
 $id = GETPOSTINT('id');
 $action = GETPOST('action', 'aZ09');
 $mode = GETPOST('mode', 'aZ09');
@@ -23,6 +24,7 @@ $object = new Propal($db);
 if (!LmdbSalesCommissionMarginWorkflow::available() || !empty($user->socid) || !$user->hasRight('propal', 'lire') || $id <= 0 || $object->fetch($id) <= 0) { accessforbidden(); }
 if ((int) $object->entity !== (int) $conf->entity) { accessforbidden($langs->trans('LscOwnerContext')); }
 restrictedArea($user, 'propal', $id, 'propal', '', 'fk_soc', 'rowid', 0, 0, 'read');
+if ($object->fetch_thirdparty() <= 0) { accessforbidden($langs->trans('ErrorRecordNotFound')); }
 $workflow = new LmdbSalesCommissionMarginWorkflow($db);
 $url = dol_buildpath('/lmdbsalescommissions/proposal_margin_workflow.php', 1).'?id='.$id;
 $reason = GETPOST('reason', 'alphanohtml');
@@ -57,13 +59,34 @@ if ($action !== '') {
 	}
 }
 $hookmanager->initHooks(array('lmdbsalescommissionmarginworkflow', 'globalcard'));
-llxHeader('', $langs->trans('LscWorkflowTitle'));
-print load_fiche_titre($langs->trans('LscWorkflowTitle'), '<a href="'.DOL_URL_ROOT.'/comm/propal/card.php?id='.$id.'">'.$langs->trans('BackToCard').'</a>', 'propal');
-print '<p>'.$object->getNomUrl(1).'</p>';
 $form = new Form($db);
+llxHeader('', $object->ref.' - '.$langs->trans('LscWorkflowHistory'), 'EN:Commercial_Proposals|FR:Proposition_commerciale|ES:Presupuestos');
+$head = propal_prepare_head($object);
+print dol_get_fiche_head($head, 'lmdbsalescommissions_validations', $langs->trans('Proposal'), -1, $object->picto);
+$linkback = '<a href="'.DOL_URL_ROOT.'/comm/propal/list.php?restore_lastsearch_values=1">'.$langs->trans('BackToList').'</a>';
+$morehtmlref = '<div class="refidno">';
+$morehtmlref .= $form->editfieldkey('RefCustomer', 'ref_client', $object->ref_customer, $object, 0, 'string', '', 0, 1);
+$morehtmlref .= $form->editfieldval('RefCustomer', 'ref_client', $object->ref_customer, $object, 0, 'string', '', null, null, '', 1);
+$morehtmlref .= '<br>'.$object->thirdparty->getNomUrl(1);
+if (isModEnabled('project') && $object->fk_project > 0 && $user->hasRight('projet', 'lire')) {
+	require_once DOL_DOCUMENT_ROOT.'/projet/class/project.class.php';
+	$project = new Project($db);
+	if ($project->fetch($object->fk_project) > 0
+		&& in_array((int) $project->entity, array_map('intval', explode(',', getEntity('project'))), true)
+		&& $project->restrictedProjectArea($user, 'read') > 0) {
+		$langs->load('projects');
+		$morehtmlref .= '<br>'.$project->getNomUrl(1);
+		if ($project->title !== '') { $morehtmlref .= '<span class="opacitymedium"> - '.dol_escape_htmltag($project->title).'</span>'; }
+	}
+}
+$morehtmlref .= '</div>';
+dol_banner_tab($object, 'ref', $linkback, 1, 'ref', 'ref', $morehtmlref);
+print '<div class="underbanner clearboth"></div>';
+print dol_get_fiche_end();
 try {
 	$pending = $workflow->pending($object);
-	print LmdbSalesCommissionMarginWorkflowView::actions($db, $object, $user);
+	$actions = LmdbSalesCommissionMarginWorkflowView::actions($db, $object, $user, false);
+	if ($actions !== '') { print '<div class="tabsAction">'.$actions.'</div>'; }
 	if ($mode === 'request' && !$pending) {
 		if (!$user->hasRight('propal', 'creer')) { throw new RuntimeException('NotEnoughPermissions'); }
 		$decisions = $workflow->requestable($object, $user);
