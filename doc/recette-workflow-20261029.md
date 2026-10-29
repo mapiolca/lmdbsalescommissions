@@ -2,7 +2,7 @@
 
 ## Décision de déploiement
 
-**Validation globale non acquise.** Les blocages SMTP, API et PHPStan ont été levés pendant la reprise. Les demandes et les deux décisions sont reçues par email ; les refus API en brouillon et pendant l’attente sont vérifiés sur develop. La signature autorisée du devis fictif 36 a ensuite confirmé la commission figée de 37,50 EUR et ses trois échéances. Les profils hiérarchiques distincts, le demandeur sans validation native et les autres limites ci-dessous restent à terminer avant activation du blocage en production.
+**Validation globale non acquise.** Les blocages SMTP, API et PHPStan ont été levés pendant la reprise. Les demandes et les deux décisions sont reçues par email ; les refus API en brouillon et pendant l’attente sont vérifiés sur develop. La signature autorisée du devis fictif 36 a ensuite confirmé la commission figée de 37,50 EUR et ses trois échéances. La demande sans validation native, les responsables directs et indirects, le refus d’autoapprobation limitée et la commission partielle sont désormais exercés avec des profils distincts. Les autres limites ci-dessous restent à lever avant activation du blocage en production.
 
 PR : [#10](https://github.com/mapiolca/lmdbsalescommissions/pull/10), version **1.3.0**, base `ecb535452d04e44fce4982717272196d118a6fa5`. Code de la reprise réelle : **`0681c77386d4f1646cff1a5cc110a24742f2fb32`**, puis **`b2fe02732fb6a1fd79f1344d8114ae972a4ce799`** pour les accents des notifications. La tête servie a été confirmée dans Git Version Control de cPanel, sans déploiement par terminal.
 
@@ -161,15 +161,38 @@ La demande utilise maintenant une explication du circuit, le tableau des règles
 
 Les six révisions natives v20–v25 alpha exécutent **92 assertions de circuit chacune**, avec et sans JavaScript pour la confirmation ; les données, utilisateurs et le transport restent simulés dans ces suites. Les **18 assertions JavaScript**, la syntaxe PHP et PHPStan 2.1.0 niveau 5/cible PHP 8.0 passent, sans erreur sur les 20 fichiers de production. Les huit jobs de [CI PR du code 892e430](https://github.com/mapiolca/lmdbsalescommissions/actions/runs/40891860277) réussissent ; ces contrats ne sont pas six installations ERP complètes.
 
-L’ajout du droit distinct de commission pour l’essai positif et la remise en état du code nécessitent encore une session administrateur. Les profils et la hiérarchie doivent rester configurés selon l’instruction de l’utilisateur ; la restauration de branche demeure prévue. Les essais de cette reprise n’ajoutent aucune preuve de réception d’email, le quota du connecteur étant épuisé.
+À la fin de ce premier complément, l’essai positif du droit distinct de commission et la restauration attendaient une session administrateur. Ils sont décrits dans la clôture ci-dessous. Les profils et la hiérarchie restent configurés selon l’instruction de l’utilisateur. Ces essais n’ajoutent aucune preuve de réception d’email, le quota du connecteur étant épuisé.
+
+## Clôture : commission partielle, hiérarchie indirecte et autoapprobation
+
+Les essais complémentaires ont utilisé le même code de production `892e430`, sans nouvelle modification du code PHP ou JavaScript. Les identités des sessions ont été contrôlées après connexion ; aucune signature supplémentaire et aucun paiement n’ont été exécutés.
+
+| Parcours réel | Résultat |
+|---|---|
+| Responsable limité avec le droit distinct de commission | Champ éditable, valeur initiale 0 %, aperçu serveur de **18,75 EUR** pour 50 % des 37,50 EUR théoriques |
+| Approbation à 50 % | Devis réellement Validé ; historique à 50 % ; synthèse et détail avec les droits de lecture adaptés : base de marge 250 EUR, taux 15 %, commission **18,75 EUR Non acquise** |
+| Persistance après rechargement et restauration du code | Suivi : commission sur marge **18,75 EUR Estimée**, CA attribué **1 250 EUR**, aucun montant à verser ni versé ; aucune acquisition sans signature |
+| Responsable indirect | Une chaîne hiérarchique native existante a été vérifiée avant l’essai, sans modifier d’autre compte. Le responsable limité a effectivement validé le devis de son subordonné indirect avec commission nulle. Le devis est ensuite remis en Brouillon |
+| Autoapprobation limitée | Clone fictif créé par le responsable, demande soumise, aucune action d’approbation. L’URL directe d’approbation est refusée côté serveur, sans modale ni changement du statut En attente. Le dossier est ensuite retourné en modification par un approbateur global ; le clone reste en Brouillon |
+| Historique signé | Le devis déjà signé conserve **37,50 EUR**, 100 % retenus et la décision figée. Aucun paiement ni nouvel envoi manuel |
+
+Le droit distinct de commission du responsable est conservé selon l’autorisation donnée pour la recette ; l’approbation globale reste absente. Aucun droit du groupe commun n’a été modifié. Un approbateur n’ayant pas le droit de lire les commissions des autres bénéficiaires ne voit pas leur estimation dans la synthèse : la confirmation d’approbation et son historique ont été contrôlés avec ce profil, puis le montant de synthèse avec le compte disposant des droits de lecture adaptés.
+
+L’éditeur de la règle fictive a de nouveau expiré avant toute saisie ou soumission : **aucun seuil n’a été changé**, l’accord périmé n’est donc pas validé par ce test réel. La lecture de `admin/marginpolicies.php` montre un chargement intégral des produits lors de chaque création/édition ; le lien entre ce chargement et le blocage du pilotage reste une hypothèse à confirmer. L’onglet n’a pas pu être fermé par l’API de pilotage, qui expire également ; aucune autre méthode de modification du réglage n’a été utilisée.
+
+Le candidat a été désactivé nativement avec son descripteur encore servi, puis **Git Version Control** a rétabli la branche initiale au SHA `8230ff3ec705fe8f2e9aeb9a865327a25de072c3`. Après le message de contact distant, le rechargement de la page cPanel confirme la branche et ce SHA. Le module d’origine a ensuite été réactivé nativement : état actif et absence de la feuille CSS du candidat confirmés. Aucun terminal n’a servi au déploiement. Les données et historiques fictifs sont conservés, sans dossier actif en attente dans les devis de ces essais ; les paramètres SMTP/API n’ont pas été changés pendant cette clôture.
+
+La fiche du devis partiel, recalculée par l’ancienne branche restaurée, affiche 0 EUR, alors que le suivi conserve les **18,75 EUR** estimés enregistrés par le candidat. Les observations du nouveau circuit se rapportent donc au code `892e430` effectivement servi avant restauration ; le rendu de l’ancienne branche ne constitue pas une recette de ce circuit. Aucun recalcul n’a été lancé pour faire coïncider les deux versions.
+
+Cette clôture ne lève pas le refus hors hiérarchie distinct de l’autoapprobation, l’accès métier révoqué, l’accord périmé réel, la signature publique, les deux entités actives et les autres limites du tableau. Les captures restent hors du dépôt. Les résultats automatisés du code restent ceux de `892e430` ; ce complément documentaire ne modifie pas la production.
 
 ## Couverture restant à compléter avant feu vert
 
 | Exigence | Preuve disponible | Recette réelle encore nécessaire |
 |---|---|---|
 | Demande sans droit natif de validation | Demande réelle avec un profil commercial limité et son identité vérifiés ; retour et nouvelle demande | Scénario positif vérifié sur develop uniquement |
-| Hiérarchie directe/indirecte, refus hors hiérarchie et autoapprobation limitée | Responsable direct réel sans approbation globale : retour et validation du devis de son subordonné ; autres cas isolés | Hiérarchie indirecte, hors hiérarchie, autoapprobation limitée et accès métier révoqué sur instance |
-| Droit de commission distinct absent, autres bénéficiaires et répartitions manuelles | Essai réel sans ce droit : pourcentage verrouillé à 0 %, validation native et commission nulle ; calculs isolés | Cas positif avec droit distinct, fixe/proportionnel, plusieurs bénéficiaires, exports et échéances après signature |
+| Hiérarchie directe/indirecte, refus hors hiérarchie et autoapprobation limitée | Responsables direct et indirect réels sans approbation globale ; autoapprobation limitée refusée dans l’interface et par URL directe | Hors hiérarchie distinct de l’autoapprobation et accès métier révoqué sur instance |
+| Droit de commission distinct absent, autres bénéficiaires et répartitions manuelles | Sans ce droit : pourcentage verrouillé à 0 % et commission nulle. Avec ce droit : 50 % et 18,75 EUR persistés ; CA intégral et aucun montant à verser avant signature | Fixe/proportionnel, plusieurs bénéficiaires, exports et échéances après signature partielle |
 | Règles inconnues, données ou règles modifiées pendant l’attente | Tests isolés | Accord périmé et règles modifiées sur instance : expiration du pilotage de la modale d’édition avant toute saisie ; aucun seuil changé |
 | Rejeux et concurrence | Tests isolés, verrous SQL MariaDB réel et deux soumissions/décisions HTTP réelles depuis deux onglets du même compte | Course entre sessions de comptes différents, sans éventuelle sérialisation de session PHP ; rollback des autres effets installés |
 | Liste et actions de masse | Rendu réel corrigé, gardes isolés | Validation/signature/génération de masse refusées sans effets secondaires |
