@@ -348,11 +348,18 @@ $conf->use_javascript_ajax = 1; $conf->browser = (object) array('layout' => 'cla
 $hookmanager = new HookManager($db); $hookmanager->initHooks(array('propalcard'));
 $action = 'confirm_validate'; $massaction = ''; $toselect = array();
 checkWorkflow($hookmanager->executeHooks('doActions', array(), $quote, $action) > 0 && $action === '', 'Native hook rejects direct validation while pending');
+ob_start();
+$hookmanager->executeHooks('addMoreActionsButtons', array(), $quote, $action);
+$pendingButtons = ob_get_clean();
+if (!preg_match('~<script[^>]*>(.*?)</script>~s', $pendingButtons, $pendingScript)) { throw new RuntimeException('Pending action script missing'); }
 $flow->decide($quote, $user, $id, false, 'Correct costs', null);
 $user = $requester; $action = 'validate';
 ob_start();
 $buttonResult = $hookmanager->executeHooks('addMoreActionsButtons', array(), $quote, $action);
 $buttons = ob_get_clean();
+if (!preg_match('~<script[^>]*>(.*?)</script>~s', $buttons, $deniedScript)) { throw new RuntimeException('Denied action script missing'); }
+// The JS regression executes the real rendered hook, with DOM/jQuery doubles.
+if (file_put_contents(__DIR__.'/.tools/workflow-action-controls.json', json_encode(array('pending' => $pendingScript[1], 'denied' => $deniedScript[1]), JSON_THROW_ON_ERROR)) === false) { throw new RuntimeException('Cannot write rendered action controls'); }
 checkWorkflow($buttonResult === 0 && strpos($buttons, 'lsc-workflow-request') !== false, 'Native action hook prints the request button without suppressing the core action bar');
 checkWorkflow(strpos($buttons, 'searchParams.get("action")') !== false && $hookmanager->resPrint === '', 'Validation replacement reaches the page without unused hook output');
 checkWorkflow($hookmanager->executeHooks('formConfirm', array(), $quote, $action) > 0 && strpos($hookmanager->resPrint, 'submitrequest') !== false && strpos($hookmanager->resPrint, 'test-only-token') !== false, 'Native confirmation requests validation with CSRF even without validation right');

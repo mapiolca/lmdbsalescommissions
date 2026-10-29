@@ -503,7 +503,7 @@ class ActionsLmdbSalesCommissions
 	/** Add native workflow controls without replacing the core action bar. */
 	public function addMoreActionsButtons($parameters, &$object, &$action, $hookmanager)
 	{
-		global $user;
+		global $user, $langs;
 		if (!getDolGlobalInt('LMDBSALESCOMMISSIONS_MARGIN_WORKFLOW_READY') || !in_array('propalcard', explode(':', (string) ($parameters['context'] ?? '')), true)
 			|| !empty($user->socid) || !$user->hasRight('propal', 'lire') || !is_object($object) || (int) $object->id <= 0) { return 0; }
 		require_once __DIR__.'/lmdbsalescommissionmarginworkflowview.class.php';
@@ -513,7 +513,9 @@ class ActionsLmdbSalesCommissions
 			$replace = $pending || strpos($this->resprints, 'lsc-workflow-request') !== false;
 			if ($replace) {
 				// Ergonomics only: doActions, API checks and triggers independently enforce the lock.
-				$this->resprints .= '<script nonce="'.getNonce().'">jQuery(function($){$(".tabsAction a").each(function(){if($(this).hasClass("lsc-workflow-action")){return;}var u=new URL(this.href,location.href);if('.($pending ? 'true' : 'false').'||u.searchParams.get("action")==="validate"){$(this).hide();}});});</script>';
+				// Native refused validation has href="#" and no action parameter (v20-v25).
+				$validateLabel = json_encode($langs->transnoentities('Validate'), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+				$this->resprints .= '<script nonce="'.getNonce().'">jQuery(function($){$(".tabsAction a").each(function(){var b=$(this);if(b.hasClass("lsc-workflow-action")){return;}var u=new URL(this.href,location.href);if('.($pending ? 'true' : 'false').'||u.searchParams.get("action")==="validate"||(b.hasClass("butActionRefused")&&b.text().trim()==='.$validateLabel.')){b.hide();}});});</script>';
 			}
 			// Native proposal cards consume this hook's direct output, not resPrint.
 			print $this->resprints;
