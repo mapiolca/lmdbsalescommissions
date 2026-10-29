@@ -147,13 +147,37 @@ Ce compte **hérite déjà du droit natif de validation** et sa fiche indique **
 
 La restauration de cette reprise est achevée : Git Version Control confirme **feature/margin-excess-bonus / 8230ff3** après rechargement, malgré le message de contact distant. Le module d’origine est actualisé nativement, puis la constante technique `MAIN_MODULE_LMDBSALESCOMMISSIONS_CSS` de TEST 1 est remise à sa valeur initiale `[]` dans l’administration native : le module est actif et aucun lien vers la feuille du candidat n’est ensuite émis. Le devis 36 reste **Signé**, avec **37,50 EUR** et la décision figée visibles après restauration. Aucun réglage SMTP/API ni droit n’a été changé pendant ces essais ; aucun terminal n’a servi au déploiement. CI du rapport `995c7cd` : [huit jobs réussis](https://github.com/mapiolca/lmdbsalescommissions/actions/runs/40881866982) ; code de production inchangé depuis `d9406ca`.
 
+## Reprise : profils limités et présentation de la demande
+
+Le code `1f9d404` a corrigé le bouton natif **Valider** désactivé, dont l’URL ne contient pas d’action : il est désormais masqué sous le minimum obligatoire même sans droit de validation. Le script réellement rendu par le hook est exercé avec des doublures DOM/jQuery : les autres boutons refusés et le clonage restent préservés hors attente. Dix assertions d’aperçu et huit assertions de commandes passent. Aucun contrôle serveur n’est supprimé.
+
+Après autorisation explicite de conserver la configuration de recette, les profils de TEST 1 sont désormais les suivants. Ces comptes existaient déjà ; aucun mot de passe ni jeton n’a été créé, changé ou enregistré dans les preuves.
+
+| Élément | Configuration conservée sur demande |
+|---|---|
+| `utilisateur.test` (id 3) | Retiré du groupe commun « Utilisateurs », droits directs de lecture/création des devis et lecture des tiers ; pas de validation native ni d’accès global aux tiers |
+| Attachement Multicompany | Groupe dédié « RECETTE — Commercial sans validation » (id 3), sans aucun droit de groupe, membre dans TEST 1 uniquement ; mode transverse natif 1 conservé |
+| `3.utilisateur` (id 4) | Ancien lien hiérarchique inverse retiré, responsable de l’utilisateur 3 ; validation native déjà présente, droit d’approbation des subordonnés ajouté, approbation globale absente |
+| Commission du responsable, premier essai | Droit distinct de dérogation de commission absent ; choix verrouillé à 0 % |
+| Client fictif 46 | Affectation commerciale de l’utilisateur 3 ajoutée en conservant celle de l’utilisateur 1 ; aucun droit global supplémentaire sur les tiers |
+
+La connexion commerciale effective a été vérifiée par le lien natif de fiche utilisateur id 3, puis la connexion du responsable par le lien id 4. Le devis fictif 48, cloné par le commercial, porte l’auteur Utilisateur Test et une marge de 25 % pour un minimum de 30 %. Le compte commercial sans droit natif de validation peut soumettre la demande. Pendant l’attente, aucun lien d’approbation n’est proposé à ce compte et les actions natives sont neutralisées. Le responsable limité peut retourner la demande en modification, puis approuver une nouvelle demande : le statut natif devient réellement **Validée (proposition ouverte)**. Sans droit de commission distinct, le champ est en lecture seule à 0 %, malgré une commission théorique de 37,50 EUR ; le tableau de synthèse affiche une commission **Nulle**. Le retour natif en Brouillon invalide l’accord, puis une nouvelle demande est soumise et approuvée avec les deux identités vérifiées. Le devis 48 reste Validé, sans signature ; aucun dossier actif n’y reste en attente.
+
+Lors du retour natif en Brouillon de ce devis fictif cloné, un avertissement indique une règle de palier historique indisponible : les commissions du devis sont supprimées, mais la prime périodique doit être vérifiée manuellement. Aucun rattrapage ni effacement de palier n’a été lancé ; ce cas reste dans les limites de recette historique.
+
+La demande utilise maintenant une explication du circuit, le tableau des règles bloquantes puis une justification obligatoire sur toute la largeur. Le texte décrit l’attente verrouillée, les décisions possibles et l’indépendance de la commission. La hauteur automatique native évite de couper ces explications. Le SHA `892e4308e2ffdcec1596e143f0018937dd4f0cfe` est confirmé comme servi dans Git Version Control ; le rendu réel sur develop montre cet ordre, le texte accentué et le pied de confirmation natif. L’annulation laisse l’historique inchangé. La capture reste hors du dépôt.
+
+Les six révisions natives v20–v25 alpha exécutent **92 assertions de circuit chacune**, avec et sans JavaScript pour la confirmation ; les données, utilisateurs et le transport restent simulés dans ces suites. Les **18 assertions JavaScript**, la syntaxe PHP et PHPStan 2.1.0 niveau 5/cible PHP 8.0 passent, sans erreur sur les 20 fichiers de production. Les huit jobs de [CI PR du code 892e430](https://github.com/mapiolca/lmdbsalescommissions/actions/runs/40891860277) réussissent ; ces contrats ne sont pas six installations ERP complètes.
+
+L’ajout du droit distinct de commission pour l’essai positif et la remise en état du code nécessitent encore une session administrateur. Les profils et la hiérarchie doivent rester configurés selon l’instruction de l’utilisateur ; la restauration de branche demeure prévue. Les essais de cette reprise n’ajoutent aucune preuve de réception d’email, le quota du connecteur étant épuisé.
+
 ## Couverture restant à compléter avant feu vert
 
 | Exigence | Preuve disponible | Recette réelle encore nécessaire |
 |---|---|---|
-| Demande sans droit natif de validation | Tests isolés ; ouverture/annulation avec le compte réel utilisateur.test | Ce compte hérite déjà de la validation native : il reste à disposer d’un profil sans ce droit |
-| Hiérarchie directe/indirecte, refus hors hiérarchie et autoapprobation limitée | `getAllChildIds()` natif avec comptes simulés ; compte commercial réel sans droit de dérogation | Aucun responsable configuré pour utilisateur.test ; comptes responsables/commerciaux avec hiérarchie et droits limités, accès métier révoqué |
-| Droit de commission distinct absent, autres bénéficiaires et répartitions manuelles | Tests isolés des calculs et permissions | Refus réel sans ce droit ; fixe/proportionnel, plusieurs bénéficiaires, exports et échéances après signature |
+| Demande sans droit natif de validation | Demande réelle avec utilisateur.test id 3, profil limité et identité vérifiés ; retour et nouvelle demande | Scénario positif vérifié sur develop uniquement |
+| Hiérarchie directe/indirecte, refus hors hiérarchie et autoapprobation limitée | Responsable direct réel id 4 sans approbation globale : retour et validation du devis de son subordonné id 3 ; autres cas isolés | Hiérarchie indirecte, hors hiérarchie, autoapprobation limitée et accès métier révoqué sur instance |
+| Droit de commission distinct absent, autres bénéficiaires et répartitions manuelles | Essai réel sans ce droit : pourcentage verrouillé à 0 %, validation native et commission nulle ; calculs isolés | Cas positif avec droit distinct, fixe/proportionnel, plusieurs bénéficiaires, exports et échéances après signature |
 | Règles inconnues, données ou règles modifiées pendant l’attente | Tests isolés | Accord périmé et règles modifiées sur instance : expiration du pilotage de la modale d’édition avant toute saisie ; aucun seuil changé |
 | Rejeux et concurrence | Tests isolés, verrous SQL MariaDB réel et deux soumissions/décisions HTTP réelles depuis deux onglets du même compte | Course entre sessions de comptes différents, sans éventuelle sérialisation de session PHP ; rollback des autres effets installés |
 | Liste et actions de masse | Rendu réel corrigé, gardes isolés | Validation/signature/génération de masse refusées sans effets secondaires |
