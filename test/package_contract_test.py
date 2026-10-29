@@ -31,7 +31,7 @@ with zipfile.ZipFile(archive) as package:
             continue
         text = package.read('lmdbsalescommissions/' + path).decode('utf-8')
         loads = set(re.findall(r"(?:include|require)(?:_once)?\s*\(?\s*['\"]([^'\"]*(?:main|master)\.inc\.php)['\"]", text))
-        loads.update(re.findall(r"(?:include|require)(?:_once)?\s+(dirname\(__DIR__(?:,\s*2)?\)\s*\.\s*['\"]/(?:main|master)\.inc\.php['\"])", text))
+        loads.update(re.findall(r"(?:include|require)(?:_once)?\s+(dirname\(__DIR__(?:,\s*[1-9][0-9]*)?\)\s*\.\s*['\"]/(?:main|master)\.inc\.php['\"])", text))
         if loads:
             assert len(loads) >= 2, (path, loads)
             entries[path] = text

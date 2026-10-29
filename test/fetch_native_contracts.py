@@ -16,7 +16,7 @@ REVISIONS = {
 FILES = [
     "user/class/user.class.php", "core/class/notify.class.php", "core/class/html.formmail.class.php", "admin/notification.php", "core/triggers/interface_50_modNotification_Notification.class.php",
     "core/lib/functions.lib.php", "core/class/extrafields.class.php", "core/db/mysqli.class.php", "core/db/DoliDB.class.php",
-    "core/lib/ajax.lib.php", "core/ajax/ajaxtooltip.php", "core/js/lib_foot.js.php",
+    "core/lib/ajax.lib.php", "core/ajax/ajaxtooltip.php", "core/js/lib_foot.js.php", "product/ajax/products.php",
     "core/ajax/onlineSign.php", "core/class/hookmanager.class.php",
     "core/class/html.formmargin.class.php", "core/class/html.form.class.php", "core/class/commonobject.class.php",
     "comm/propal/card.php", "comm/propal/list.php", "comm/propal/class/propal.class.php",

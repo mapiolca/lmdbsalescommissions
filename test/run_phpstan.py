@@ -42,6 +42,7 @@ files = [
     'core/substitutions/functions_lmdbsalescommissions.lib.php',
     'core/triggers/interface_99_modLmdbSalesCommissions_LmdbSalesCommissionsTriggers.class.php',
     'proposal_dispatch.php', 'proposal_margin_request.php', 'proposal_margin_workflow.php',
+    'admin/marginpolicies.php', 'tpl/marginpolicies.tpl.php',
 ]
 scratch = root / 'test/.tools'
 scratch.mkdir(exist_ok=True)

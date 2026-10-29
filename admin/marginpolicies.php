@@ -1,8 +1,8 @@
 <?php
 /* Copyright (C) 2026 Pierre Ardoin <developpeur@lesmetiersdubatiment.fr> */
 $res = 0;
-if (!$res && file_exists('../../main.inc.php')) { $res = include '../../main.inc.php'; }
-if (!$res && file_exists('../../../main.inc.php')) { $res = include '../../../main.inc.php'; }
+if (file_exists(dirname(__DIR__, 2).'/main.inc.php')) { $res = include dirname(__DIR__, 2).'/main.inc.php'; }
+if (!$res && file_exists(dirname(__DIR__, 3).'/main.inc.php')) { $res = include dirname(__DIR__, 3).'/main.inc.php'; }
 if (!$res) { die('Include of main fails'); }
 require_once DOL_DOCUMENT_ROOT.'/core/lib/admin.lib.php';
 require_once DOL_DOCUMENT_ROOT.'/core/class/html.form.class.php';
@@ -24,6 +24,13 @@ if (in_array($action, array('addtravelband', 'deletetravelband'), true) && !$tra
 if (in_array($action, array('savecomplexsite', 'deletecomplexsite'), true) && !$complexAvailable) { accessforbidden(); }
 $id = GETPOSTINT('id');
 $mode = GETPOST('mode', 'aZ09');
+$policyFormPosted = $action === 'savepolicy';
+// A text-browser catalogue search only redisplays the submitted form; never save the rule.
+if ($policyFormPosted && GETPOST('search_products', 'alpha') !== '') {
+	if ($_SERVER['REQUEST_METHOD'] !== 'POST' || GETPOST('token', 'alpha') === '') { accessforbidden(); }
+	$action = '';
+	$mode = $id > 0 ? 'edit' : 'create';
+}
 if ($mode === '' && $id > 0 && $action === '') { $mode = 'edit'; }
 $pageUrl = dol_buildpath('/lmdbsalescommissions/admin/marginpolicies.php', 1);
 if (!in_array($mode, array('', 'create', 'edit', 'delete'), true) || (in_array($mode, array('edit', 'delete'), true) && $id <= 0) || ($mode === 'create' && $id)) { accessforbidden(); }
@@ -64,7 +71,8 @@ if ($id) {
 	$db->free($q);
 	$q = $db->query('SELECT rowid, uplift_without_travel, uplift_with_travel FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_margin_complex_site WHERE entity = '.((int) $conf->entity).' AND fk_rule = '.$id);
 	if (!$q) { dol_print_error($db); exit; }
-	if (is_object($row = $db->fetch_object($q))) { $complexSite = array('rowid' => (int) $row->rowid, 'uplift_without_travel' => (float) $row->uplift_without_travel, 'uplift_with_travel' => $row->uplift_with_travel === null ? null : (float) $row->uplift_with_travel); }
+	$complexRow = $db->fetch_object($q);
+	if (is_object($complexRow)) { $complexSite = array('rowid' => (int) $complexRow->rowid, 'uplift_without_travel' => (float) $complexRow->uplift_without_travel, 'uplift_with_travel' => $complexRow->uplift_with_travel === null ? null : (float) $complexRow->uplift_with_travel); }
 	$db->free($q);
 }
 if ($action !== '') {
@@ -101,7 +109,8 @@ if ($action !== '') {
 			$q = $db->query('SELECT rowid, uplift_without_travel, uplift_with_travel FROM '.MAIN_DB_PREFIX.'lmdbsalescommissions_margin_complex_site WHERE entity = '.((int) $conf->entity).' AND fk_rule = '.$id);
 			if (!$q) { throw new RuntimeException('LscPolicyUnavailable'); }
 			$complexSite = null;
-			if (is_object($row = $db->fetch_object($q))) { $complexSite = array('rowid' => (int) $row->rowid, 'uplift_without_travel' => (float) $row->uplift_without_travel, 'uplift_with_travel' => $row->uplift_with_travel === null ? null : (float) $row->uplift_with_travel); }
+			$complexRow = $db->fetch_object($q);
+			if (is_object($complexRow)) { $complexSite = array('rowid' => (int) $complexRow->rowid, 'uplift_without_travel' => (float) $complexRow->uplift_without_travel, 'uplift_with_travel' => $complexRow->uplift_with_travel === null ? null : (float) $complexRow->uplift_with_travel); }
 			$db->free($q);
 		}
 		if ($action === 'activate') {
@@ -217,15 +226,15 @@ if ($action !== '') {
 }
 $formValues = array();
 foreach (array('ref', 'label', 'rate', 'policy_context', 'policy_effect', 'policy_scope') as $key) {
-	$formValues[$key] = $action === 'savepolicy' ? GETPOST($key, 'alphanohtml') : (string) ($rule->$key ?? '');
+	$formValues[$key] = $policyFormPosted ? GETPOST($key, 'alphanohtml') : (string) ($rule->$key ?? '');
 }
-if ($action === 'savepolicy') {
+if ($policyFormPosted) {
 	$selectedCategories = $formValues['policy_scope'] === 'category' ? array_map('strval', GETPOST('categories', 'array:int')) : array();
 	$selectedProducts = $formValues['policy_scope'] === 'product' ? array_map('strval', GETPOST('products', 'array:int')) : array();
 }
 $bandValues = array();
 foreach (array('kwc_min', 'kwc_max', 'kwc_inclusive', 'kwh_min', 'kwh_max', 'kwh_inclusive', 'threshold') as $key) {
-	$bandValues[$key] = in_array($action, array('savepolicy', 'addband'), true) ? GETPOST($key, 'alphanohtml') : '';
+	$bandValues[$key] = ($policyFormPosted || $action === 'addband') ? GETPOST($key, 'alphanohtml') : '';
 }
 $travelValues = array(
 	'metric' => $action === 'addtravelband' ? GETPOST('metric', 'aZ09') : ($travelBands ? $travelBands[0]['metric'] : 'minutes'),
@@ -233,8 +242,8 @@ $travelValues = array(
 	'uplift' => $action === 'addtravelband' ? GETPOST('uplift', 'alphanohtml') : '',
 );
 $complexValues = array(
-	'without' => ($action === 'savecomplexsite' || ($action === 'savepolicy' && !$id)) ? GETPOST('complex_without_travel', 'alphanohtml') : ($complexSite === null ? '' : (string) $complexSite['uplift_without_travel']),
-	'with' => ($action === 'savecomplexsite' || ($action === 'savepolicy' && !$id)) ? GETPOST('complex_with_travel', 'alphanohtml') : ($complexSite === null || $complexSite['uplift_with_travel'] === null ? '' : (string) $complexSite['uplift_with_travel']),
+	'without' => ($action === 'savecomplexsite' || ($policyFormPosted && !$id)) ? GETPOST('complex_without_travel', 'alphanohtml') : ($complexSite === null ? '' : (string) $complexSite['uplift_without_travel']),
+	'with' => ($action === 'savecomplexsite' || ($policyFormPosted && !$id)) ? GETPOST('complex_with_travel', 'alphanohtml') : ($complexSite === null || $complexSite['uplift_with_travel'] === null ? '' : (string) $complexSite['uplift_with_travel']),
 );
 $policies = array();
 $q = $db->query("SELECT rowid, ref, label, policy_context, policy_effect, policy_scope, active FROM ".MAIN_DB_PREFIX."lmdbsalescommissions_rule WHERE rule_type = 'margin_policy' AND entity = ".((int) $conf->entity).' ORDER BY ref');
@@ -242,6 +251,11 @@ if (!$q) { dol_print_error($db); exit; }
 while (is_object($row = $db->fetch_object($q))) { $policies[] = $row; }
 $db->free($q);
 $categoryOptions = array(); $productOptions = array();
+$productSearch = GETPOST('product_search', 'alphanohtml');
+$productSearchType = '';
+$productSearchAllowed = $user->hasRight('produit', 'lire') || $user->hasRight('service', 'lire');
+$productAjaxEnabled = $productSearchAllowed && !empty($conf->use_javascript_ajax) && getDolGlobalString('MAIN_USE_JQUERY_MULTISELECT') !== '' && getDolGlobalString('MAIN_USE_JQUERY_MULTISELECT') !== '0';
+$productSearchMinLength = max(1, getDolGlobalInt('PRODUIT_USE_SEARCH_TO_SELECT', 2));
 if ($mode === 'create' || $mode === 'edit') {
 	if (isModEnabled('category') && $user->hasRight('categorie', 'lire')) {
 		$categoryIds = $db->sanitize(getEntity('category'));
@@ -250,14 +264,28 @@ if ($mode === 'create' || $mode === 'edit') {
 		while (is_object($row = $db->fetch_object($q))) { $categoryOptions[(int) $row->rowid] = $row->label; }
 		$db->free($q);
 	}
-	if ($user->hasRight('produit', 'lire') || $user->hasRight('service', 'lire')) {
+	if ($productSearchAllowed) {
 		$readableTypes = array();
 		if ($user->hasRight('produit', 'lire')) { $readableTypes[] = 0; }
 		if ($user->hasRight('service', 'lire')) { $readableTypes[] = 1; }
-		$q = $db->query('SELECT rowid, ref, label FROM '.MAIN_DB_PREFIX.'product WHERE entity IN ('.$db->sanitize(getEntity('product')).') AND fk_product_type IN ('.$db->sanitize(implode(',', $readableTypes)).') ORDER BY ref, rowid');
-		if (!$q) { dol_print_error($db); exit; }
-		while (is_object($row = $db->fetch_object($q))) { $productOptions[(int) $row->rowid] = $row->ref.' - '.$row->label; }
-		$db->free($q);
+		$productSearchType = count($readableTypes) === 1 ? (string) $readableTypes[0] : '';
+		// Preload only the saved/submitted selection, never the entire product catalogue.
+		if ($selectedProducts) {
+			$selectedIds = array_map('intval', $selectedProducts);
+			$q = $db->query('SELECT rowid, ref, label FROM '.MAIN_DB_PREFIX.'product WHERE entity IN ('.$db->sanitize(getEntity('product')).') AND fk_product_type IN ('.$db->sanitize(implode(',', $readableTypes)).') AND rowid IN ('.$db->sanitize(implode(',', $selectedIds)).') ORDER BY ref, rowid');
+			if (!$q) { dol_print_error($db); exit; }
+			while (is_object($row = $db->fetch_object($q))) { $productOptions[(int) $row->rowid] = $row->ref.' - '.$row->label; }
+			$db->free($q);
+		}
+		// Without Ajax, use the same bounded native product search and keep the current selection.
+		if ($productSearch !== '') {
+			$matches = $form->select_produits_list(0, 'products', $productSearchType, max(1, getDolGlobalInt('PRODUIT_LIMIT_SIZE', 20)), 0, $productSearch, -1, 2, 1, 0, '1', 1, '', 1);
+			if (!is_array($matches)) { dol_print_error($db); exit; }
+			foreach ($matches as $match) {
+				if (!ctype_digit((string) $match['key']) || (int) $match['key'] <= 0) { continue; }
+				$productOptions[(int) $match['key']] = $match['value'].' - '.$match['label2'];
+			}
+		}
 	}
 }
 llxHeader('', $langs->trans('LscPolicies'), '', '', 0, 0, array(dol_buildpath('/lmdbsalescommissions/js/marginpolicies.js', 1).'?v='.filemtime(__DIR__.'/../js/marginpolicies.js')));

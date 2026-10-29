@@ -122,6 +122,7 @@ $contexts = array('general' => 'General', 'pv' => 'PV'); $effects = array('sale'
 $scopes = array('offer' => 'Offer', 'category' => 'Category', 'product' => 'Product');
 $categoryOptions = array(11 => 'Panels', 12 => 'Batteries'); $productOptions = array(21 => 'PV-1 - Panel', 22 => 'SVC-1 - Installation');
 $selectedCategories = array('11'); $selectedProducts = array('22');
+$productAjaxEnabled = true; $productSearchAllowed = true; $productSearch = ''; $productSearchType = ''; $productSearchMinLength = 2;
 $formValues = array('ref' => $rule->ref, 'label' => 'Label', 'rate' => '30', 'policy_context' => 'general', 'policy_effect' => 'sale', 'policy_scope' => 'offer');
 $policies = array((object) array('rowid' => 1, 'ref' => $rule->ref, 'label' => 'Label', 'policy_context' => 'general', 'policy_effect' => 'sale', 'policy_scope' => 'offer', 'active' => 1));
 $bands = array(); $travelBands = array(); $mode = ''; $id = 0;
@@ -151,6 +152,7 @@ check($view->query('//form[@id="lsc-policy-form"]/input[@name="token"]')->length
 check($view->query('//select[@id="policy_scope"]/option[@value="offer" and @selected]')->length === 1, 'Existing rules keep offer scope');
 check($view->query('//select[@id="categories" and @multiple]/option[@value="11" and @selected]')->length === 1, 'Multiple native categories retain selection');
 check($view->query('//select[@id="products" and @multiple]/option[@value="22" and @selected]')->length === 1, 'Multiple native products retain selection');
+check($view->query('//select[@id="products" and @name="products[]" and @data-products-url="/erp/product/ajax/products.php"]')->length === 1, 'Native multiple product field uses the core search endpoint');
 check(strpos($html, '<&') === false && $view->query('//input[@name="ref"]')->item(0)->getAttribute('value') === $rule->ref, 'Field values escaped');
 check(strpos($html, 'select2') !== false, 'Native Select2 initialization present');
 check($view->query('//div[@id="lsc-policy-bands"]')->length === 1, 'Bands are available at first creation, even before selecting a technical context');
@@ -206,8 +208,9 @@ check(strpos($html, 'dialog-confirm') !== false && strpos($html, 'action=confirm
 check(strpos($html, 'token=test-csrf') !== false, 'Native confirmation includes token');
 $conf->use_javascript_ajax = 0; $view = parseView($render());
 check($view->query('//form[@method="POST"]/input[@name="action" and @value="confirm_delete"]')->length === 1, 'No-JS delete confirmation');
-$mode = 'edit'; $view = parseView($render());
+$mode = 'edit'; $productAjaxEnabled = false; $view = parseView($render());
 check($view->query('//form[@id="lsc-policy-form"]')->length === 1, 'No-JS editor remains available');
+check($view->query('//button[@name="search_products" and @formnovalidate]')->length === 1 && $view->query('//select[@id="products"]/option[@selected]')->length === 1, 'No-JS lookup keeps selected products and does not require unrelated fields');
 $mode = ''; $policies = array(); $view = parseView($render());
 check($view->query('//table[@id="lsc-policies"]//td[@colspan="7"]')->length === 1, 'Native empty table spans all columns');
 foreach (array('rule_assignment', 'line', 'margin_approval', 'margin_request') as $dependency) {

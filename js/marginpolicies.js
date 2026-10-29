@@ -1,6 +1,31 @@
 /* Native Dolibarr jQuery UI dialog; keep ordinary POST forms and a no-JavaScript page. */
 jQuery(function ($) {
 	var editor = $('#lsc-policy-editor');
+	// select_produits is single-valued on the supported core versions. Keep the native
+	// multiselect, adapting its remote results from the native product search endpoint.
+	var products = editor.find('#products[data-products-url]');
+	if (products.length && $.fn.select2 && !products.data('select2')) {
+		products.select2({
+			width: 'resolve', language: select2arrayoflanguage,
+			minimumInputLength: Number(products.attr('data-products-min-length')),
+			ajax: {
+				url: products.attr('data-products-url'), dataType: 'json', delay: 250,
+				data: function (params) {
+					return {htmlname: 'lsc_product_search', lsc_product_search: params.term, type: products.attr('data-products-type'), mode: 1, outjson: 1, status: -1, status_purchase: -1, finished: 2, hidepriceinlabel: 1};
+				},
+				processResults: function (data) {
+					var results = [], seen = {};
+					if (Array.isArray(data)) data.forEach(function (row) {
+						if (!row || !/^[1-9][0-9]*$/.test(String(row.key)) || seen[row.key] || typeof row.value !== 'string' || typeof row.label2 !== 'string') return;
+						seen[row.key] = true;
+						results.push({id: String(row.key), text: row.value + ' - ' + row.label2});
+					});
+					return {results: results};
+				}
+			}
+		});
+		editor.find('#lsc-product-search-fallback').hide();
+	}
 	if (!editor.length || typeof $.fn.dialog !== 'function' || editor.data('ui-dialog')) return;
 	var form = editor.find('#lsc-policy-form');
 	var actions = editor.find('#lsc-policy-form-actions');
@@ -50,8 +75,8 @@ jQuery(function ($) {
 		var selected = scope.val();
 		var categories = editor.find('#lsc-policy-categories');
 		var products = editor.find('#lsc-policy-products');
-		categories.toggle(selected === 'category').find('select').prop('disabled', selected !== 'category');
-		products.toggle(selected === 'product').find('select').prop('disabled', selected !== 'product');
+		categories.toggle(selected === 'category').find('input, select, button').prop('disabled', selected !== 'category');
+		products.toggle(selected === 'product').find('input, select, button').prop('disabled', selected !== 'product');
 	}
 	scope.off('change.lscPolicy').on('change.lscPolicy', updateScope);
 	updateScope();

@@ -24,6 +24,11 @@
  * @var array<int,string> $productOptions
  * @var list<string> $selectedCategories
  * @var list<string> $selectedProducts
+ * @var bool $productAjaxEnabled
+ * @var bool $productSearchAllowed
+ * @var string $productSearch
+ * @var string $productSearchType
+ * @var int $productSearchMinLength
  */
 if (!defined('DOL_DOCUMENT_ROOT')) { exit; }
 print '<p>'.$langs->trans('LscPolicyHelp').'</p>';
@@ -60,7 +65,13 @@ if ($mode === 'create' || $mode === 'edit') {
 	print '<tr><td><label for="policy_context">'.$langs->trans('LscPolicyContext').'</label></td><td>'.$form->selectarray('policy_context', $contexts, $formValues['policy_context'] ?: 'general').'</td></tr>';
 	print '<tr><td class="fieldrequired"><label for="policy_scope">'.$langs->trans('LscPolicyScope').'</label></td><td>'.$form->selectarray('policy_scope', $scopes, $formValues['policy_scope'] ?: 'offer').'</td></tr>';
 	print '<tr id="lsc-policy-categories"><td class="fieldrequired"><label for="categories">'.$langs->trans('LscScopeCategories').'</label></td><td>'.Form::multiselectarray('categories', $categoryOptions, $selectedCategories, 0, 0, 'minwidth300', 0, 400).'</td></tr>';
-	print '<tr id="lsc-policy-products"><td class="fieldrequired"><label for="products">'.$langs->trans('LscScopeProducts').'</label></td><td>'.Form::multiselectarray('products', $productOptions, $selectedProducts, 0, 0, 'minwidth300', 0, 400).'</td></tr>';
+	$productAttributes = $productAjaxEnabled ? 'data-products-url="'.dol_escape_htmltag(DOL_URL_ROOT.'/product/ajax/products.php').'" data-products-type="'.dol_escape_htmltag($productSearchType).'" data-products-min-length="'.$productSearchMinLength.'"' : '';
+	print '<tr id="lsc-policy-products"><td class="fieldrequired"><label for="products">'.$langs->trans('LscScopeProducts').'</label></td><td>';
+	if ($productSearchAllowed) {
+		print '<span id="lsc-product-search-fallback"><label for="lsc-product-search">'.$langs->trans('Search').'</label> <input class="flat maxwidth200" id="lsc-product-search" name="product_search" value="'.dol_escape_htmltag($productSearch).'"> <button class="button smallpaddingimp" type="submit" name="search_products" value="1" formnovalidate>'.$langs->trans('Search').'</button><br></span>';
+	}
+	if (!$productSearchAllowed) { print '<span class="opacitymedium">'.$langs->trans('NotEnoughPermissions').'</span>'; }
+	print Form::multiselectarray('products', $productOptions, $selectedProducts, 0, 0, 'minwidth300', 0, 400, $productAttributes, '', '', $productAjaxEnabled ? 0 : -1).'</td></tr>';
 	print '<tr><td><label for="policy_effect">'.$langs->trans('LscPolicyEffect').'</label></td><td>'.$form->selectarray('policy_effect', $effects, $formValues['policy_effect'] ?: 'commission').'</td></tr>';
 	if ($id) {
 		print '<tr><td>'.$langs->trans('Active').'</td><td><a href="'.$pageUrl.'?action=togglepolicy&amp;mode=edit&amp;id='.$id.'&amp;token='.newToken().'" role="switch" aria-checked="'.($rule->active ? 'true' : 'false').'" aria-label="'.dol_escape_htmltag($langs->trans('Active')).'">'.img_picto($langs->trans($rule->active ? 'Enabled' : 'Disabled'), $rule->active ? 'switch_on' : 'switch_off').'</a></td></tr>';

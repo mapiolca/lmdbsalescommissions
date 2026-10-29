@@ -39,6 +39,8 @@ jobs:
       - run: php test/margin_service_test.php 'test/.core-cache/${{ matrix.dolibarr }}/htdocs' '${{ matrix.dolibarr }}'
       - run: php test/margin_scope_test.php 'test/.core-cache/${{ matrix.dolibarr }}/htdocs' '${{ matrix.dolibarr }}'
       - run: php test/margin_admin_test.php 'test/.core-cache/${{ matrix.dolibarr }}/htdocs'
+      - run: php test/margin_policy_catalogue_test.php 'test/.core-cache/${{ matrix.dolibarr }}/htdocs'
+      - run: node test/margin_policy_catalogue_js_test.js
       - run: php test/margin_line_trigger_test.php 'test/.core-cache/${{ matrix.dolibarr }}/htdocs'
       - run: php test/reward_test.php 'test/.core-cache/${{ matrix.dolibarr }}/htdocs' '${{ matrix.dolibarr }}'
       - run: php test/reward_lifecycle_test.php
