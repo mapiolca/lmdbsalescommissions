@@ -214,6 +214,16 @@ La désactivation temporaire conserve les réglages métier du module. La migrat
 - Module installé sous `htdocs/custom/lmdbsalescommissions/`.
 - [Recette du circuit de dérogation du 29 octobre 2026](doc/recette-workflow-20261029.md) : résultats locaux, CI et develop, blocages SMTP/API et essais restant à confirmer avant activation en production.
 
+## Analyse statique du circuit de dérogation
+
+Le contrôle reproductible utilise PHPStan 2.1.0, niveau 5, avec une cible PHP 8.0 et les sources complètes du core ainsi que des deux intégrations facultatives. Il couvre les 20 fichiers PHP de production du circuit ; il ne lance ni session ni connexion SQL. Aucun baseline ni masquage d’erreur n’est généré.
+
+```text
+python test/run_phpstan.py <core/htdocs> --version <version-core> --zoning <sources-lmdbzoning> --propalpv <sources-lmdbpropalpv> --phpstan <phpstan.phar>
+```
+
+Les sources externes servent à vérifier leurs contrats, sans rendre ces modules obligatoires à l’exécution. Les configurations et caches d’analyse restent dans `test/.tools/`, exclus du paquet installable.
+
 ## Limites de la version 1.3.0
 
 - Pas de génération automatique de facture fournisseur ou note de frais.

@@ -241,13 +241,16 @@ $pdo->exec("CREATE TABLE {$prefix}notify (rowid integer PRIMARY KEY, fk_action i
 $pdo->exec("INSERT INTO {$prefix}actioncomm VALUES (1,1,1,'$oldType'),(2,2,1,'$oldType')");
 $pdo->exec("INSERT INTO {$prefix}notify SELECT 1,rowid,1,'".substr($oldType, 0, 24)."' FROM $eventTable WHERE code='LMDBSALESCOMMISSIONS_MARGIN_CASE_CREATE'");
 class WorkflowSchemaModule extends modLmdbSalesCommissions {
+	public $loadResult = 1;
+	public $initCalls = 0;
 	public function _load_tables($path) {
+		if ($this->loadResult <= 0) { return $this->loadResult; }
 		foreach (preg_split('/;\s*(?:\r?\n|$)/', file_get_contents(__DIR__.'/../sql/data.sql')) as $sql) {
 			if (trim($sql) !== '') { $this->db->query(str_replace('llx_', MAIN_DB_PREFIX, $sql)); }
 		}
 		return 1;
 	}
-	public function _init($sql, $options = '') { foreach ($sql as $query) { $this->db->query($query); } return 1; }
+	public function _init($sql, $options = '') { $this->initCalls++; foreach ($sql as $query) { $this->db->query($query); } return 1; }
 }
 $installer = (new ReflectionClass(WorkflowSchemaModule::class))->newInstanceWithoutConstructor();
 $installer->db = new MarginPolicyPdo($pdo);
@@ -255,6 +258,12 @@ $conf = (object) array('entity' => 1);
 for ($pass = 0; $pass < 2; $pass++) {
 	if ($installer->init() !== 1) { throw new RuntimeException('Workflow init SQL failed'); }
 }
+$initCalls = $installer->initCalls;
+foreach (array(0, -1) as $failure) {
+	$installer->loadResult = $failure;
+	if ($installer->init() !== -1 || $installer->initCalls !== $initCalls) { throw new RuntimeException('A failed native table load must stop module activation'); }
+}
+$installer->loadResult = 1;
 $saved = $pdo->query("SELECT name,value,type,entity FROM $constTable WHERE name IN ('$create','$update') ORDER BY entity,name")->fetchAll(PDO::FETCH_ASSOC);
 if ($saved !== array(
 	array('name' => $create, 'value' => 'CUSTOM', 'type' => 'emailtemplate:lscmargincase', 'entity' => 1),

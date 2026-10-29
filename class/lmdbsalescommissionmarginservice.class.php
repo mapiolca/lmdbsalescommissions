@@ -193,8 +193,8 @@ class LmdbSalesCommissionMarginService
 		}
 		$form = new FormMargin($this->db);
 		$margin = $form->getMarginInfosArray($copy);
-		$cost = isset($margin['pa_total']) && is_numeric($margin['pa_total']) ? (float) $margin['pa_total'] : null;
-		$sale = isset($margin['pv_total']) && is_numeric($margin['pv_total']) ? (float) $margin['pv_total'] : null;
+		$cost = is_finite($margin['pa_total']) ? (float) $margin['pa_total'] : null;
+		$sale = is_finite($margin['pv_total']) ? (float) $margin['pv_total'] : null;
 		$rate = $cost !== null && $cost > 0 && $sale !== null ? ($sale - $cost) / $cost * 100 : null;
 		foreach ($copy->lines as $line) {
 			if ((int) ($line->product_type ?? 0) !== 9 && ($line->qty ?? 0) != 0 && (!isset($line->pa_ht) || !is_numeric($line->pa_ht))) { $rate = null; }
@@ -222,8 +222,8 @@ class LmdbSalesCommissionMarginService
 		$copy->lines = array();
 		foreach ($indexes as $index) { $copy->lines[] = clone $proposal->lines[$index]; }
 		$margin = (new FormMargin($this->db))->getMarginInfosArray($copy);
-		$cost = isset($margin['pa_total']) && is_numeric($margin['pa_total']) ? (float) $margin['pa_total'] : null;
-		$sale = isset($margin['pv_total']) && is_numeric($margin['pv_total']) ? (float) $margin['pv_total'] : null;
+		$cost = is_finite($margin['pa_total']) ? (float) $margin['pa_total'] : null;
+		$sale = is_finite($margin['pv_total']) ? (float) $margin['pv_total'] : null;
 		if ($cost === null || $cost <= 0 || $sale === null) { return null; }
 		foreach ($copy->lines as $line) {
 			if ((int) ($line->product_type ?? 0) !== 9 && ($line->qty ?? 0) != 0 && (!isset($line->pa_ht) || !is_numeric($line->pa_ht))) { return null; }

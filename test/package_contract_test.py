@@ -31,6 +31,7 @@ with zipfile.ZipFile(archive) as package:
             continue
         text = package.read('lmdbsalescommissions/' + path).decode('utf-8')
         loads = set(re.findall(r"(?:include|require)(?:_once)?\s*\(?\s*['\"]([^'\"]*(?:main|master)\.inc\.php)['\"]", text))
+        loads.update(re.findall(r"(?:include|require)(?:_once)?\s+(dirname\(__DIR__(?:,\s*2)?\)\s*\.\s*['\"]/(?:main|master)\.inc\.php['\"])", text))
         if loads:
             assert len(loads) >= 2, (path, loads)
             entries[path] = text
@@ -64,5 +65,9 @@ with tempfile.TemporaryDirectory(prefix='bootstrap-', dir=scratch) as temporary:
             expected = 'Include of main fails' if layout == 'absent' else 'NATIVE_BOOTSTRAP_FOUND'
             assert result.stdout == expected, (layout, path, result.stdout)
             count += 1
+            if 'dirname(__DIR__' in text:
+                result = subprocess.run(['php', str(target)], cwd=folder, capture_output=True, text=True)
+                assert result.returncode == 0 and not result.stderr and result.stdout == expected, (layout, path, 'foreign cwd', result.stderr)
+                count += 1
 print(f'Candidate archive: {len(files)} files; native filename checks; {count} bootstrap paths passed ({len(entries)} entry points).')
 print('This does not prove native module installation, complete ERP execution or Dolistore acceptance.')

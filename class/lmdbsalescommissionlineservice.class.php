@@ -54,7 +54,7 @@ class LmdbSalesCommissionLineService
 	/**
 	 * Store estimated commission lines from a validated proposal.
 	 *
-	 * @param object $proposal Proposal object
+	 * @param object|null $proposal Proposal object
 	 * @param User   $user     Triggering user
 	 * @return int Number of created lines, -1 on error
 	 */
@@ -137,7 +137,7 @@ class LmdbSalesCommissionLineService
 	/**
 	 * Acquire commission lines from a signed proposal.
 	 *
-	 * @param object $proposal Proposal object
+	 * @param object|null $proposal Proposal object
 	 * @param User   $user     Triggering user
 	 * @return int Number of created lines, -1 on error
 	 */
@@ -278,7 +278,7 @@ class LmdbSalesCommissionLineService
 	/**
 	 * Synchronize only turnover contributions without changing commission lines or dues.
 	 *
-	 * @param object $proposal Proposal
+	 * @param object|null $proposal Proposal
 	 * @param User   $user     Triggering user
 	 * @param bool   $acquired True for a signed proposal, false for an estimate
 	 * @return int Number of created turnover contributions, -1 on error
@@ -522,7 +522,7 @@ class LmdbSalesCommissionLineService
 	/**
 	 * Cancel commission lines linked to a proposal.
 	 *
-	 * @param object $proposal Proposal object
+	 * @param object|null $proposal Proposal object
 	 * @param User   $user     Triggering user
 	 * @return int
 	 */
@@ -937,7 +937,7 @@ class LmdbSalesCommissionLineService
 	/**
 	 * Cancel proposal estimate lines that were not converted to acquired lines.
 	 *
-	 * @param object $proposal Proposal object
+	 * @param object|null $proposal Proposal object
 	 * @param User   $user     Triggering user
 	 * @return int
 	 */
@@ -966,7 +966,7 @@ class LmdbSalesCommissionLineService
 	/**
 	 * Cancel dispatch estimates when the proposal has returned to automatic calculation.
 	 *
-	 * @param object $proposal Proposal
+	 * @param object|null $proposal Proposal
 	 * @param User   $user     User
 	 * @return int
 	 */

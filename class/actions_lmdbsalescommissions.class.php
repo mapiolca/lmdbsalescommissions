@@ -98,7 +98,7 @@ class ActionsLmdbSalesCommissions
 
 	/** Replace native validation confirmation only when the sale is blocked.
 	 * @param array<string,mixed> $parameters Hook parameters
-	 * @param Propal $object Current proposal
+	 * @param Propal|null $object Current proposal
 	 * @param string $action Native action
 	 * @param HookManager $hookmanager Native manager
 	 * @return int */

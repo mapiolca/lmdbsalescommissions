@@ -420,7 +420,7 @@ class modLmdbSalesCommissions extends DolibarrModules
 			return -1;
 		}
 		$result = $this->_load_tables('/lmdbsalescommissions/sql/');
-		if ($result < 0) {
+		if ($result <= 0) {
 			return -1;
 		}
 		if ($this->upgradeCommissionLineDispatchSchema(true) < 0) {

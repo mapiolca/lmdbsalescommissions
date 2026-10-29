@@ -120,7 +120,7 @@ class LmdbSalesCommissionProposalTurnoverDispatchService
 	/**
 	 * Delete one allocation.
 	 *
-	 * @param LmdbSalesCommissionProposalTurnoverDispatch $dispatch Allocation
+	 * @param LmdbSalesCommissionProposalTurnoverDispatch|null $dispatch Allocation
 	 * @param object                                      $proposal Proposal
 	 * @param User                                        $user     User
 	 * @return int
@@ -266,7 +266,7 @@ class LmdbSalesCommissionProposalTurnoverDispatchService
 	 * user has no explicit turnover allocation, the full margin is preserved so a
 	 * commission-only beneficiary remains supported.
 	 *
-	 * @param object $proposal Proposal
+	 * @param object|null $proposal Proposal
 	 * @param int    $userId   Commission beneficiary
 	 * @param float  $margin   Full proposal margin
 	 * @return float|null Commissionable margin, or null on error
@@ -311,8 +311,8 @@ class LmdbSalesCommissionProposalTurnoverDispatchService
 	/**
 	 * Validate one allocation.
 	 *
-	 * @param LmdbSalesCommissionProposalTurnoverDispatch $dispatch Allocation
-	 * @param object                                      $proposal Proposal
+	 * @param LmdbSalesCommissionProposalTurnoverDispatch|null $dispatch Allocation
+	 * @param object|null                                      $proposal Proposal
 	 * @return bool
 	 */
 	public function validate($dispatch, $proposal)

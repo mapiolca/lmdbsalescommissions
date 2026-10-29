@@ -116,7 +116,7 @@ class LmdbSalesCommissionsCompatibility
 		if (!class_exists('LmdbZoningCompatibility') && is_file(dol_buildpath('/lmdbzoning/class/lmdbzoningcompatibility.class.php', 0))) { dol_include_once('/lmdbzoning/class/lmdbzoningcompatibility.class.php'); }
 		if (!class_exists('LmdbZoningTravelService') && is_file(dol_buildpath('/lmdbzoning/class/lmdbzoningtravelservice.class.php', 0))) { dol_include_once('/lmdbzoning/class/lmdbzoningtravelservice.class.php'); }
 		return class_exists('LmdbZoningCompatibility') && class_exists('LmdbZoningTravelService')
-			&& method_exists('LmdbZoningTravelService', 'read') && LmdbZoningCompatibility::isTravelAvailable('propal');
+			&& (new ReflectionClass('LmdbZoningTravelService'))->hasMethod('read') && LmdbZoningCompatibility::isTravelAvailable('propal');
 	}
 
 	/** Optional lmdbpropalpv qualification in the current entity. */
@@ -127,7 +127,7 @@ class LmdbSalesCommissionsCompatibility
 		if (!class_exists('LmdbPropalPVComplexSiteService') && is_file(dol_buildpath('/lmdbpropalpv/class/lmdbpropalpvcomplexsiteservice.class.php', 0))) {
 			dol_include_once('/lmdbpropalpv/class/lmdbpropalpvcomplexsiteservice.class.php');
 		}
-		return class_exists('LmdbPropalPVComplexSiteService') && method_exists('LmdbPropalPVComplexSiteService', 'isAvailable')
+		return class_exists('LmdbPropalPVComplexSiteService') && (new ReflectionClass('LmdbPropalPVComplexSiteService'))->hasMethod('isAvailable')
 			&& LmdbPropalPVComplexSiteService::isAvailable($db);
 	}
 

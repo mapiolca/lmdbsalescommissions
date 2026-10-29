@@ -154,7 +154,7 @@ class LmdbSalesCommissionProposalDispatchService
 	/**
 	 * Delete a dispatch and restore automatic estimation when the last row is removed.
 	 *
-	 * @param LmdbSalesCommissionProposalDispatch $dispatch Dispatch to delete
+	 * @param LmdbSalesCommissionProposalDispatch|null $dispatch Dispatch to delete
 	 * @param object                              $proposal Current proposal
 	 * @param User                                $user     Current user
 	 * @return int
@@ -192,7 +192,7 @@ class LmdbSalesCommissionProposalDispatchService
 	/**
 	 * Delete all dispatch configuration rows when their proposal is deleted.
 	 *
-	 * @param object $proposal Deleted proposal
+	 * @param object|null $proposal Deleted proposal
 	 * @param User   $user     Triggering user
 	 * @return int Number of deleted rows, -1 on error
 	 */
@@ -275,7 +275,7 @@ class LmdbSalesCommissionProposalDispatchService
 	 * Return the acquired snapshot after signature, or the current estimate before signature.
 	 *
 	 * @param LmdbSalesCommissionProposalDispatch $dispatch Dispatch
-	 * @param object                              $proposal Proposal
+	 * @param object|null                              $proposal Proposal
 	 * @param int                                 $date     Current business date
 	 * @return DispatchCalculation|null
 	 */
@@ -295,8 +295,8 @@ class LmdbSalesCommissionProposalDispatchService
 	/**
 	 * Validate a dispatch against the current proposal values.
 	 *
-	 * @param LmdbSalesCommissionProposalDispatch $dispatch Dispatch
-	 * @param object                              $proposal Proposal
+	 * @param LmdbSalesCommissionProposalDispatch|null $dispatch Dispatch
+	 * @param object|null                              $proposal Proposal
 	 * @param int                                 $date     Business date
 	 * @return bool
 	 */
@@ -485,7 +485,7 @@ class LmdbSalesCommissionProposalDispatchService
 	/**
 	 * Check whether the proposal may still be configured.
 	 *
-	 * @param object $proposal Proposal
+	 * @param object|null $proposal Proposal
 	 * @return bool
 	 */
 	public function isProposalEditable($proposal)

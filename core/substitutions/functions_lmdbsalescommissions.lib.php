@@ -8,7 +8,7 @@ require_once dol_buildpath('/lmdbsalescommissions/lib/lmdbsalescommissions.lib.p
  *
  * @param array<string, string> $substitutionarray Existing substitution array
  * @param Translate            $langs              Language object
- * @param object               $object             Current object
+ * @param object|null          $object             Current object, possibly absent in a generic substitution call
  * @param array<string, mixed> $parameters         Parameters
  * @return void
  */
@@ -55,7 +55,8 @@ function lmdbsalescommissions_completesubstitutionarray(&$substitutionarray, $la
 	$substitutionarray['__LMDBSALESCOMMISSIONS_AMOUNT__'] = $amount;
 	$substitutionarray['__LMDBSALESCOMMISSIONS_URL__'] = '';
 	if (method_exists($object, 'getNomUrl')) {
-		$substitutionarray['__LMDBSALESCOMMISSIONS_URL__'] = $object->getNomUrl(0);
+		$url = $object->getNomUrl(0);
+		if (is_string($url)) { $substitutionarray['__LMDBSALESCOMMISSIONS_URL__'] = $url; }
 	}
 	$substitutionarray['__LMDBSALESCOMMISSIONS_EVENT__'] = $langs->trans('LmdbSalesCommissions');
 }
