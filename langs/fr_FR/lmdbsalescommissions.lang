@@ -539,6 +539,8 @@ LscPolicyScopeInaccessible=Impossible de modifier cette règle : certaines cible
 
 # Margin validation workflow
 LscWorkflowTitle=Validation des devis sous le minimum de marge
+LscWorkflowDefaultMail=Validation et dérogation de marge des devis
+Lscmargincase=Dérogation de marge sur devis
 LscWorkflowHistory=Historique des demandes de validation
 LscWorkflowRequest=Demander la validation
 LscWorkflowPending=En attente de dérogation

@@ -96,6 +96,13 @@ function dol_nl2br($text) { return nl2br($text); }
 eval(nativeWorkflowMethod(__DIR__.'/../core/substitutions/functions_lmdbsalescommissions.lib.php', 'lmdbsalescommissions_completesubstitutionarray'));
 class WorkflowMailLangs extends WorkflowLangs {
 	public $translations = array();
+	public $defaultlang = 'fr_FR';
+	public function load($key) {
+		if ($key !== 'lmdbsalescommissions@lmdbsalescommissions') { return; }
+		foreach (file(__DIR__.'/../langs/'.$this->defaultlang.'/lmdbsalescommissions.lang', FILE_IGNORE_NEW_LINES) as $line) {
+			if (strpos($line, '=') !== false) { list($name, $value) = explode('=', $line, 2); $this->translations[$name] = $value; }
+		}
+	}
 	public function trans($key, ...$args) { return htmlentities($this->translations[$key] ?? $key, ENT_QUOTES, 'UTF-8'); }
 	public function transnoentities($key, ...$args) { return $this->translations[$key] ?? $key; }
 }
@@ -115,6 +122,15 @@ foreach (array(0 => 'En attente de dérogation', 1 => 'Dérogation approuvée', 
 	checkWorkflow($subject === $label.' : P10', 'French email subject keeps readable accents for decision '.$status);
 	checkWorkflow(strpos($substitutions['__LSC_WORKFLOW_REASON__'], '<script>') === false, 'Free-text reason remains HTML-escaped');
 	checkWorkflow($substitutions['__LSC_WORKFLOW_COMMISSION__'] === '50 % (18.75)' && $substitutions['__LSC_WORKFLOW_MARGIN__'] === '25 %', 'Native monetary normalization and margin substitutions preserved');
+}
+
+foreach (array('fr_FR' => 'Validation et dérogation de marge des devis', 'en_US' => 'Proposal margin approval and exception') as $language => $label) {
+	$langs = new WorkflowMailLangs(); $langs->defaultlang = $language;
+	$notificationHook = new ActionsLmdbSalesCommissions($db);
+	$notificationObject = new stdClass(); $notificationAction = '';
+	$notificationHook->notifsupported(array('context' => 'notification'), $notificationObject, $notificationAction, $hookmanager);
+	checkWorkflow($langs->transnoentities('LscWorkflowDefaultMail') === $label, 'Native notification discovery loads the translated model label: '.$language);
+	checkWorkflow($langs->transnoentities('Lscmargincase') !== 'Lscmargincase', 'Native template type has a readable label: '.$language);
 }
 
 echo 'Workflow notification models: '.$checks." cumulative assertions passed; SMTP not executed.\n";

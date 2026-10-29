@@ -539,6 +539,8 @@ LscPolicyScopeInaccessible=This rule cannot be edited because some targets are n
 
 # Margin validation workflow
 LscWorkflowTitle=Approval of proposals below minimum margin
+LscWorkflowDefaultMail=Proposal margin approval and exception
+Lscmargincase=Proposal margin exception
 LscWorkflowRequest=Request validation
 LscWorkflowHistory=Validation request history
 LscWorkflowPending=Awaiting margin exception

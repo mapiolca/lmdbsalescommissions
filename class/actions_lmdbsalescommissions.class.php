@@ -417,7 +417,7 @@ class ActionsLmdbSalesCommissions
 	 */
 	public function notifsupported($parameters, &$object, &$action, $hookmanager)
 	{
-		global $conf;
+		global $conf, $langs;
 
 		$contexts = explode(':', (string) ($parameters['context'] ?? ''));
 		if (!in_array('notification', $contexts, true)) {
@@ -426,6 +426,7 @@ class ActionsLmdbSalesCommissions
 		if (!isModEnabled('lmdbsalescommissions')) {
 			return 0;
 		}
+		$langs->load('lmdbsalescommissions@lmdbsalescommissions');
 		// The generic notification branch needs the module's documentary configuration.
 		$element = 'lscmargincase';
 		if (isset($conf->lmdbsalescommissions) && is_object($conf->lmdbsalescommissions)) {
