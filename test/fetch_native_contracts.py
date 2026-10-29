@@ -20,7 +20,9 @@ FILES = [
     "core/ajax/onlineSign.php", "core/class/hookmanager.class.php",
     "core/class/html.formmargin.class.php", "core/class/html.form.class.php", "core/class/commonobject.class.php",
     "comm/propal/card.php", "comm/propal/list.php", "comm/propal/class/propal.class.php",
-    "comm/propal/class/api_proposals.class.php", "api/index.php",
+    "comm/propal/class/api_proposals.class.php", "api/index.php", "admin/modules.php",
+    "install/mysql/tables/llx_const.sql", "install/mysql/tables/llx_c_email_templates.sql",
+    "install/mysql/tables/llx_c_action_trigger.sql", "install/mysql/tables/llx_c_action_trigger.key.sql",
 ] + ["includes/restler/framework/Luracast/Restler/" + name + ".php"
      for name in ("Restler", "EventDispatcher", "Scope", "Defaults", "RestException")]
 OPTIONAL = ["core/js/lib_initTooltips.js", "core/class/doldeprecationhandler.class.php", "core/class/commontrigger.class.php", "core/lib/html.lib.php", "comm/propal/class/propaleligne.class.php"]

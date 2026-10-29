@@ -44,7 +44,15 @@ class WorkflowTemplateDb extends WorkflowDb {
 	}
 }
 $db = new WorkflowTemplateDb(); $user = new User();
-$type = 'lmdbsalescommissionmargincase@lmdbsalescommissions';
+$type = (new LmdbSalesCommissionMarginCase($db))->element;
+checkWorkflow(strlen($type.'_send') <= 32, 'Template type including legacy suffix fits the native c_email_templates column');
+$schema = file_get_contents($workflowNativeRoot.'/install/mysql/tables/llx_c_email_templates.sql');
+preg_match('/type_template\s+varchar\((\d+)\)/i', $schema, $column);
+checkWorkflow(isset($column[1]) && strlen($type.'_send') <= (int) $column[1], 'Template identity fits the pinned native database schema');
+$conf->modules_parts['hooks']['lmdbsalescommissions'][] = 'elementproperties';
+eval(nativeWorkflowMethod($workflowNativeRoot.'/core/lib/functions.lib.php', 'getElementProperties'));
+$properties = getElementProperties($type);
+checkWorkflow($properties['module'] === 'lmdbsalescommissions' && $properties['classfile'] === 'lmdbsalescommissionmargincase' && $properties['classname'] === LmdbSalesCommissionMarginCase::class && $properties['table_element'] === 'lmdbsalescommissions_margin_case', 'Native object resolver finds the short dossier identity');
 $code = 'LMDBSALESCOMMISSIONS_MARGIN_CASE_CREATE';
 $settings[$code.'_TEMPLATE'] = 'CUSTOM';
 $conf->lmdbsalescommissions = (object) array('enabled' => 1, 'multidir_output' => array(1 => '/documents/commissions'));

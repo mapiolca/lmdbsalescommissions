@@ -13,7 +13,7 @@ class LmdbSalesCommissionWorkflowNotification
 		if ($entity !== (int) $conf->entity) { throw new RuntimeException('LscOwnerContext'); }
 		$label = getDolGlobalString($code.'_TEMPLATE');
 		if ($label === '') { throw new RuntimeException('LscWorkflowTemplateMissing'); }
-		$type = 'lmdbsalescommissionmargincase@lmdbsalescommissions';
+		$type = 'lscmargincase';
 		// Lock source rows to serialize mirror creation for different dossiers too.
 		$sql = 'SELECT * FROM '.MAIN_DB_PREFIX."c_email_templates WHERE type_template = '".$type."' AND label = '".$db->escape($label)."' AND active = 1 AND entity IN (".$db->sanitize(getEntity('c_email_templates')).') AND (private = 0 OR fk_user = '.(int) $actor->id.') ORDER BY rowid FOR UPDATE';
 		$q = $db->query($sql);

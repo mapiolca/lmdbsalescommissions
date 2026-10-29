@@ -9,7 +9,9 @@ class LmdbSalesCommissionMarginCase extends LmdbSalesCommissionCommon
 	public const APPROVED = 1;
 	public const RETURNED = 2;
 	public $TRIGGER_PREFIX = 'LMDBSALESCOMMISSIONS_MARGIN_CASE';
-	public $element = 'lmdbsalescommissionmargincase@lmdbsalescommissions';
+	/** Native email types are varchar(32), including Notify's legacy _send suffix.
+	 * The elementproperties hook resolves this short identity to this class. */
+	public $element = 'lscmargincase';
 	public $table_element = 'lmdbsalescommissions_margin_case';
 	public $fk_propal;
 	public $fk_author;

@@ -11,6 +11,13 @@ if (!$res && file_exists('../../main.inc.php')) {
 if (!$res) {
 	die('Include of main fails');
 }
+/**
+ * @var DoliDB $db
+ * @var Conf $conf
+ * @var User $user
+ * @var Translate $langs
+ * @var HookManager $hookmanager
+ */
 
 require_once DOL_DOCUMENT_ROOT.'/comm/propal/class/propal.class.php';
 require_once DOL_DOCUMENT_ROOT.'/core/lib/propal.lib.php';

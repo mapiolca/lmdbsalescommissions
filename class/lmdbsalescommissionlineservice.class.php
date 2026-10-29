@@ -105,7 +105,7 @@ class LmdbSalesCommissionLineService
 				}
 
 				$margin = LmdbSalesCommissionProposalService::getEstimatedMargin($proposal);
-				if (isset($profile['selected']['margin']) && is_array($profile['selected']['margin']) && $margin !== null) {
+				if (isset($profile['selected']['margin']) && $margin !== null) {
 					$rule = $profile['selected']['margin'];
 					$totalHt = property_exists($proposal, 'total_ht') && is_numeric($proposal->total_ht) ? (float) price2num($proposal->total_ht, 'MT') : 0.0;
 					$commissionableMargin = $this->calculateCommissionableMargin($proposal, $salesUserId, $margin);
@@ -186,10 +186,10 @@ class LmdbSalesCommissionLineService
 				$totalHt = property_exists($proposal, 'total_ht') && is_numeric($proposal->total_ht) ? (float) price2num($proposal->total_ht, 'MT') : 0.0;
 				$hasCommissionRule = false;
 
-				if (isset($profile['selected']['margin']) && is_array($profile['selected']['margin'])) {
+				if (isset($profile['selected']['margin'])) {
 					$hasCommissionRule = true;
 				}
-				if (isset($profile['selected']['margin']) && is_array($profile['selected']['margin']) && $margin !== null) {
+				if (isset($profile['selected']['margin']) && $margin !== null) {
 					$rule = $profile['selected']['margin'];
 					$commissionableMargin = $this->calculateCommissionableMargin($proposal, $salesUserId, $margin);
 					if ($commissionableMargin === null) {
@@ -206,7 +206,7 @@ class LmdbSalesCommissionLineService
 					$created += $result;
 				}
 
-				if (isset($profile['selected']['tier']) && is_array($profile['selected']['tier'])) {
+				if (isset($profile['selected']['tier'])) {
 					$hasCommissionRule = true;
 				}
 
@@ -357,7 +357,7 @@ class LmdbSalesCommissionLineService
 				$this->lastResult['errors']++;
 				return -1;
 			}
-			$tierRule = isset($profile['selected']['tier']) && is_array($profile['selected']['tier']) ? $profile['selected']['tier'] : null;
+			$tierRule = isset($profile['selected']['tier']) ? $profile['selected']['tier'] : null;
 			$ruleId = is_array($tierRule) ? (int) $tierRule['rule_id'] : 0;
 			$existingId = $this->fetchTurnoverLineId($entity, $userId, (int) $proposal->id);
 			if ($existingId < 0) {

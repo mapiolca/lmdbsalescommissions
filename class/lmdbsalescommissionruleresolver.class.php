@@ -34,9 +34,6 @@
  *     errors: array<int, string>,
  *     candidates: array<int, ResolvedRule>
  * }
- */
-
-/**
  * Resolve effective commission rules for a sales user.
  */
 class LmdbSalesCommissionRuleResolver

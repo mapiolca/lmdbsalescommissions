@@ -16,9 +16,6 @@ require_once __DIR__.'/lmdbsalescommissionruleresolver.class.php';
  *     payment_term_id:int,
  *     payment_term_label:string
  * }
- */
-
-/**
  * Manage and calculate manual proposal commission dispatches.
  */
 class LmdbSalesCommissionProposalDispatchService

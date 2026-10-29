@@ -4,6 +4,13 @@ $res = 0;
 if (file_exists('../main.inc.php')) { $res = @include '../main.inc.php'; }
 if (!$res && file_exists('../../main.inc.php')) { $res = @include '../../main.inc.php'; }
 if (!$res) { die('Include of main fails'); }
+/**
+ * @var DoliDB $db
+ * @var Conf $conf
+ * @var User $user
+ * @var Translate $langs
+ * @var HookManager $hookmanager
+ */
 require_once DOL_DOCUMENT_ROOT.'/comm/propal/class/propal.class.php';
 require_once DOL_DOCUMENT_ROOT.'/core/class/html.form.class.php';
 require_once __DIR__.'/class/lmdbsalescommissionmarginworkflow.class.php';

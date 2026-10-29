@@ -28,6 +28,7 @@ jobs:
           coverage: none
       - run: git ls-files -z '*.php' | xargs -0 -n1 php -l
       - run: python3 test/fetch_native_contracts.py '${{ matrix.dolibarr }}'
+      - run: python3 test/package_contract_test.py 'test/.core-cache/${{ matrix.dolibarr }}/htdocs'
       - run: php test/native_margin_contract_test.php 'test/.core-cache/${{ matrix.dolibarr }}/htdocs' '${{ matrix.dolibarr }}'
       - run: php test/margin_guard_test.php 'test/.core-cache/${{ matrix.dolibarr }}/htdocs' '${{ matrix.dolibarr }}'
       - run: php test/margin_validation_test.php 'test/.core-cache/${{ matrix.dolibarr }}/htdocs' '${{ matrix.dolibarr }}'
@@ -63,6 +64,7 @@ jobs:
           php-version: '8.4'
           extensions: pdo_mysql
           coverage: none
+      - run: python3 test/fetch_native_contracts.py '20.0.0'
       - run: php test/margin_schema_test.php
         env:
           LSC_TEST_DSN: mysql:host=127.0.0.1;port=3306;dbname=module_test

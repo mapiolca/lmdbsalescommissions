@@ -20,9 +20,6 @@
  *     reason?: string,
  *     available_reason?: string
  * }
- */
-
-/**
  * Centralized compatibility checks for lmdbsalescommissions.
  */
 class LmdbSalesCommissionsCompatibility

@@ -394,6 +394,18 @@ class ActionsLmdbSalesCommissions
 		);
 	}
 
+	/** Resolve the short notification/Agenda identity without a duplicate object class.
+	 * @param array<string,mixed> $parameters @return int */
+	public function getElementProperties($parameters, &$object, &$action, $hookmanager)
+	{
+		if (($parameters['elementType'] ?? '') !== 'lscmargincase') { return 0; }
+		$this->results = array('module' => 'lmdbsalescommissions', 'element' => 'lscmargincase',
+			'table_element' => 'lmdbsalescommissions_margin_case', 'subelement' => 'lscmargincase',
+			'classpath' => 'lmdbsalescommissions/class', 'classfile' => 'lmdbsalescommissionmargincase',
+			'classname' => 'LmdbSalesCommissionMarginCase');
+		return 0;
+	}
+
 	/**
 	 * Expose supported notification trigger codes to native Notifications module.
 	 *
@@ -415,7 +427,7 @@ class ActionsLmdbSalesCommissions
 			return 0;
 		}
 		// The generic notification branch needs the module's documentary configuration.
-		$element = 'lmdbsalescommissionmargincase@lmdbsalescommissions';
+		$element = 'lscmargincase';
 		if (isset($conf->lmdbsalescommissions) && is_object($conf->lmdbsalescommissions)) {
 			$conf->{$element} = clone $conf->lmdbsalescommissions;
 			$conf->{$element}->enabled = 1;
@@ -479,8 +491,11 @@ class ActionsLmdbSalesCommissions
 			$replace = $pending || strpos($this->resprints, 'lsc-workflow-request') !== false;
 			if ($replace) {
 				// Ergonomics only: doActions, API checks and triggers independently enforce the lock.
-				$this->resprints .= '<script>jQuery(function($){$(".tabsAction a").each(function(){if($(this).hasClass("lsc-workflow-action")){return;}var u=new URL(this.href,location.href);if('.($pending ? 'true' : 'false').'||u.searchParams.get("action")==="validate"){$(this).hide();}});});</script>';
+				$this->resprints .= '<script nonce="'.getNonce().'">jQuery(function($){$(".tabsAction a").each(function(){if($(this).hasClass("lsc-workflow-action")){return;}var u=new URL(this.href,location.href);if('.($pending ? 'true' : 'false').'||u.searchParams.get("action")==="validate"){$(this).hide();}});});</script>';
 			}
+			// Native proposal cards consume this hook's direct output, not resPrint.
+			print $this->resprints;
+			$this->resprints = '';
 		} catch (RuntimeException $e) { $this->error = $e->getMessage(); return -1; }
 		return 0;
 	}
