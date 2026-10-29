@@ -215,3 +215,21 @@ Aucun essai réel ERP v20–v24 ni v25 finale n’est annoncé. Les domaines doc
 - Aucune fusion, release, publication Dolistore ni intervention en production.
 
 Les captures de la recette restent des preuves locales hors du dépôt source. Les [règles officielles de packaging](https://wiki.dolibarr.org/index.php/Modules_-_Packaging_rules_and_Dolistore_validation_rules), révision wiki 65313, ont été relues le 29 octobre 2026 ; les contrôles de paquet ci-dessus ne valent ni installation native ni acceptation Dolistore.
+
+## Reprise : catalogue volumineux et préparation du nouveau déploiement
+
+Le code antérieur chargeait tous les produits/services accessibles lors de chaque ouverture d’une règle, y compris générale. Le correctif `76974d4be3990590fa91a9e0b95faf3b88065305` précharge seulement les identifiants sélectionnés et utilise ensuite le point de recherche natif `product/ajax/products.php`. Le repli sans JavaScript effectue une recherche limitée avec `Form::select_produits_list()`, conserve les saisies et ne sauvegarde pas la règle. Aucun endpoint propre au module n’est ajouté.
+
+| Vérification du correctif | Résultat et limite |
+|---|---|
+| Régression avec 80 000 produits simulés | Le test reproduit la requête sans limite sur le fichier antérieur ; le fichier corrigé ne lit que la sélection, filtre droits/types/entités et préserve les choix pendant une recherche |
+| Contrats natifs v20, v21, v22, v23, v24 et v25 alpha | Pour chaque révision : 99 assertions de réglages et 9 de catalogue réussies ; SQL et résultats de recherche simulés |
+| Recherche multiple JavaScript | 13 assertions réussies : initialisation unique, paramètres natifs, caractères spéciaux, résultats invalides et doublons, échappement Select2 natif ; DOM/transport simulés |
+| PHPStan 2.1.0 | Niveau 5, cible PHP 8.0, 22 fichiers de production dont réglages et template, zéro erreur ; aucune nouvelle exclusion ni baseline |
+| Packaging | 143 fichiers, nom/racine vérifiés, 75 chemins de bootstrap pour 21 points d’entrée ; pas une installation ERP ni une validation Dolistore |
+| CI PR du correctif | [40913969760](https://github.com/mapiolca/lmdbsalescommissions/actions/runs/40913969760), huit jobs réussis sur la tête `76974d4`, dont migrations MariaDB et contrats PHP 8.0/8.2/8.4 |
+| Non-régression locale du circuit | 92 assertions de workflow, 117 cumulées avec notifications, 170 cumulées de périmètres et 18 JavaScript réussies sur les sources v25 alpha ; SMTP non exécuté |
+
+La vérification réelle du correctif n’est pas encore acquise. Le navigateur interne lit les pages mais les clics et touches de sélection ne déclenchent pas les commandes de cPanel. Le lien natif de désactivation du module, suivi par navigation avec son token, fonctionne ; aucun changement de branche serveur n’a été confirmé à ce stade. Une intervention manuelle ciblée dans Git Version Control a été demandée, sans recours au terminal. L’accord périmé réel, la signature publique et deux entités actives restent à exercer sur le candidat effectivement servi. La présence d’une requête excessive dans l’ancien code et sa reproduction isolée ne prouvent pas à elles seules la cause de chaque expiration du pilotage navigateur.
+
+En attendant cette intervention, l’activation native du module initial a été rétablie : Git Version Control affiche toujours la branche `feature/margin-excess-bonus` et la tête `8230ff3ec705fe8f2e9aeb9a865327a25de072c3`, et la page native confirme « Le module a été activé ». TEST 2 n’a pas été modifiée. Aucun devis, dossier, seuil, destinataire ou droit n’a été modifié pendant cette reprise.
