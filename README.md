@@ -65,6 +65,7 @@ Par rapport à la version 1.0, cette version apporte principalement :
 - Répartition manuelle d’une commission de devis entre plusieurs commerciaux, sur montant ou pourcentage de marge ou de CA.
 - Attribution du CA d’un devis entre plusieurs commerciaux, indépendamment de leurs commissions.
 - Contrôle de marge par offre, catégories de produits ou produits/services, avec sélection multiple, demandes de dérogation et activation explicite par entité.
+- Circuit de validation hiérarchique des devis sous le minimum obligatoire : attente verrouillée, approbation et validation natives ou retour en modification, choix de la commission directe conservée et notifications natives. Voir [les droits, la configuration et la recette](doc/margin-approval-workflow.md).
 - Majoration des seuils de marge par trajet aller-retour stocké dans `lmdbzoning` et par qualification « Chantier complexe » du devis fournie par `lmdbpropalpv`.
 
 ## Structure du module
@@ -160,7 +161,7 @@ La répartition des commissions détermine les commissions et leurs modalités d
 
 1. Sauvegarder la base de données et les fichiers du module, puis déployer la version 1.3.0.
 2. Désactiver puis réactiver le module par son écran natif : les migrations additives et idempotentes créent les grilles de marge, de trajet et de qualification « Chantier complexe », accords, instantanés, révisions et demandes en attente, ainsi que les droits et hooks nécessaires. Les réglages existants sont conservés.
-3. Attribuer séparément les droits de dérogation de vente et de commission aux approbateurs concernés.
+3. Attribuer l’approbation globale ou limitée aux subordonnés, le droit natif de validation et, séparément, la dérogation de commission. Configurer les destinataires et modèles dans les Notifications natives ; voir [le circuit de validation](doc/margin-approval-workflow.md).
 4. Saisir les règles, grilles, éventuels paliers de trajet, majorations « Chantier complexe » et affectations dans les réglages ; aucun seuil des pièces jointes n’est préchargé. Si des paliers de trajet sont utilisés, activer `lmdbzoning` 1.3.0, les trajets des devis et le point de référence du siège social (directement ou via le profil par défaut), puis calculer les trajets des devis. Pour la qualification « Chantier complexe », activer `lmdbpropalpv` et son réglage dans chaque entité concernée.
 5. Recetter les canaux utilisés sur l’instance, puis activer volontairement les contrôles dans chaque entité. Les devis déjà signés et versements existants restent préservés.
 
@@ -211,6 +212,17 @@ La désactivation temporaire conserve les réglages métier du module. La migrat
 - PHP : 8.0+
 - Base de données : MySQL/MariaDB via l’abstraction Dolibarr
 - Module installé sous `htdocs/custom/lmdbsalescommissions/`.
+- [Recette du circuit de dérogation du 29 octobre 2026](doc/recette-workflow-20261029.md) : résultats locaux, CI et develop, corrections SMTP/API/PHPStan et essais restant à confirmer avant activation en production.
+
+## Analyse statique du circuit de dérogation
+
+Le contrôle reproductible utilise PHPStan 2.1.0, niveau 5, avec une cible PHP 8.0 et les sources complètes du core ainsi que des deux intégrations facultatives. Il couvre les 20 fichiers PHP de production du circuit ; il ne lance ni session ni connexion SQL. Aucun baseline ni masquage d’erreur n’est généré.
+
+```text
+python test/run_phpstan.py <core/htdocs> --version <version-core> --zoning <sources-lmdbzoning> --propalpv <sources-lmdbpropalpv> --phpstan <phpstan.phar>
+```
+
+Les sources externes servent à vérifier leurs contrats, sans rendre ces modules obligatoires à l’exécution. Les configurations et caches d’analyse restent dans `test/.tools/`, exclus du paquet installable.
 
 ## Limites de la version 1.3.0
 

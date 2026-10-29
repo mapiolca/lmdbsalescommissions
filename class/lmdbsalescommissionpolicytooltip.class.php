@@ -27,6 +27,11 @@ class LmdbSalesCommissionPolicyTooltip extends Propal
 		$beneficiary = (int) $matches[1]; $ruleId = (int) $matches[2]; $effect = $matches[3];
 		$all = $user->hasRight('lmdbsalescommissions', 'commission', 'readall') || $user->hasRight('lmdbsalescommissions', 'commission', 'dispatch');
 		$approve = $user->hasRight('lmdbsalescommissions', 'marginpolicy', 'approvesale') || $user->hasRight('lmdbsalescommissions', 'marginpolicy', 'approvecommission');
+		if (!$approve && $user->hasRight('lmdbsalescommissions', 'marginpolicy', 'approvesubordinates') && getDolGlobalInt('LMDBSALESCOMMISSIONS_MARGIN_WORKFLOW_READY')) {
+			require_once __DIR__.'/lmdbsalescommissionmarginworkflow.class.php';
+			try { (new LmdbSalesCommissionMarginWorkflow($this->db))->assertDecisionAccess($this, $user, false); $approve = true; }
+			catch (RuntimeException $e) { $approve = false; }
+		}
 		$own = $user->hasRight('lmdbsalescommissions', 'commission', 'readown');
 		$group = $user->hasRight('lmdbsalescommissions', 'commission', 'readgroup');
 		$allowed = $all || $approve || (($own || $group) && $beneficiary === (int) $user->id);

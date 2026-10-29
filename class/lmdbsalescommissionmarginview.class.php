@@ -25,6 +25,11 @@ class LmdbSalesCommissionMarginView
 		if (!empty($user->socid)) { return ''; }
 		$all = $user->hasRight('lmdbsalescommissions', 'commission', 'readall') || $user->hasRight('lmdbsalescommissions', 'commission', 'dispatch');
 		$saleApproval = $user->hasRight('lmdbsalescommissions', 'marginpolicy', 'approvesale');
+		if (!$saleApproval && $user->hasRight('lmdbsalescommissions', 'marginpolicy', 'approvesubordinates') && getDolGlobalInt('LMDBSALESCOMMISSIONS_MARGIN_WORKFLOW_READY')) {
+			require_once __DIR__.'/lmdbsalescommissionmarginworkflow.class.php';
+			try { (new LmdbSalesCommissionMarginWorkflow($db))->assertDecisionAccess($proposal, $user, false); $saleApproval = true; }
+			catch (RuntimeException $e) { $saleApproval = false; }
+		}
 		$commissionApproval = $user->hasRight('lmdbsalescommissions', 'marginpolicy', 'approvecommission');
 		$own = $user->hasRight('lmdbsalescommissions', 'commission', 'readown');
 		$group = $user->hasRight('lmdbsalescommissions', 'commission', 'readgroup');
@@ -125,6 +130,7 @@ class LmdbSalesCommissionMarginView
 			$html .= '<tr class="oddeven"><td>'.$beneficiaryHtml.'</td>';
 			$html .= $summary ? '<td class="right">'.($estimate['amount'] ?? '—').'</td><td>'.$status.'</td><td>' : '<td>'.implode('</td><td>', array_slice($policyValues, 1)).'</td><td>';
 			$rulesHtml = !empty($decision['frozen']) ? '<p>'.$langs->trans('LscFrozen').'</p>' : '';
+			if (isset($decision['retained_percent'])) { $rulesHtml .= '<p>'.$langs->trans('LscWorkflowPercent').' : '.price($decision['retained_percent']).' %</p>'; }
 			$rulesHtml .= '<div class="div-table-responsive-no-min"><table class="noborder centpercent"><tbody><tr class="liste_titre">';
 			$ruleHeaders = $summary ? array('LscRules', 'Status') : array('LmdbSalesCommissionsProposalEstimateTableRuleSource', 'LmdbSalesCommissionsProposalEstimateTableRule', 'LscPolicyScope', 'LscPolicyContext', 'LscPolicyEffect', 'LscActualRate', 'LscThreshold', 'Result');
 			foreach ($ruleHeaders as $key) { $rulesHtml .= '<th scope="col">'.$langs->trans($key).'</th>'; }
@@ -158,7 +164,7 @@ class LmdbSalesCommissionMarginView
 				}
 				$rulesHtml .= '<tr class="oddeven"><td>'.implode('</td><td>', $cells);
 				if (!$summary && isset($check['approval_id'])) { $rulesHtml .= '<br>'.$langs->trans('LscApproval').' #'.((int) $check['approval_id']); }
-				if ($forms && !$summary && !$decision['frozen'] && $check['state'] === 'deny' && (($check['effect'] === 'sale' && $saleApproval) || ($check['effect'] === 'commission' && $commissionApproval))) {
+				if ($forms && !$summary && !$decision['frozen'] && $check['state'] === 'deny' && (($check['effect'] === 'sale' && $saleApproval && !getDolGlobalInt('LMDBSALESCOMMISSIONS_MARGIN_WORKFLOW_READY')) || ($check['effect'] === 'commission' && $commissionApproval))) {
 					$rulesHtml .= '<form method="POST" action="'.dol_buildpath('/lmdbsalescommissions/proposal_dispatch.php', 1).'"><input type="hidden" name="token" value="'.newToken().'">';
 					foreach (array('action' => 'approvemargin', 'id' => (int) $proposal->id, 'beneficiary' => $beneficiary, 'rule' => $check['rule_id'], 'effect' => $check['effect'], 'fingerprint' => $decision['fingerprint']) as $key => $value) { $rulesHtml .= '<input type="hidden" name="'.$key.'" value="'.dol_escape_htmltag((string) $value).'">'; }
 					$rulesHtml .= '<label>'.$langs->trans('Reason').' <input name="reason" required></label> <button class="button">'.$langs->trans('LscApprove').'</button></form>';

@@ -20,9 +20,6 @@
  *     reason?: string,
  *     available_reason?: string
  * }
- */
-
-/**
  * Centralized compatibility checks for lmdbsalescommissions.
  */
 class LmdbSalesCommissionsCompatibility
@@ -60,6 +57,7 @@ class LmdbSalesCommissionsCompatibility
 	public static function getCompatibilityFeatures()
 	{
 		return array(
+			'margin_approval_workflow' => array('label' => 'LscWorkflowTitle', 'description' => 'LscWorkflowCompatibility', 'min_dolibarr' => '20.0.0', 'min_php' => '8.0.0', 'compatibility_check' => 'nativeMarginGuardCoverage() && LMDBSALESCOMMISSIONS_MARGIN_WORKFLOW_READY', 'available' => self::nativeMarginGuardCoverage() && (bool) getDolGlobalInt('LMDBSALESCOMMISSIONS_MARGIN_WORKFLOW_READY'), 'reason' => 'LscWorkflowUpgrade'),
 			'margin_excess_reward' => array('label' => 'LscReward', 'description' => 'LscRewardHelp', 'min_dolibarr' => '20.0.0', 'min_php' => '8.0.0', 'compatibility_check' => 'nativeMarginGuardCoverage() && LMDBSALESCOMMISSIONS_MARGIN_ENABLED', 'available' => self::nativeMarginGuardCoverage() && (bool) getDolGlobalInt('LMDBSALESCOMMISSIONS_MARGIN_ENABLED'), 'reason' => 'LscRewardUnavailable'),
 			'margin_policy_guards' => array('label' => 'LscPolicies', 'description' => 'LscCoverageDescription', 'min_dolibarr' => '20.0.0', 'min_php' => '8.0.0', 'compatibility_check' => 'nativeMarginGuardCoverage()', 'available' => self::nativeMarginGuardCoverage(), 'reason' => 'LscCoverageUnavailable'),
 			'travel_margin_uplift' => array('label' => 'LscTravelMargin', 'description' => 'LscTravelCompatibilityDescription', 'min_dolibarr' => '20.0.0', 'min_php' => '8.0.0', 'compatibility_check' => 'isModEnabled("lmdbzoning") && LmdbZoningCompatibility::isTravelAvailable("propal") && LmdbZoningTravelService::read()', 'available' => self::travelMarginAvailable(), 'reason' => 'LscTravelCompatibilityUnavailable', 'available_reason' => 'LscTravelCompatibilityAvailable'),
@@ -118,7 +116,7 @@ class LmdbSalesCommissionsCompatibility
 		if (!class_exists('LmdbZoningCompatibility') && is_file(dol_buildpath('/lmdbzoning/class/lmdbzoningcompatibility.class.php', 0))) { dol_include_once('/lmdbzoning/class/lmdbzoningcompatibility.class.php'); }
 		if (!class_exists('LmdbZoningTravelService') && is_file(dol_buildpath('/lmdbzoning/class/lmdbzoningtravelservice.class.php', 0))) { dol_include_once('/lmdbzoning/class/lmdbzoningtravelservice.class.php'); }
 		return class_exists('LmdbZoningCompatibility') && class_exists('LmdbZoningTravelService')
-			&& method_exists('LmdbZoningTravelService', 'read') && LmdbZoningCompatibility::isTravelAvailable('propal');
+			&& (new ReflectionClass('LmdbZoningTravelService'))->hasMethod('read') && LmdbZoningCompatibility::isTravelAvailable('propal');
 	}
 
 	/** Optional lmdbpropalpv qualification in the current entity. */
@@ -129,7 +127,7 @@ class LmdbSalesCommissionsCompatibility
 		if (!class_exists('LmdbPropalPVComplexSiteService') && is_file(dol_buildpath('/lmdbpropalpv/class/lmdbpropalpvcomplexsiteservice.class.php', 0))) {
 			dol_include_once('/lmdbpropalpv/class/lmdbpropalpvcomplexsiteservice.class.php');
 		}
-		return class_exists('LmdbPropalPVComplexSiteService') && method_exists('LmdbPropalPVComplexSiteService', 'isAvailable')
+		return class_exists('LmdbPropalPVComplexSiteService') && (new ReflectionClass('LmdbPropalPVComplexSiteService'))->hasMethod('isAvailable')
 			&& LmdbPropalPVComplexSiteService::isAvailable($db);
 	}
 

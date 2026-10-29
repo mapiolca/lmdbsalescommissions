@@ -20,7 +20,7 @@ class LmdbSalesCommissionMarginGuard
 		$contexts = is_object($hookmanager) ? $hookmanager->contextarray : array();
 		if (in_array('api', $contexts, true) && !self::$apiRegistered && class_exists('Luracast\\Restler\\Restler')) {
 			self::$apiRegistered = true;
-			\Luracast\Restler\Restler::onCall(static function () use ($db) {
+			\Luracast\Restler\Restler::addListener('onCall', static function () use ($db) {
 				self::apiCall($db, \Luracast\Restler\Restler::$self);
 			});
 		}
@@ -42,7 +42,7 @@ class LmdbSalesCommissionMarginGuard
 					$allowed = (new LmdbSalesCommissionMarginService($db))->saleAllowed($proposal, $actor);
 				}
 			} catch (Exception $e) { $allowed = false; }
-			if (!$allowed) { $langs->load('lmdbsalescommissions@lmdbsalescommissions'); httponly_accessforbidden($langs->trans('LscPublicBlocked'), 403); exit; }
+			if (!$allowed) { $langs->load('lmdbsalescommissions@lmdbsalescommissions'); httponly_accessforbidden($langs->trans('LscPublicBlocked'), 403); }
 		}
 	}
 
@@ -52,10 +52,25 @@ class LmdbSalesCommissionMarginGuard
 	{
 		if (!is_object($restler) || !is_object($restler->apiMethodInfo)) { return; }
 		$info = $restler->apiMethodInfo;
-		if (strtolower($info->className) !== 'proposals' || !in_array(strtoupper($restler->requestMethod), array('POST', 'PUT', 'PATCH'), true)) { return; }
+		if (strtolower($info->className) !== 'proposals') { return; }
+		if (getDolGlobalInt('LMDBSALESCOMMISSIONS_MARGIN_WORKFLOW_READY') && in_array(strtoupper($restler->requestMethod), array('POST', 'PUT', 'PATCH', 'DELETE'), true)) {
+			$args = array();
+			foreach ($info->arguments as $name => $index) { $args[$name] = $info->parameters[$index] ?? null; }
+			if (isset($args['id']) && (int) $args['id'] > 0) {
+				if (!class_exists('Propal')) { require_once DOL_DOCUMENT_ROOT.'/comm/propal/class/propal.class.php'; }
+				$quote = new Propal($db);
+				$actor = DolibarrApiAccess::$user;
+				if ((int) $actor->id <= 0 || $quote->fetch((int) $args['id']) <= 0 || !restrictedArea($actor, 'propal', $quote->id, 'propal', '', 'fk_soc', 'rowid', 0, 1, 'read')) { throw new \Luracast\Restler\RestException(403); }
+				try {
+					require_once __DIR__.'/lmdbsalescommissionmarginworkflow.class.php';
+					(new LmdbSalesCommissionMarginWorkflow($db))->assertUnlocked($quote);
+				} catch (RuntimeException $e) { throw new \Luracast\Restler\RestException(409, $e->getMessage()); }
+			}
+		}
+		if (!in_array(strtoupper($restler->requestMethod), array('POST', 'PUT', 'PATCH'), true)) { return; }
 		if (!in_array(strtolower($info->methodName), array('post', 'put', 'validate', 'close'), true)) { return; }
 		$actor = DolibarrApiAccess::$user;
-		if (!is_object($actor) || !$actor->hasRight('propal', 'creer')) { throw new \Luracast\Restler\RestException(403); }
+		if ((int) $actor->id <= 0 || !$actor->hasRight('propal', 'creer')) { throw new \Luracast\Restler\RestException(403); }
 		$args = array();
 		foreach ($info->arguments as $name => $index) { $args[$name] = $info->parameters[$index] ?? null; }
 		$service = new LmdbSalesCommissionMarginService($db);

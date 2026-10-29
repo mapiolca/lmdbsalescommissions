@@ -193,8 +193,8 @@ class LmdbSalesCommissionMarginService
 		}
 		$form = new FormMargin($this->db);
 		$margin = $form->getMarginInfosArray($copy);
-		$cost = isset($margin['pa_total']) && is_numeric($margin['pa_total']) ? (float) $margin['pa_total'] : null;
-		$sale = isset($margin['pv_total']) && is_numeric($margin['pv_total']) ? (float) $margin['pv_total'] : null;
+		$cost = is_finite($margin['pa_total']) ? (float) $margin['pa_total'] : null;
+		$sale = is_finite($margin['pv_total']) ? (float) $margin['pv_total'] : null;
 		$rate = $cost !== null && $cost > 0 && $sale !== null ? ($sale - $cost) / $cost * 100 : null;
 		foreach ($copy->lines as $line) {
 			if ((int) ($line->product_type ?? 0) !== 9 && ($line->qty ?? 0) != 0 && (!isset($line->pa_ht) || !is_numeric($line->pa_ht))) { $rate = null; }
@@ -222,8 +222,8 @@ class LmdbSalesCommissionMarginService
 		$copy->lines = array();
 		foreach ($indexes as $index) { $copy->lines[] = clone $proposal->lines[$index]; }
 		$margin = (new FormMargin($this->db))->getMarginInfosArray($copy);
-		$cost = isset($margin['pa_total']) && is_numeric($margin['pa_total']) ? (float) $margin['pa_total'] : null;
-		$sale = isset($margin['pv_total']) && is_numeric($margin['pv_total']) ? (float) $margin['pv_total'] : null;
+		$cost = is_finite($margin['pa_total']) ? (float) $margin['pa_total'] : null;
+		$sale = is_finite($margin['pv_total']) ? (float) $margin['pv_total'] : null;
 		if ($cost === null || $cost <= 0 || $sale === null) { return null; }
 		foreach ($copy->lines as $line) {
 			if ((int) ($line->product_type ?? 0) !== 9 && ($line->qty ?? 0) != 0 && (!isset($line->pa_ht) || !is_numeric($line->pa_ht))) { return null; }
@@ -373,6 +373,10 @@ class LmdbSalesCommissionMarginService
 			$decision['rules'] = $rules;
 			$decision['fingerprint'] = $fingerprint;
 			$decision['frozen'] = false;
+			if (getDolGlobalInt('LMDBSALESCOMMISSIONS_MARGIN_WORKFLOW_READY')) {
+				require_once __DIR__.'/lmdbsalescommissionmarginworkflow.class.php';
+				$decision['retained_percent'] = (new LmdbSalesCommissionMarginWorkflow($this->db))->retainedPercent($proposal, (int) $id, $fingerprint);
+			}
 			$result[$id] = $decision;
 		}
 		return $result;
@@ -384,6 +388,10 @@ class LmdbSalesCommissionMarginService
 	 * @return bool */
 	public function saleAllowed($proposal, $actor = null)
 	{
+		if (getDolGlobalInt('LMDBSALESCOMMISSIONS_MARGIN_WORKFLOW_READY')) {
+			require_once __DIR__.'/lmdbsalescommissionmarginworkflow.class.php';
+			if ((new LmdbSalesCommissionMarginWorkflow($this->db))->pending($proposal) !== null) { return false; }
+		}
 		foreach ($this->assess($proposal, true, $actor) as $decision) {
 			if ($decision['sale'] !== 'allow') { return false; }
 		}
@@ -421,6 +429,18 @@ class LmdbSalesCommissionMarginService
 		return isset($decisions[$beneficiary]) ? $decisions[$beneficiary]['commission'] : 'unknown';
 	}
 
+	/** Eligibility and managerial reduction of the direct commission, including manual fixed allocations.
+	 * @return float Normalized amount; unknown eligibility never creates a payable commission. */
+	public function commissionAmount($proposal, int $beneficiary, float $amount): float
+	{
+		$decisions = $this->assess($proposal);
+		if (!$decisions) { return (float) price2num($amount, 'MT'); }
+		$decision = $decisions[$beneficiary] ?? null;
+		if (!$decision || $decision['commission'] !== 'allow') { return 0.0; }
+		$percent = $decision['retained_percent'] ?? 100.0;
+		return (float) price2num($amount * $percent / 100, 'MT');
+	}
+
 	/** Record a request for every currently denied sale check, without granting any approval.
 	 * One atomic INSERT and a unique key make double submissions harmless.
 	 * @param Propal $proposal Loaded draft proposal
@@ -431,6 +451,11 @@ class LmdbSalesCommissionMarginService
 	public function requestSaleApproval($proposal, $user, $reason, $fingerprint)
 	{
 		global $conf;
+		if (getDolGlobalInt('LMDBSALESCOMMISSIONS_MARGIN_WORKFLOW_READY')) {
+			require_once __DIR__.'/lmdbsalescommissionmarginworkflow.class.php';
+			(new LmdbSalesCommissionMarginWorkflow($this->db))->request($proposal, $user, $reason, $fingerprint);
+			return;
+		}
 		if (!isModEnabled('lmdbsalescommissions') || !empty($user->socid) || (int) $user->id <= 0
 			|| !$user->hasRight('propal', 'lire')
 			|| (!getDolGlobalInt('MAIN_USE_ADVANCED_PERMS') && !$user->hasRight('propal', 'creer'))
@@ -461,7 +486,16 @@ class LmdbSalesCommissionMarginService
 	 * @return void */
 	public function approve($proposal, $user, $beneficiary, $rule, $effect, $reason, $fingerprint)
 	{
-		if (!empty($user->socid) || ($effect === 'sale' && !$user->hasRight('lmdbsalescommissions', 'marginpolicy', 'approvesale')) || ($effect === 'commission' && !$user->hasRight('lmdbsalescommissions', 'marginpolicy', 'approvecommission')) || !in_array($effect, array('sale', 'commission'), true) || trim($reason) === '' || (int) ($proposal->status ?? $proposal->statut) >= 2 || LmdbSalesCommissionProposalService::getSignatureDate($proposal) > 0) {
+		if (getDolGlobalInt('LMDBSALESCOMMISSIONS_MARGIN_WORKFLOW_READY')) {
+			require_once __DIR__.'/lmdbsalescommissionmarginworkflow.class.php';
+			$workflow = new LmdbSalesCommissionMarginWorkflow($this->db);
+			$workflow->assertUnlocked($proposal);
+			if ($effect === 'sale') {
+				if (!LmdbSalesCommissionMarginWorkflow::inDecision($proposal)) { throw new RuntimeException('LscWorkflowUseDecision'); }
+				$workflow->assertDecisionAccess($proposal, $user, false);
+			}
+		}
+		if (!empty($user->socid) || ($effect === 'sale' && !$user->hasRight('lmdbsalescommissions', 'marginpolicy', 'approvesale') && !(getDolGlobalInt('LMDBSALESCOMMISSIONS_MARGIN_WORKFLOW_READY') && $user->hasRight('lmdbsalescommissions', 'marginpolicy', 'approvesubordinates'))) || ($effect === 'commission' && !$user->hasRight('lmdbsalescommissions', 'marginpolicy', 'approvecommission')) || !in_array($effect, array('sale', 'commission'), true) || trim($reason) === '' || (int) ($proposal->status ?? $proposal->statut) >= 2 ) {
 			throw new RuntimeException('LscApprovalDenied');
 		}
 		$decisions = $this->assess($proposal, false, $user);

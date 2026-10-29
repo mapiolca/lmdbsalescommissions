@@ -4,7 +4,7 @@
  */
 $pdo = new PDO(getenv('LSC_TEST_DSN'), getenv('LSC_TEST_USER'), getenv('LSC_TEST_PASSWORD'), array(PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION));
 $prefix = 'long_test_prefix_';
-$tables = array('rule', 'rule_assignment', 'margin_band', 'margin_travel_band', 'margin_complex_site', 'margin_category', 'margin_product', 'margin_approval', 'margin_request', 'margin_revision', 'margin_snapshot', 'line', 'due');
+$tables = array('rule', 'rule_assignment', 'margin_band', 'margin_travel_band', 'margin_complex_site', 'margin_category', 'margin_product', 'margin_approval', 'margin_request', 'margin_case', 'margin_revision', 'margin_snapshot', 'line', 'due', 'tier_grid', 'tier');
 foreach ($tables as $table) {
 	$sql = file_get_contents(__DIR__.'/../sql/llx_lmdbsalescommissions_'.$table.'.sql');
 	$pdo->exec(str_replace('llx_', $prefix, $sql));
@@ -27,6 +27,30 @@ catch (PDOException $error) { if ($error->errorInfo[1] !== 1062) { throw $error;
 $pdo->exec(str_replace('(1,10,7,', '(2,10,7,', $insert));
 if ((int) $pdo->query("SELECT COUNT(*) FROM $snapshot")->fetchColumn() !== 2) { throw new RuntimeException('Entity uniqueness'); }
 echo "MariaDB DDL, long prefix, revision, rollback and entity uniqueness passed.\n";
+
+// A single nullable active key permits multiple historical requests, but only one pending request.
+$cases = $prefix.'lmdbsalescommissions_margin_case';
+$caseInsert = "INSERT INTO $cases (entity,fk_propal,fk_author,active_proposal,status,fingerprint,reason,snapshot_payload,fk_user_creat,date_creation) VALUES (1,10,7,10,0,'fingerprint','Reason','{}',7,NOW())";
+$pdo->exec($caseInsert);
+try { $pdo->exec($caseInsert); throw new RuntimeException('Two active dossiers accepted'); }
+catch (PDOException $error) { if ($error->errorInfo[1] !== 1062) { throw $error; } }
+$pdo->exec("UPDATE $cases SET active_proposal=NULL,status=2 WHERE entity=1 AND fk_propal=10");
+$pdo->exec($caseInsert);
+$pdo->exec("CREATE TABLE {$prefix}propal (rowid integer PRIMARY KEY, entity integer NOT NULL, fk_statut integer NOT NULL) ENGINE=InnoDB");
+$pdo->exec("INSERT INTO {$prefix}propal VALUES (10,1,0)");
+$pdo->beginTransaction();
+$pdo->query("SELECT rowid FROM {$prefix}propal WHERE entity=1 AND rowid=10 FOR UPDATE")->fetchColumn();
+$other = new PDO(getenv('LSC_TEST_DSN'), getenv('LSC_TEST_USER'), getenv('LSC_TEST_PASSWORD'), array(PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION));
+$other->exec('SET SESSION innodb_lock_wait_timeout=1');
+$other->beginTransaction();
+try { $other->query("SELECT rowid FROM {$prefix}propal WHERE entity=1 AND rowid=10 FOR UPDATE"); throw new RuntimeException('Concurrent decision acquired locked parent'); }
+catch (PDOException $error) { if ($error->errorInfo[1] !== 1205) { throw $error; } }
+$other->rollBack();
+$pdo->exec("UPDATE $cases SET active_proposal=NULL,status=1,retained_percent=50 WHERE entity=1 AND active_proposal=10");
+$pdo->exec("UPDATE {$prefix}propal SET fk_statut=1 WHERE entity=1 AND rowid=10");
+$pdo->rollBack();
+if ((int) $pdo->query("SELECT COUNT(*) FROM $cases WHERE entity=1 AND active_proposal=10 AND status=0")->fetchColumn() !== 1 || (int) $pdo->query("SELECT fk_statut FROM {$prefix}propal WHERE rowid=10")->fetchColumn() !== 0) { throw new RuntimeException('Dossier and native parent did not roll back together'); }
+echo "MariaDB workflow uniqueness, historical requests, parent lock contention and atomic rollback passed.\n";
 
 // Execute the actual policy SELECT against MariaDB, including entity-scoped group membership.
 define('MAIN_DB_PREFIX', $prefix);
@@ -193,3 +217,64 @@ $pdo->exec("INSERT INTO $assignments (entity,assignment_type,fk_rule,date_creati
 $result=(new LmdbSalesCommissionRuleResolver(new MarginPolicyPdo($pdo)))->resolveForUser(7,2000,1,'proposal','margin_excess');
 if (($result['selected']['margin_excess']['rule_id'] ?? 0)!==42) { throw new RuntimeException('Reward validity end date'); }
 echo "MariaDB reward migrations replayed, history preserved, atomic rollback, stable uniqueness and resolution passed.\n";
+
+// Native dictionaries, strict varchar limits and real init SQL; module lifecycle base is a double.
+$core = __DIR__.'/.core-cache/20.0.0/htdocs/install/mysql/tables/';
+foreach (array('const.sql', 'c_email_templates.sql', 'c_action_trigger.sql', 'c_action_trigger.key.sql') as $file) {
+	$pdo->exec(str_replace('llx_', $prefix, file_get_contents($core.'llx_'.$file)));
+}
+$mailTable = $prefix.'c_email_templates';
+$constTable = $prefix.'const';
+$eventTable = $prefix.'c_action_trigger';
+$oldType = 'lmdbsalescommissionmargincase@lmdbsalescommissions';
+try {
+	$pdo->exec("INSERT INTO $mailTable (type_template,label) VALUES ('$oldType','Too long')");
+	throw new RuntimeException('Native template width is not enforced');
+} catch (PDOException $error) { if ($error->errorInfo[1] !== 1406) { throw $error; } }
+$pdo->exec("INSERT INTO $mailTable (entity,module,type_template,lang,label,content,active) VALUES (1,'lmdbsalescommissions','".substr($oldType, 0, 32)."','fr_FR','CUSTOM','Texte personnalisé conservé',1)");
+$create = 'LMDBSALESCOMMISSIONS_MARGIN_CASE_CREATE_TEMPLATE';
+$update = 'LMDBSALESCOMMISSIONS_MARGIN_CASE_UPDATE_TEMPLATE';
+$pdo->exec("INSERT INTO $constTable (name,value,type,entity) VALUES ('$create','CUSTOM','chaine',1),('$update','','chaine',1),('$create','OTHER','chaine',2),('LMDBSALESCOMMISSIONS_MARGIN_ENABLED','0','yesno',1)");
+$pdo->exec("INSERT INTO $eventTable (elementtype,code,label) VALUES ('$oldType','LMDBSALESCOMMISSIONS_MARGIN_CASE_CREATE','Existing event')");
+$pdo->exec("CREATE TABLE {$prefix}actioncomm (id integer PRIMARY KEY, entity integer, fk_element integer, elementtype varchar(64))");
+$pdo->exec("CREATE TABLE {$prefix}notify (rowid integer PRIMARY KEY, fk_action integer, objet_id integer, objet_type varchar(24))");
+$pdo->exec("INSERT INTO {$prefix}actioncomm VALUES (1,1,1,'$oldType'),(2,2,1,'$oldType')");
+$pdo->exec("INSERT INTO {$prefix}notify SELECT 1,rowid,1,'".substr($oldType, 0, 24)."' FROM $eventTable WHERE code='LMDBSALESCOMMISSIONS_MARGIN_CASE_CREATE'");
+class WorkflowSchemaModule extends modLmdbSalesCommissions {
+	public $loadResult = 1;
+	public $initCalls = 0;
+	public function _load_tables($path) {
+		if ($this->loadResult <= 0) { return $this->loadResult; }
+		foreach (preg_split('/;\s*(?:\r?\n|$)/', file_get_contents(__DIR__.'/../sql/data.sql')) as $sql) {
+			if (trim($sql) !== '') { $this->db->query(str_replace('llx_', MAIN_DB_PREFIX, $sql)); }
+		}
+		return 1;
+	}
+	public function _init($sql, $options = '') { $this->initCalls++; foreach ($sql as $query) { $this->db->query($query); } return 1; }
+}
+$installer = (new ReflectionClass(WorkflowSchemaModule::class))->newInstanceWithoutConstructor();
+$installer->db = new MarginPolicyPdo($pdo);
+$conf = (object) array('entity' => 1);
+for ($pass = 0; $pass < 2; $pass++) {
+	if ($installer->init() !== 1) { throw new RuntimeException('Workflow init SQL failed'); }
+}
+$initCalls = $installer->initCalls;
+foreach (array(0, -1) as $failure) {
+	$installer->loadResult = $failure;
+	if ($installer->init() !== -1 || $installer->initCalls !== $initCalls) { throw new RuntimeException('A failed native table load must stop module activation'); }
+}
+$installer->loadResult = 1;
+$saved = $pdo->query("SELECT name,value,type,entity FROM $constTable WHERE name IN ('$create','$update') ORDER BY entity,name")->fetchAll(PDO::FETCH_ASSOC);
+if ($saved !== array(
+	array('name' => $create, 'value' => 'CUSTOM', 'type' => 'emailtemplate:lscmargincase', 'entity' => 1),
+	array('name' => $update, 'value' => '', 'type' => 'emailtemplate:lscmargincase', 'entity' => 1),
+	array('name' => $create, 'value' => 'OTHER', 'type' => 'chaine', 'entity' => 2),
+)) { throw new RuntimeException('Native template selector metadata or selection preservation'); }
+if ($pdo->query("SELECT content FROM $mailTable WHERE entity=1 AND label='CUSTOM' AND type_template='lscmargincase'")->fetchColumn() !== 'Texte personnalisé conservé'
+	|| (int) $pdo->query("SELECT COUNT(*) FROM $mailTable")->fetchColumn() !== 3
+	|| (int) $pdo->query("SELECT COUNT(*) FROM $eventTable WHERE code LIKE 'LMDBSALESCOMMISSIONS_MARGIN_CASE_%' AND elementtype='lscmargincase'")->fetchColumn() !== 2
+	|| $pdo->query("SELECT value FROM $constTable WHERE name='LMDBSALESCOMMISSIONS_MARGIN_ENABLED' AND entity=1")->fetchColumn() !== '0') { throw new RuntimeException('Replayed init lost templates, settings or event identity'); }
+if ($pdo->query("SELECT elementtype FROM {$prefix}actioncomm WHERE id=1")->fetchColumn() !== 'lscmargincase'
+	|| $pdo->query("SELECT elementtype FROM {$prefix}actioncomm WHERE id=2")->fetchColumn() !== $oldType
+	|| $pdo->query("SELECT objet_type FROM {$prefix}notify WHERE rowid=1")->fetchColumn() !== 'lscmargincase') { throw new RuntimeException('Historical event identity migration or owner filtering'); }
+echo "MariaDB native notification schema, strict type limits, init replay and customized/empty settings preservation passed.\n";

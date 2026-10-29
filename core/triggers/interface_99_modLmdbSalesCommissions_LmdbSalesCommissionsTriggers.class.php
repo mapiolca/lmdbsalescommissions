@@ -64,11 +64,29 @@ class InterfaceLmdbSalesCommissionsTriggers
 		require_once __DIR__.'/../../class/lmdbsalescommissionmarginservice.class.php';
 		// MODIFY is listened to for legacy CommonObject callers; new approval events use CRUD.
 		if (preg_match('/^LMDBSALESCOMMISSIONS_(RULE|RULE_ASSIGNMENT|PROPOSAL_DISPATCH|PROPOSAL_TURNOVER_DISPATCH)_(CREATE|UPDATE|MODIFY|DELETE)$/', $action, $match)) {
+			if (getDolGlobalInt('LMDBSALESCOMMISSIONS_MARGIN_WORKFLOW_READY') && strpos($match[1], 'PROPOSAL_') === 0) {
+				require_once __DIR__.'/../../class/lmdbsalescommissionmarginworkflow.class.php';
+				try { (new LmdbSalesCommissionMarginWorkflow($this->db))->assertUnlocked((object) array('id' => (int) $object->fk_propal, 'entity' => (int) $object->entity), true); }
+				catch (RuntimeException $e) { $this->error = $langs->trans($e->getMessage()); return -1; }
+			}
 			try { (new LmdbSalesCommissionMarginService($this->db))->invalidate((int) $object->entity, strpos($match[1], 'PROPOSAL_') === 0 ? (int) $object->fk_propal : 0); }
 			catch (Exception $e) { $this->error = $langs->trans($e->getMessage()); return -1; }
 			return 0;
 		}
 		$proposalUpdateActions = array('PROPAL_MODIFY', 'LINEPROPAL_INSERT', 'LINEPROPAL_MODIFY', 'LINEPROPAL_DELETE');
+		if (getDolGlobalInt('LMDBSALESCOMMISSIONS_MARGIN_WORKFLOW_READY') && $action !== 'PROPAL_CREATE' && (strpos($action, 'PROPAL_') === 0 || in_array($action, $proposalUpdateActions, true))) {
+			require_once __DIR__.'/../../class/lmdbsalescommissionmarginworkflow.class.php';
+			$target = $object;
+			if (in_array($action, array('LINEPROPAL_INSERT', 'LINEPROPAL_MODIFY', 'LINEPROPAL_DELETE'), true)) {
+				$target = (object) array('id' => (int) ($object->fk_propal ?? 0), 'entity' => (int) $conf->entity);
+				if (!class_exists('Propal')) { require_once DOL_DOCUMENT_ROOT.'/comm/propal/class/propal.class.php'; }
+				$parent = new Propal($this->db);
+				if ($parent->fetch($target->id) <= 0) { $this->error = 'ErrorRecordNotFound'; return -1; }
+				$target = $parent;
+			}
+			try { (new LmdbSalesCommissionMarginWorkflow($this->db))->assertUnlocked($target, true); }
+			catch (RuntimeException $e) { $this->error = $langs->trans($e->getMessage()); return -1; }
+		}
 		if ($action !== 'PROPAL_VALIDATE' && $action !== 'PROPAL_CLOSE_SIGNED' && $action !== 'PROPAL_CLOSE_REFUSED' && $action !== 'PROPAL_DELETE' && !in_array($action, $proposalUpdateActions, true)) {
 			return 0;
 		}

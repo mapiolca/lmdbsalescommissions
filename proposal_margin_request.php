@@ -1,14 +1,23 @@
 <?php
 /* Copyright (C) 2026 Pierre Ardoin <developpeur@lesmetiersdubatiment.fr> */
 $res = 0;
-if (file_exists('../main.inc.php')) { $res = @include '../main.inc.php'; }
-if (!$res && file_exists('../../main.inc.php')) { $res = @include '../../main.inc.php'; }
+if (file_exists(dirname(__DIR__).'/main.inc.php')) { $res = @include dirname(__DIR__).'/main.inc.php'; }
+if (!$res && file_exists(dirname(__DIR__, 2).'/main.inc.php')) { $res = @include dirname(__DIR__, 2).'/main.inc.php'; }
 if (!$res) { die('Include of main fails'); }
+/**
+ * @var DoliDB $db
+ * @var Conf $conf
+ * @var User $user
+ * @var Translate $langs
+ */
 
 require_once DOL_DOCUMENT_ROOT.'/comm/propal/class/propal.class.php';
 require_once __DIR__.'/class/lmdbsalescommissionmarginservice.class.php';
 $langs->loadLangs(array('propal', 'lmdbsalescommissions@lmdbsalescommissions'));
 $id = GETPOSTINT('id');
+if (getDolGlobalInt('LMDBSALESCOMMISSIONS_MARGIN_WORKFLOW_READY')) {
+	header('Location: '.dol_buildpath('/lmdbsalescommissions/proposal_margin_workflow.php', 1).'?id='.$id.'&mode=request'); exit;
+}
 $action = GETPOST('action', 'aZ09');
 $reason = GETPOST('reason', 'alphanohtml');
 if (!isModEnabled('lmdbsalescommissions') || !empty($user->socid) || !$user->hasRight('propal', 'lire')

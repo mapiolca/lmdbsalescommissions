@@ -2,15 +2,22 @@
 /* Copyright (C) 2026		Pierre Ardoin <developpeur@lesmetiersdubatiment.fr> */
 
 $res = 0;
-if (!$res && file_exists('../main.inc.php')) {
-	$res = @include '../main.inc.php';
+if (file_exists(dirname(__DIR__).'/main.inc.php')) {
+	$res = @include dirname(__DIR__).'/main.inc.php';
 }
-if (!$res && file_exists('../../main.inc.php')) {
-	$res = @include '../../main.inc.php';
+if (!$res && file_exists(dirname(__DIR__, 2).'/main.inc.php')) {
+	$res = @include dirname(__DIR__, 2).'/main.inc.php';
 }
 if (!$res) {
 	die('Include of main fails');
 }
+/**
+ * @var DoliDB $db
+ * @var Conf $conf
+ * @var User $user
+ * @var Translate $langs
+ * @var HookManager $hookmanager
+ */
 
 require_once DOL_DOCUMENT_ROOT.'/comm/propal/class/propal.class.php';
 require_once DOL_DOCUMENT_ROOT.'/core/lib/propal.lib.php';
@@ -48,18 +55,17 @@ $allowedProposalEntities = array_map('intval', explode(',', getEntity('propal'))
 if (!in_array((int) $object->entity, $allowedProposalEntities, true)) {
 	accessforbidden();
 }
-if (method_exists($object, 'fetch_lines')) {
-	$object->fetch_lines();
-}
-if (method_exists($object, 'fetch_thirdparty')) {
-	$object->fetch_thirdparty();
-}
+$object->fetch_lines();
+$object->fetch_thirdparty();
 
 restrictedArea($user, 'propal', $object->id, 'propal', '', 'fk_soc', 'rowid', 0, 0, 'read');
+if (getDolGlobalInt('LMDBSALESCOMMISSIONS_MARGIN_WORKFLOW_READY')) {
+	require_once __DIR__.'/class/lmdbsalescommissionmarginworkflowview.class.php';
+}
 $service = new LmdbSalesCommissionProposalDispatchService($db);
 $turnoverService = new LmdbSalesCommissionProposalTurnoverDispatchService($db);
 $canManage = $user->hasRight('lmdbsalescommissions', 'commission', 'dispatch');
-$canReadAny = $canManage || $user->hasRight('lmdbsalescommissions', 'commission', 'readown') || $user->hasRight('lmdbsalescommissions', 'commission', 'readall') || $user->hasRight('lmdbsalescommissions', 'commission', 'readgroup') || $user->hasRight('lmdbsalescommissions', 'marginpolicy', 'approvesale') || $user->hasRight('lmdbsalescommissions', 'marginpolicy', 'approvecommission');
+$canReadAny = $canManage || $user->hasRight('lmdbsalescommissions', 'commission', 'readown') || $user->hasRight('lmdbsalescommissions', 'commission', 'readall') || $user->hasRight('lmdbsalescommissions', 'commission', 'readgroup') || $user->hasRight('lmdbsalescommissions', 'marginpolicy', 'approvesale') || $user->hasRight('lmdbsalescommissions', 'marginpolicy', 'approvesubordinates') || $user->hasRight('lmdbsalescommissions', 'marginpolicy', 'approvecommission');
 if (!$canReadAny) {
 	accessforbidden();
 }
@@ -127,7 +133,7 @@ if ($action === 'savedispatch') {
 	}
 	setEventMessages($langs->trans($service->error), array_map(array($langs, 'trans'), $service->errors), 'errors');
 	$editedDispatch = $dispatch;
-	$mode = is_object($editedDispatch) && !empty($editedDispatch->id) ? 'edit' : 'create';
+	$mode = !empty($editedDispatch->id) ? 'edit' : 'create';
 } elseif ($action === 'deletedispatch') {
 	if (!is_object($editedDispatch)) {
 		accessforbidden($langs->trans('ErrorRecordNotFound'));
@@ -156,7 +162,7 @@ if ($action === 'savedispatch') {
 	}
 	setEventMessages($langs->trans($turnoverService->error), array_map(array($langs, 'trans'), $turnoverService->errors), 'errors');
 	$editedTurnoverDispatch = $turnoverDispatch;
-	$mode = is_object($editedTurnoverDispatch) && !empty($editedTurnoverDispatch->id) ? 'editturnover' : 'createturnover';
+	$mode = !empty($editedTurnoverDispatch->id) ? 'editturnover' : 'createturnover';
 } elseif ($action === 'deleteturnoverdispatch') {
 	if (!is_object($editedTurnoverDispatch)) {
 		accessforbidden($langs->trans('ErrorRecordNotFound'));
@@ -200,6 +206,7 @@ $paymentModeOptions = array(
 	LmdbSalesCommissionProposalDispatchService::PAYMENT_EXPLICIT => $langs->trans('LmdbSalesCommissionsDispatchPaymentExplicit'),
 );
 
+$hookmanager->initHooks(array('lmdbsalescommissionproposaldispatch', 'globalcard'));
 llxHeader('', $langs->trans('LmdbSalesCommissionsProposalDispatch'), '', '', 0, 0, array(), lmdbsalescommissionsGetCssFiles(), '', lmdbsalescommissionsGetBodyClass());
 $head = propal_prepare_head($object);
 print dol_get_fiche_head($head, 'lmdbsalescommissions_dispatch', $langs->trans('Proposal'), -1, 'propal');
@@ -216,6 +223,7 @@ if (!$editable && $canManage) {
 }
 
 require_once __DIR__.'/class/lmdbsalescommissionmarginview.class.php';
+if (getDolGlobalInt('LMDBSALESCOMMISSIONS_MARGIN_WORKFLOW_READY')) { print LmdbSalesCommissionMarginWorkflowView::actions($db, $object, $user); }
 print LmdbSalesCommissionMarginView::render($db, $object, $user, true);
 
 $commissionAdd = $editable ? dolGetButtonTitle($langs->trans('LmdbSalesCommissionsNewCommissionDispatch'), '', 'fa fa-plus-circle', $_SERVER['PHP_SELF'].'?id='.((int) $object->id).'&mode=create') : '';
@@ -325,7 +333,7 @@ if ($editable && ($mode === 'createturnover' || $mode === 'editturnover')) {
 	}
 }
 
-$proposalTurnover = property_exists($object, 'total_ht') && is_numeric($object->total_ht) ? (float) price2num(max(0, (float) $object->total_ht), 'MT') : 0.0;
+$proposalTurnover = is_numeric($object->total_ht) ? (float) price2num(max(0, (float) $object->total_ht), 'MT') : 0.0;
 $turnoverVisibleCount = 0;
 $turnoverFullTotal = 0.0;
 print '<br><div class="div-table-responsive-no-min">';

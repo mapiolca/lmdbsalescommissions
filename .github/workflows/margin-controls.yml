@@ -28,14 +28,19 @@ jobs:
           coverage: none
       - run: git ls-files -z '*.php' | xargs -0 -n1 php -l
       - run: python3 test/fetch_native_contracts.py '${{ matrix.dolibarr }}'
+      - run: python3 test/package_contract_test.py 'test/.core-cache/${{ matrix.dolibarr }}/htdocs'
       - run: php test/native_margin_contract_test.php 'test/.core-cache/${{ matrix.dolibarr }}/htdocs' '${{ matrix.dolibarr }}'
       - run: php test/margin_guard_test.php 'test/.core-cache/${{ matrix.dolibarr }}/htdocs' '${{ matrix.dolibarr }}'
       - run: php test/margin_validation_test.php 'test/.core-cache/${{ matrix.dolibarr }}/htdocs' '${{ matrix.dolibarr }}'
+      - run: php test/margin_workflow_test.php 'test/.core-cache/${{ matrix.dolibarr }}/htdocs' '${{ matrix.dolibarr }}'
+      - run: php test/margin_workflow_notification_test.php 'test/.core-cache/${{ matrix.dolibarr }}/htdocs' '${{ matrix.dolibarr }}'
       - run: php test/margin_summary_test.php 'test/.core-cache/${{ matrix.dolibarr }}/htdocs'
       - run: php test/policy_tooltip_test.php 'test/.core-cache/${{ matrix.dolibarr }}/htdocs'
       - run: php test/margin_service_test.php 'test/.core-cache/${{ matrix.dolibarr }}/htdocs' '${{ matrix.dolibarr }}'
       - run: php test/margin_scope_test.php 'test/.core-cache/${{ matrix.dolibarr }}/htdocs' '${{ matrix.dolibarr }}'
       - run: php test/margin_admin_test.php 'test/.core-cache/${{ matrix.dolibarr }}/htdocs'
+      - run: php test/margin_policy_catalogue_test.php 'test/.core-cache/${{ matrix.dolibarr }}/htdocs'
+      - run: node test/margin_policy_catalogue_js_test.js
       - run: php test/margin_line_trigger_test.php 'test/.core-cache/${{ matrix.dolibarr }}/htdocs'
       - run: php test/reward_test.php 'test/.core-cache/${{ matrix.dolibarr }}/htdocs' '${{ matrix.dolibarr }}'
       - run: php test/reward_lifecycle_test.php
@@ -43,6 +48,7 @@ jobs:
       - run: php test/proposal_cleanup_test.php 'test/.core-cache/${{ matrix.dolibarr }}/htdocs'
       - run: php test/rule_resolver_test.php
       - run: php test/tier_calculator_test.php
+      - run: node test/margin_workflow_js_test.js
   schema:
     runs-on: ubuntu-latest
     services:
@@ -60,6 +66,7 @@ jobs:
           php-version: '8.4'
           extensions: pdo_mysql
           coverage: none
+      - run: python3 test/fetch_native_contracts.py '20.0.0'
       - run: php test/margin_schema_test.php
         env:
           LSC_TEST_DSN: mysql:host=127.0.0.1;port=3306;dbname=module_test
