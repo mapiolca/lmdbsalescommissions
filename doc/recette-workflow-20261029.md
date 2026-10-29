@@ -2,9 +2,9 @@
 
 ## Décision de déploiement
 
-**Validation globale non acquise.** Le circuit principal fonctionne sur develop après correction de quatre défauts d’intégration. La CI est verte, mais la réception des notifications, les parcours API réels et plusieurs essais avec des profils distincts restent à confirmer. Ce rapport ne constitue pas un feu vert pour activer le blocage en production.
+**Validation globale non acquise.** Les blocages SMTP, API et PHPStan ont été levés pendant la reprise. Les demandes et les deux décisions sont reçues par email ; les refus API en brouillon et pendant l’attente sont vérifiés sur develop. Les profils hiérarchiques distincts, la fixation réelle à la signature et les autres limites ci-dessous restent à terminer avant activation du blocage en production.
 
-PR : [#10](https://github.com/mapiolca/lmdbsalescommissions/pull/10), version **1.3.0**, base `ecb535452d04e44fce4982717272196d118a6fa5`. Code de la dernière recette réelle : **`cd37f5decf8087408465b799b420a7e0134f6af0`**. Les ajouts documentaires postérieurs ne modifient pas ce code métier.
+PR : [#10](https://github.com/mapiolca/lmdbsalescommissions/pull/10), version **1.3.0**, base `ecb535452d04e44fce4982717272196d118a6fa5`. Code de la reprise réelle : **`0681c77386d4f1646cff1a5cc110a24742f2fb32`**, puis **`b2fe02732fb6a1fd79f1344d8114ae972a4ce799`** pour les accents des notifications. La tête servie a été confirmée dans Git Version Control de cPanel, sans déploiement par terminal.
 
 ## Environnements et nature des preuves
 
@@ -13,7 +13,7 @@ PR : [#10](https://github.com/mapiolca/lmdbsalescommissions/pull/10), version **
 | Local Windows | PHP 8.4.22, sources officielles figées v20–v25 alpha | Tests isolés, calculs et contrats natifs ; persistance, comptes et transport simulés |
 | CI native-contracts | v20 / PHP 8.0 et 8.4 ; v21–v23 / PHP 8.2 ; v24–v25 alpha / PHP 8.4 | Sept jobs réussis par exécution ; aucune instance ERP complète installée par ces jobs |
 | CI schema | MariaDB 11.4, DDL natif v20 et tables de test | SQL réel : migrations rejouées, limites natives des colonnes, verrous concurrents, unicité et rollback ; parent devis simplifié |
-| develop | Dolibarr 25.0.0-alpha, PHP 8.3.36, module 1.3.0, TEST 1, compte Codex id 7 | Navigateur interne, activation native, demandes et validations réelles de devis fictifs |
+| develop | Dolibarr 25.0.0-alpha, core `31627071c3d2dd890322088ebba9917515de7ac4`, PHP 8.3.36, Multicompany 24.0.2, module 1.3.0, TEST 1 | Navigateur interne avec Codex id 7 ; API native avec le jeton existant d’Utilisateur Test id 3 ; objets fictifs uniquement |
 | develop TEST 2 | Module initialement désactivé, laissé désactivé | Accès au dossier TEST 1 refusé ; pas de recette de partage avec deux modules actifs |
 
 Révisions officielles : v20 `697bf01970740a3339cd99cf055b4428fc5e051c`, v21 `fd970b582a4d8c5779a2958a4e9f4fce225cf085`, v22 `49b9a6d19f3deb6d410c0e9b3310e95be4ea7710`, v23 `57a1f05d490a7a80944a8232e9c613e6556d2704`, v24 `769c7db907099643558e77d7002c109cfda919e5`, v25 alpha `ef6e5818b0a5626f928cb9bc66bddb8be43ac32f`. La dernière révision ne prouve rien pour une future v25 finale.
@@ -23,8 +23,10 @@ Révisions officielles : v20 `697bf01970740a3339cd99cf055b4428fc5e051c`, v21 `fd
 - État `2a6daa3` : **83 exécutions locales réussies**, 106 fichiers PHP sans erreur de syntaxe, test JavaScript de 10 assertions avec DOM/Ajax simulés. Les compteurs d’assertions des suites imbriquées ne sont pas additionnés comme des scénarios uniques.
 - Après le correctif de liste `cd37f5d` : les six suites `margin_workflow_test.php` passent de nouveau, chacune avec 74 assertions ; syntaxe des deux fichiers modifiés et `git diff --check` conformes.
 - CI au SHA `cd37f5d` : **8 jobs réussis sur la PR et 8 sur la branche**, dont MariaDB. [PR : 40841714175](https://github.com/mapiolca/lmdbsalescommissions/actions/runs/40841714175), [branche : 40841707321](https://github.com/mapiolca/lmdbsalescommissions/actions/runs/40841707321). Aucun de ces résultats n’est présenté comme une recette ERP réelle sur les six versions.
-- PHPStan **2.1.0, niveau 5, cible PHP 8.0**, exécuté sur les 20 fichiers PHP de production concernés avec les sources natives v25 alpha et `--memory-limit=1G` : **81 diagnostics de fichiers, aucune erreur globale**. Le résultat n’est pas vert. Les diagnostics comprennent du code antérieur et des limites de contexte du checkout isolé ; aucun baseline, baisse de niveau ou masquage n’a été ajouté. Le premier essai limité à 128 Mo avait échoué par manque de mémoire et a été relancé.
-- Le paquet candidat vérifie le nom numérique `module_lmdbsalescommissions-1.3.0.zip`, la racine unique, l’absence du dépôt/caches/tests et **63 chemins d’inclusion sur 21 points d’entrée** : installation sous `htdocs`, sous `custom`, environnement absent. Le bootstrap est simulé ; le ZIP n’a pas été installé par l’installateur natif et n’est pas une release Dolistore.
+- Premier PHPStan : 81 diagnostics. Après correction au SHA `0681c77`, **PHPStan 2.1.0, niveau 5, cible PHP 8.0 : zéro erreur** sur les 20 fichiers de production du circuit ; même résultat après `b2fe027`. Commande : `python test/run_phpstan.py test/.tools/native-phpstan/htdocs --version 25.0.0-alpha --zoning <checkout-lmdbzoning> --propalpv <checkout-lmdbpropalpv>`. Les sources core complètes et les contrats des deux modules optionnels sont fournis sans bootstrap ERP ni dépendance obligatoire ajoutée. Aucun baseline, baisse de niveau ou masquage.
+- État `0681c77` : **76 exécutions locales réussies sur les six révisions natives**, 107 lints PHP, 10 assertions JavaScript et 72 chemins de bootstrap sur 21 points d’entrée. Après `b2fe027`, les six suites de notifications passent avec 95 assertions cumulatives chacune, dont les neuf vérifications des sujets, motifs échappés et montants. Le test de sujet échouait avant le correctif et passe ensuite.
+- CI `b2fe027` : [PR 40868453159](https://github.com/mapiolca/lmdbsalescommissions/actions/runs/40868453159) et [branche 40868446663](https://github.com/mapiolca/lmdbsalescommissions/actions/runs/40868446663), toutes deux réussies. Les tests de contrats et MariaDB restent distincts d’une recette ERP complète.
+- Le paquet candidat vérifie le nom numérique `module_lmdbsalescommissions-1.3.0.zip`, la racine unique, l’absence du dépôt/caches/tests et **72 chemins d’inclusion sur 21 points d’entrée** : installation sous `htdocs`, sous `custom`, environnement absent. Le bootstrap est simulé ; le ZIP n’a pas été installé par l’installateur natif et n’est pas une release Dolistore.
 
 ## Défauts reproduits et corrigés dans la PR
 
@@ -50,6 +52,8 @@ Les essais utilisent exclusivement le tiers fictif « RECETTE MARGES — Client 
 | Approbation globale par Codex | Validation native réelle ; devis 36 devenu `PR2610-0009`, statut Validée, sans signature ni email client demandé par le module |
 | Commission de l’auteur, base théorique 37,50 EUR | Approbations successives à 50 %, 0 %, 100 % ; synthèses respectives 18,75 EUR, 0 EUR, 37,50 EUR ; décisions historisées |
 | Retour natif en brouillon après approbation | Accord retiré du calcul courant ; nouveau circuit obligatoire |
+| Deux confirmations HTTP de demande depuis deux onglets, même compte, `b2fe027` | Un seul dossier actif ; aucun doublon dans l’historique |
+| Approbation et retour envoyés concurremment depuis ces deux onglets | Une seule décision conservée : approbation gagnante, retour refusé « La demande ou le devis a déjà changé » ; devis réellement Validé puis remis en Brouillon |
 | Affichage en liste après correctif | État « En attente de dérogation » pour le devis 36, sans changement du statut numérique natif |
 | URL de soumission sans jeton | Accès refusé ; aucune nouvelle demande. Les formulaires avec jeton ont été acceptés |
 | Accès depuis TEST 2 | Refus du dossier de TEST 1 ; module TEST 2 laissé inactif |
@@ -58,27 +62,48 @@ Le devis 47 est un clone fictif créé pendant la recette, devenu `PR2610-0010`.
 
 L’avertissement de lmdbzoning `GeocoderHttpError` apparaît lors de la validation, mais le devis est effectivement validé. Il est distinct du blocage SMTP décrit ci-dessous.
 
-## Notifications et API : blocages restants
+## Reprise SMTP, notifications et API
 
-### SMTP
+### SMTP et réception des notifications
 
-Les deux événements et leurs sélecteurs de modèles sont visibles dans l’administration native. Aucun abonnement aux événements du circuit n’a été trouvé sur les cinq comptes accessibles ni sur le tiers fictif. Les destinataires fixes initiaux des deux événements étaient absents.
+Les deux événements et leurs modèles sont visibles dans l’administration native. Les premiers essais avaient échoué avec `Error bad hostname IP (IP is a local IP). Must be an external URL.` ; la notification native renvoyait une erreur et la transaction du dossier était annulée. Cette observation initiale reste une preuve de rollback, pas d’envoi réussi.
 
-Après autorisation explicite, les deux destinataires fixes ont été configurés temporairement à `developpeur@lesmetiersdubatiment.fr`, seuil 0. La soumission a exécuté la notification native puis échoué avec :
+Le core réellement servi vérifie la cible dans `CMailFile::checkSmtpTargetAllowed()` et prévoit l’option `$dolibarr_mail_allow_unrestricted_smtp_target`. Après accord explicite, **seule cette option a été ajoutée au `conf.php` de develop**. Le nom SMTP, le port 465, le TLS et les identifiants sont conservés ; aucun fichier source du core n’est modifié. Le repli `localhost` proposé puis refusé par l’utilisateur n’a pas été appliqué.
 
-> Error bad hostname IP (IP is a local IP). Must be an external URL.
+L’envoi forcé constaté pointait vers `test@…` : le réglage natif a été corrigé vers **`developpeur@lesmetiersdubatiment.fr`**, conformément à la demande. Le test natif SMTP de 11:57 est accepté. Le suivi natif cPanel confirme l’acheminement ; les deux lignes d’un même parcours correspondent au filtre de transfert puis à la livraison locale, pas à deux messages.
 
-Le journal de cette opération indique `InterfaceNotification` en erreur et `ROLLBACK Transaction` ; le dossier n’est pas conservé et le devis reste Brouillon. Ce comportement est une preuve réelle de rollback après refus natif, pas une preuve de réception email. Aucun envoi réussi ni réception n’a été confirmé. Aucun contrôle de sécurité SMTP n’a été désactivé. Les deux destinataires fixes ont ensuite été retirés, conformément à l’état initial.
+Deux destinataires fixes temporaires, CREATE et UPDATE au seuil 0, ont ensuite permis la recette réelle :
 
-Il reste à faire corriger le paramétrage SMTP de l’instance, puis vérifier la réception d’une demande et des deux décisions, le contenu des substitutions, les modèles personnalisés et l’absence de doublon au rejeu. L’erreur SMTP déjà relevée antérieurement sur la signature native d’un devis fictif reste aussi à lever ; aucune nouvelle signature n’est revendiquée dans cette recette.
+| Opération / code servi | Réception INBOX constatée | Résultat |
+|---|---|---|
+| Demande du devis 47, `0681c77`, 12:33 | UID 24792 | Une réception, substitutions renseignées ; défaut d’entité HTML dans le sujet reproduit |
+| Retour motivé, `b2fe027`, 12:51 | UID 24794 | « Modification réautorisée : PR2610-0010 », accents lisibles |
+| Nouvelle demande après retour, `b2fe027`, 12:51 | UID 24795 | « En attente de dérogation : PR2610-0010 », accents lisibles |
+| Approbation native, `b2fe027`, 12:52 | UID 24796 | « Dérogation approuvée : PR2610-0010 », approbateur, motif, marge 25 %, règle 30 %, commission 0 % et lien authentifié renseignés |
 
-### API
+La recherche INBOX, non tronquée, retourne exactement ces quatre messages après rechargement de la page de décision. Les corps complets de la demande initiale et de l’accord ont été lus sans marquer les messages comme lus. Les modèles restent gérés par Notifications ; aucun second envoi n’est ajouté aux pages. L’en-tête d’authentification du transport local est non évalué : aucune validation SPF/DKIM n’est revendiquée.
 
-L’utilisation du jeton existant d’Utilisateur Test id 3 a été explicitement autorisée, sans création ni réinitialisation de jeton. Aucun secret n’est conservé dans ce rapport ou les fichiers de preuve.
+Le défaut de sujet a été corrigé par `Translate::transnoentities()` pour les libellés statiques de décision ; les motifs libres restent échappés. Les modèles personnalisés sont préservés par les tests de transport natif sur les six versions. Les deux destinataires fixes temporaires ont été retirés et leur absence confirmée après rechargement ; la redirection forcée et l’option SMTP expressément autorisée sont conservées.
 
-L’explorateur recevait d’abord des octets gzip illisibles. Le switch natif **Désactiver la compression des réponses API** est maintenant activé, **à conserver sur demande explicite de l’utilisateur** (`API_DISABLE_COMPRESSION=1`). L’explorateur s’ouvre ensuite mais ne découvre que trois ressources, sans l’API native des devis ; les redirections ignorent aussi le ciblage de sa description.
+### API native authentifiée
 
-**Aucune mutation API réelle de devis n’a donc été exécutée.** Les gardes API `notrigger`, changement de statut et lignes sont couverts par les tests isolés/CI ; cela ne remplace pas un essai authentifié complet de l’API des devis. Aucun réglage de login API, de droits ou de sécurité n’a été élargi pour contourner ce blocage.
+Le jeton existant d’Utilisateur Test id 3 a été autorisé pour l’explorateur puis pour un client HTTP local limité aux devis fictifs 36 et 47. Le client reproductible `test/live_api_recipe.py` ne modifie que le devis 47, transmet le jeton dans `DOLAPIKEY`, vérifie TLS, refuse les redirections et supprime le fichier temporaire du jeton, y compris après échec. Aucun secret n’est versionné dans les rapports.
+
+**Compression désactivée conservée** selon instruction (`API_DISABLE_COMPRESSION=1`). Le mode production/cache a été désactivé temporairement : la découverte de l’explorateur restait limitée à trois ressources. Il a été rétabli ; aucun élargissement de droits ni activation du login API. L’API des devis répond bien aux appels HTTP directs malgré ce défaut de découverte de l’explorateur.
+
+Résultats réels `0681c77`, avec lecture avant/après et comparaison des données :
+
+| État / appel | Résultat |
+|---|---|
+| GET devis 36 et 47 | HTTP 200, références et états attendus |
+| Brouillon sans demande : PUT de la note publique à sa valeur actuelle | HTTP 200 ; droit normal d’écriture confirmé |
+| PUT direct de statut ou `notrigger=1` ; POST validate avec triggers désactivés | HTTP 409 `LscApiLifecycle` |
+| Validation et signature sous minimum sans dérogation | HTTP 409 `LscSaleBlocked` |
+| Attente : PUT note, PUT ligne 84, POST nouvelle ligne | HTTP 409 `LscWorkflowLocked` pour chaque appel |
+| Attente : validate sans triggers, close au statut signé | HTTP 409 `LscWorkflowLocked` |
+| GET final après chaque série | HTTP 200 ; statut, économie, lignes, extrafields et note publique inchangés |
+
+Une série intermédiaire a reçu un HTTP 403 **Imunify360 avant Dolibarr** ; elle a été arrêtée dès la première lecture, sans mutation. La reprise après les autres essais est entièrement passée. Aucun filtrage Imunify, IP autorisée, User-Agent, proxy ou sécurité TLS n’a été modifié pour la faire passer. Les rapports locaux ignorés `live-api-unlocked.json` et `live-api-pending.json` contiennent les résultats sans jeton.
 
 ## Couverture restant à compléter avant feu vert
 
@@ -87,10 +112,10 @@ L’explorateur recevait d’abord des octets gzip illisibles. Le switch natif *
 | Demande sans droit natif de validation | Tests isolés | Compte commercial distinct ; essais réels effectués avec Codex administrateur |
 | Hiérarchie directe/indirecte, refus hors hiérarchie et autoapprobation limitée | `getAllChildIds()` natif avec comptes simulés | Comptes responsables/commerciaux distincts, droits limités, accès métier révoqué |
 | Droit de commission distinct absent, autres bénéficiaires et répartitions manuelles | Tests isolés des calculs et permissions | Refus réel sans ce droit ; fixe/proportionnel, plusieurs bénéficiaires, exports et échéances après signature |
-| Règles inconnues, données ou règles modifiées pendant l’attente | Tests isolés | Accord périmé, données techniques, catégories et règles modifiées sur instance |
-| Rejeux et concurrence | Tests isolés et SQL MariaDB réel | Deux requêtes HTTP simultanées et rollback des effets des modules réellement installés |
+| Règles inconnues, données ou règles modifiées pendant l’attente | Tests isolés | Accord périmé et règles modifiées sur instance : expiration du pilotage de la modale d’édition avant toute saisie ; aucun seuil changé |
+| Rejeux et concurrence | Tests isolés, verrous SQL MariaDB réel et deux soumissions/décisions HTTP réelles depuis deux onglets du même compte | Course entre sessions de comptes différents, sans éventuelle sérialisation de session PHP ; rollback des autres effets installés |
 | Liste et actions de masse | Rendu réel corrigé, gardes isolés | Validation/signature/génération de masse refusées sans effets secondaires |
-| API native / signature publique | Gardes isolés ; blocages d’instance documentés | Parcours authentifiés complets et fixation de la commission à la signature |
+| API native / signature publique | API réelle : lectures, écriture normale, refus lifecycle et verrouillage en attente ; gardes de signature isolés | Signature publique et fixation réelle de commission ; autres profils et entités API |
 | Suppression pendant l’attente | Contrôles analysés et tests isolés | Le clic réel a été refusé par le contrôle automatique d’approbation en raison du risque de suppression ; aucune suppression exécutée |
 | Deux entités actives et partage | Tests isolés et refus réel depuis TEST 2 inactive | Installation/paramétrage dans deux entités actives, accès autorisés/refusés et conservation des réglages |
 | Historique signé, versements et paliers | Tests de non-régression/CI | Comparaison avant/après sur données de recette signées et payées, sans recalcul historique automatique |
@@ -98,13 +123,14 @@ L’explorateur recevait d’abord des octets gzip illisibles. Le switch natif *
 
 Aucun essai réel ERP v20–v24 ni v25 finale n’est annoncé. Les domaines documents PDF/ODT personnalisés et nouvelle numérotation métier ne sont pas ajoutés par cette PR ; les effets documentaires de `Propal::valid()` restent toutefois à inclure dans les scénarios d’échec.
 
-## Remise en état
+## Remise en état et interventions
 
-- Branche serveur initiale **`feature/margin-excess-bonus`**, SHA **`8230ff3ec705fe8f2e9aeb9a865327a25de072c3`**, rétablie et confirmée directement avec Git dans le terminal cPanel. La page cPanel affichait encore l’ancienne tête après une erreur de contact distant : cette erreur n’avait pas empêché le checkout local. La branche distante d’origine n’existe plus ; elle n’a pas été recréée.
+- Première session, avant cette reprise : branche serveur initiale **`feature/margin-excess-bonus`**, SHA **`8230ff3ec705fe8f2e9aeb9a865327a25de072c3`**, rétablie et confirmée directement avec Git dans le terminal cPanel. La page cPanel affichait encore l’ancienne tête après une erreur de contact distant : cette erreur n’avait pas empêché le checkout local. La branche distante d’origine n’existe plus ; elle n’a pas été recréée.
+- Fin de reprise : branche **`feature/margin-excess-bonus`** et SHA **`8230ff3ec705fe8f2e9aeb9a865327a25de072c3`** rétablis par **Git Version Control**. La sélection a signalé l’absence de contact distant ; après rechargement, la page native confirme effectivement la branche et le SHA initiaux. Aucun checkout ni déploiement de cette reprise n’a utilisé le terminal cPanel.
 - Un répertoire serveur `bin/` non suivi a été observé et laissé intact ; aucune restauration forcée ni nettoyage n’a été effectué.
-- TEST 1 restauré et module actif vérifié ; TEST 2 reste désactivé. Aucun dossier créé pendant ces essais ne reste en attente : devis 36 validé, devis 47 retourné en modification. Les historiques et devis fictifs sont conservés.
+- Reprise : module TEST 1 actualisé nativement sur `0681c77`, puis code `b2fe027` servi par Git Version Control. TEST 2 reste désactivé. Le dossier ouvert pour le réglage a été retourné en modification. Le dossier du test concurrent a ensuite été approuvé par la seule décision gagnante ; le devis 47 a été remis en Brouillon par le parcours natif. Aucun dossier actif ne reste en attente. Aucun seuil de règle n’a été modifié. Les historiques et devis fictifs sont conservés. La confirmation native de signature du devis 36 a été préparée puis annulée sans mutation, en attente de l’accord spécifique de l’utilisateur ; ce devis reste Validé à 37,50 EUR estimés.
 - Destinataires fixes du circuit remis à leur état initial. Les migrations additives, tables et modèles créés lors de la réactivation sont conservés ; ils ne sont pas supprimés au retour de branche.
-- Compression API laissée désactivée selon la dernière instruction. Aucun compte, mot de passe ou jeton n’a été créé ou réinitialisé, aucun droit n’a été attribué manuellement.
+- Cache de production API rétabli après l’essai ; compression API laissée désactivée selon la dernière instruction. SMTP forcé vers l’adresse de test et option native autorisée conservés sur develop uniquement. Aucun compte, mot de passe ou jeton n’a été créé ou réinitialisé, aucun droit n’a été attribué manuellement.
 - Aucune fusion, release, publication Dolistore ni intervention en production.
 
 Les captures de la recette restent des preuves locales hors du dépôt source. Les [règles officielles de packaging](https://wiki.dolibarr.org/index.php/Modules_-_Packaging_rules_and_Dolistore_validation_rules), révision wiki 65313, ont été relues le 29 octobre 2026 ; les contrôles de paquet ci-dessus ne valent ni installation native ni acceptation Dolistore.

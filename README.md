@@ -212,7 +212,7 @@ La désactivation temporaire conserve les réglages métier du module. La migrat
 - PHP : 8.0+
 - Base de données : MySQL/MariaDB via l’abstraction Dolibarr
 - Module installé sous `htdocs/custom/lmdbsalescommissions/`.
-- [Recette du circuit de dérogation du 29 octobre 2026](doc/recette-workflow-20261029.md) : résultats locaux, CI et develop, blocages SMTP/API et essais restant à confirmer avant activation en production.
+- [Recette du circuit de dérogation du 29 octobre 2026](doc/recette-workflow-20261029.md) : résultats locaux, CI et develop, corrections SMTP/API/PHPStan et essais restant à confirmer avant activation en production.
 
 ## Analyse statique du circuit de dérogation
 
