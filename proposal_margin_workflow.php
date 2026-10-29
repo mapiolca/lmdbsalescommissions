@@ -97,7 +97,7 @@ try {
 			array('type' => 'onecolumn', 'value' => LmdbSalesCommissionMarginWorkflowView::checks($decisions)),
 			array('type' => 'textarea', 'name' => 'reason', 'label' => '<label for="reason" class="fieldrequired">'.$langs->trans('Reason').'</label>', 'value' => dol_escape_htmltag($reason), 'morecss' => 'centpercent', 'moreattr' => 'required rows="4"'),
 		);
-		print $form->formconfirm($url, $langs->trans('LscWorkflowRequest'), '', 'submitrequest', $fields, 'no', 1, 0, 800);
+		print $form->formconfirm($url, $langs->trans('LscWorkflowRequest'), '', 'submitrequest', $fields, 'no', 1, 'auto', 800);
 	} elseif ($pending && in_array($mode, array('approve', 'return'), true)) {
 		$workflow->assertDecisionAccess($object, $user, $mode === 'approve');
 		$fields = array(array('type' => 'hidden', 'name' => 'case_id', 'value' => (int) $pending['rowid']), array('type' => 'textarea', 'name' => 'reason', 'label' => $langs->trans('Reason'), 'value' => dol_escape_htmltag($reason), 'moreattr' => 'required'));

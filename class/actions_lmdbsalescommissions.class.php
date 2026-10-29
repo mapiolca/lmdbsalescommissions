@@ -501,7 +501,7 @@ class ActionsLmdbSalesCommissions
 			array('type' => 'onecolumn', 'value' => LmdbSalesCommissionMarginWorkflowView::checks($decisions)),
 			array('type' => 'textarea', 'name' => 'reason', 'label' => '<label for="reason" class="fieldrequired">'.$langs->trans('Reason').'</label>', 'value' => '', 'morecss' => 'centpercent', 'moreattr' => 'required rows="4"'),
 		);
-		$this->resprints = $form->formconfirm(dol_buildpath('/lmdbsalescommissions/proposal_margin_workflow.php', 1).'?id='.(int) $proposal->id, $langs->trans('LscWorkflowRequest'), '', 'submitrequest', $fields, 'no', 1, 0, 800);
+		$this->resprints = $form->formconfirm(dol_buildpath('/lmdbsalescommissions/proposal_margin_workflow.php', 1).'?id='.(int) $proposal->id, $langs->trans('LscWorkflowRequest'), '', 'submitrequest', $fields, 'no', 1, 'auto', 800);
 		return 1;
 	}
 
