@@ -509,13 +509,15 @@ class ActionsLmdbSalesCommissions
 		return 0;
 	}
 
-	/** Transfer only the selected workflow flag to the object used by the core status renderer. */
+	/** Transfer the selected flag to the current quote (older lists use objectstatic). */
 	public function printFieldListValue($parameters, &$object, &$action, $hookmanager)
 	{
 		global $objectstatic;
 		if (getDolGlobalInt('LMDBSALESCOMMISSIONS_MARGIN_WORKFLOW_READY') && in_array('propallist', explode(':', (string) ($parameters['context'] ?? '')), true)
-			&& isset($parameters['obj']) && is_object($parameters['obj']) && is_object($objectstatic)) {
-			$objectstatic->context['lsc_pending_case'] = !empty($parameters['obj']->lsc_pending_case);
+			&& isset($parameters['obj']) && is_object($parameters['obj'])) {
+			$pending = !empty($parameters['obj']->lsc_pending_case);
+			if (is_object($object)) { $object->context['lsc_pending_case'] = $pending; }
+			if (is_object($objectstatic)) { $objectstatic->context['lsc_pending_case'] = $pending; }
 		}
 		return 0;
 	}

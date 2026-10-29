@@ -361,11 +361,16 @@ checkWorkflow($hookmanager->executeHooks('formConfirm', array(), $quote, $action
 $conf->use_javascript_ajax = 1;
 $id = $flow->request($quote, $requester, 'Again', workflowFingerprint($db, $quote, $requester));
 $hookmanager->initHooks(array('propallist'));
-$objectstatic = $quote; $action = ''; $parameters = array('obj' => (object) array('lsc_pending_case' => $id));
-$hookmanager->executeHooks('printFieldListValue', $parameters, $quote, $action);
+$nativeList = file_get_contents($workflowNativeRoot.'/comm/propal/list.php');
+// Follow the actual renderer variable: recent lists render $object, older ones $objectstatic.
+$usesStatic = strpos($nativeList, '$objectstatic->getLibStatut(5)') !== false;
+$objectstatic = $usesStatic ? $quote : null;
+$listObject = $usesStatic ? new stdClass() : $quote;
+$action = ''; $parameters = array('obj' => (object) array('lsc_pending_case' => $id));
+$hookmanager->executeHooks('printFieldListValue', $parameters, $listObject, $action);
 checkWorkflow($hookmanager->executeHooks('LibStatut', array('status' => 0, 'mode' => 5), $quote, $action) > 0 && strpos($hookmanager->resPrint, 'LscWorkflowPending') !== false, 'Native list displays pending business status');
 $parameters['obj']->lsc_pending_case = null;
-$hookmanager->executeHooks('printFieldListValue', $parameters, $quote, $action);
+$hookmanager->executeHooks('printFieldListValue', $parameters, $listObject, $action);
 // Use a manager with only the list context, as on the native list page.
 $hookmanager = new HookManager($db); $hookmanager->initHooks(array('propallist'));
 checkWorkflow($hookmanager->executeHooks('LibStatut', array('status' => 0, 'mode' => 5), $quote, $action) === 0 && $hookmanager->resPrint === '', 'Next list row retains native draft without stale pending flag');
